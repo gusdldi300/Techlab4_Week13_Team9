@@ -471,3 +471,13 @@ Tools/SnowMountain/build_snow_mountain.py
 # Stale HeaderTool output from the old build layout (now Build/Generated) and per-user editor data
 /Intermediate/
 /Saved/
+
+# Keep the bundled FBX SDK import libraries and runtime DLLs in Git.
+!/Source/ThirdParty/FBX/lib/x64/debug/
+!/Source/ThirdParty/FBX/lib/x64/release/
+/Source/ThirdParty/FBX/lib/x64/debug/*
+/Source/ThirdParty/FBX/lib/x64/release/*
+!/Source/ThirdParty/FBX/lib/x64/debug/libfbxsdk.lib
+!/Source/ThirdParty/FBX/lib/x64/debug/libfbxsdk.dll
+!/Source/ThirdParty/FBX/lib/x64/release/libfbxsdk.lib
+!/Source/ThirdParty/FBX/lib/x64/release/libfbxsdk.dll
