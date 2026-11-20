@@ -4,6 +4,8 @@ $engineRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $solution = Join-Path $engineRoot 'Kurisu.slnx'
 $temporaryDrive = $null
 try {
+    . (Join-Path $PSScriptRoot 'ProjectPaths.ps1')
+
     # Generate through an ASCII drive alias, then keep generated paths relative.
     $temporaryDrive = 90..68 |
         ForEach-Object { '{0}:' -f [char]$_ } |
@@ -40,18 +42,7 @@ try {
 
     Get-ChildItem -LiteralPath $projectDirectory `
         -Filter '*.vcxproj*' -File | ForEach-Object {
-        $content = [IO.File]::ReadAllText($_.FullName)
-        $content = $content.Replace(
-            "$temporaryDrive\", '$(ProjectDir)..\..\')
-        $content = $content.Replace(
-            "$temporaryDrive/", '$(ProjectDir)../../')
-        # Premake also emits the drive root without a trailing separator.
-        $content = $content.Replace($temporaryDrive, '$(ProjectDir)..\..')
-        if ($content.Contains($temporaryDrive)) {
-            throw "Temporary drive reference remains in $($_.Name)."
-        }
-        [IO.File]::WriteAllText(
-            $_.FullName, $content, $encoding)
+        Convert-GeneratedProjectPaths -Path $_.FullName -TemporaryDrive $temporaryDrive
     }
 
     if (-not (Test-Path -LiteralPath $solution -PathType Leaf)) {
