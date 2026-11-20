@@ -128,6 +128,15 @@ function CommonSettings()
 	staticruntime "off"
 	characterset  "Unicode"
 
+	-- Keep virtual folders independent of the temporary drive used for generation.
+	vpaths
+	{
+		["Runtime/*"] = ProjectRoot .. "/Source/Runtime/**",
+		["Editor/*"] = ProjectRoot .. "/Source/Editor/**",
+		["Game/*"] = ProjectRoot .. "/Source/Game/**",
+		["Programs/*"] = ProjectRoot .. "/Source/Programs/**",
+	}
+
 	targetdir (ProjectRoot .. "/Build/Bin/" .. outputdir)
 	objdir    (ProjectRoot .. "/Build/Intermediate/" .. outputdir .. "/%{prj.name}")
 	-- 에셋·쉐이더를 상대 경로로 읽으므로 작업 디렉터리는 저장소 루트다.
@@ -233,7 +242,11 @@ project "KurisuEngine"
 	-- Lua는 엔진에 포함한다. 인터프리터/컴파일러 실행 파일의 main은 제외한다.
 	files { "%{IncludeDir.lua}/*.h", "%{IncludeDir.lua}/*.c" }
 	removefiles { "%{IncludeDir.lua}/lua.c", "%{IncludeDir.lua}/luac.c" }
-	vpaths { ["ThirdParty/Lua/*"] = "%{IncludeDir.lua}/*" }
+	vpaths
+	{
+		["ThirdParty/Lua/*"] = "%{IncludeDir.lua}/*",
+		["ThirdParty/DDSLoader/*"] = "%{IncludeDir.DDSLoader}/*",
+	}
 	filter "files:**/lua/src/**.c"
 		compileas "C"
 		enablepch "Off"
