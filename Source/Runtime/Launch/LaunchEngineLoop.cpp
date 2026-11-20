@@ -26,6 +26,7 @@
 #include "Core/Stats/LightweightStats.h"
 #include "Core/Async/TaskPool.h"
 #include "Tasks/Tasks.h"
+#include "Physics/PhysicsCore.h"
 
 #include "Render/RealtimeGPUProfiler.h"
 
@@ -239,6 +240,13 @@ bool FEngineLoop::Init()
 
 	const uint32 Cores = std::max(1u, std::thread::hardware_concurrency());
 	FTaskPool::Get().Init(std::min(Cores - 1, 15u));
+
+	//PhysX
+	if (!FPhysicsCore::Get().InitPhysX())    
+	{
+		return false;
+	}
+
 	return true;
 }
 
