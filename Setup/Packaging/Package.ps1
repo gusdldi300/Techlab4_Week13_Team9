@@ -13,6 +13,8 @@ try {
     $engineRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
     # A portable editor distribution ships this script without sources or build tools.
     $isDistribution = -not (Test-Path -LiteralPath (Join-Path $engineRoot 'Setup\Build\premake5.lua') -PathType Leaf)
+    # KurisuGame.exe loads these PhysX runtime DLLs at startup.
+    $physXDlls = @('PhysX_64.dll', 'PhysXCommon_64.dll', 'PhysXCooking_64.dll', 'PhysXFoundation_64.dll')
     if ([string]::IsNullOrWhiteSpace($Project)) {
         $Project = Get-ChildItem -LiteralPath $engineRoot -Filter *.kproject -File | Select-Object -First 1 -ExpandProperty FullName
     }
@@ -35,6 +37,8 @@ try {
         }
         $runtimeDlls = @(Get-ChildItem -LiteralPath $engineRoot -Filter '*.dll' -File |
             Where-Object { $_.Name -match '^(msvcp|vcruntime|concrt)' })
+        # The editor distribution keeps the Release PhysX DLLs beside KurisuEditor.exe.
+        $physXDir = $engineRoot
     } else {
         $solution = Join-Path $engineRoot 'Kurisu.slnx'
         if (-not $SkipBuild) {
@@ -57,10 +61,15 @@ try {
         }
         $gameExe = Join-Path $engineRoot "Build\Bin\$Configuration-windows-x86_64\KurisuGame.exe"
         if (-not (Test-Path -LiteralPath $gameExe -PathType Leaf)) { throw "Missing executable: $gameExe" }
+        # The KurisuGame post-build step copies the matching PhysX DLLs beside the executable.
+        $physXDir = Split-Path -Parent $gameExe
         . (Join-Path $PSScriptRoot 'VCRuntime.ps1')
-        $runtimeDlls = @(Get-VCRuntimeDlls -Binaries @($gameExe))
+        $runtimeDlls = @(Get-VCRuntimeDlls -Binaries (@($gameExe) + @($physXDlls | ForEach-Object { Join-Path $physXDir $_ })))
     }
     if ($runtimeDlls.Count -eq 0) { throw 'No C++ runtime DLLs found for the game.' }
+    foreach ($name in $physXDlls) {
+        if (-not (Test-Path -LiteralPath (Join-Path $physXDir $name) -PathType Leaf)) { throw "Missing PhysX runtime: $name" }
+    }
 
     $packageRoot = [IO.Path]::GetFullPath((Join-Path $projectRoot 'Build\Package'))
     $out = [IO.Path]::GetFullPath((Join-Path $packageRoot $projectName))
@@ -69,6 +78,7 @@ try {
     New-Item -ItemType Directory -Path $out -Force | Out-Null
     Copy-Item -LiteralPath $gameExe -Destination (Join-Path $out 'KurisuGame.exe')
     foreach ($dll in $runtimeDlls) { Copy-Item -LiteralPath $dll.FullName -Destination $out }
+    foreach ($name in $physXDlls) { Copy-Item -LiteralPath (Join-Path $physXDir $name) -Destination $out }
     Copy-Item -LiteralPath $projectFile -Destination $out
 
     function Copy-Content([string]$Source, [string]$RelativeTarget) {

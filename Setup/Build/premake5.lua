@@ -63,6 +63,51 @@ if _ACTION then
 	end
 end
 
+-- 물리는 런타임이 사용하므로 저장소에 포함한 PhysX 4.1 SDK(공유 라이브러리, /MD·/MDd)를 Editor와 Game이 모두 링크한다.
+-- 엔진 구성 → PhysX 구성. profile 빌드를 넣으면 Release를 "profile"로 바꿔 PVD를 쓸 수 있다.
+local PhysXRoot = path.join(ProjectRoot, "Source/ThirdParty/PhysX")
+local PhysXConfigMap = { Debug = "debug", Release = "release", Shipping = "release" }
+local PhysXDlls = { "PhysX_64.dll", "PhysXCommon_64.dll", "PhysXCooking_64.dll", "PhysXFoundation_64.dll" }
+local PhysXLibs =
+{
+	"PhysX_64.lib",
+	"PhysXCommon_64.lib",
+	"PhysXCooking_64.lib",
+	"PhysXFoundation_64.lib",
+	"PhysXExtensions_static_64.lib",
+	"PhysXPvdSDK_static_64.lib",
+	"PhysXTask_static_64.lib",
+	"PhysXCharacterKinematic_static_64.lib",
+	"PhysXVehicle_static_64.lib",
+}
+if _ACTION then
+	if not os.isfile(path.join(PhysXRoot, "include/PxPhysicsAPI.h")) then
+		error("Bundled PhysX file is missing: include/PxPhysicsAPI.h")
+	end
+	for _, SdkConfig in pairs(PhysXConfigMap) do
+		for _, File in ipairs(table.join(PhysXLibs, PhysXDlls)) do
+			if not os.isfile(path.join(PhysXRoot, "lib/x64", SdkConfig, File)) then
+				error("Bundled PhysX file is missing: lib/x64/" .. SdkConfig .. "/" .. File)
+			end
+		end
+	end
+end
+
+-- exe 프로젝트에서만 호출한다. StaticLib인 KurisuEngine이 import lib를 품으면
+-- exe가 엔진 obj를 링크할 때 __NULL_IMPORT_DESCRIPTOR가 중복 정의(LNK2005)된다.
+function LinkPhysX()
+	links (PhysXLibs)
+	for Config, SdkConfig in pairs(PhysXConfigMap) do
+		local SdkLibDir = path.join(PhysXRoot, "lib/x64", SdkConfig)
+		filter ("configurations:" .. Config)
+			libdirs { SdkLibDir }
+			for _, Dll in ipairs(PhysXDlls) do
+				postbuildcommands { '{COPYFILE} "' .. ProjectRelative(path.join(SdkLibDir, Dll)) .. '" "%{cfg.targetdir}"' }
+			end
+	end
+	filter {}
+end
+
 IncludeDir = {}
 IncludeDir["ImGui"] = ProjectRoot .. "/Source/ThirdParty/ImGui"
 IncludeDir["ImGuiNodeEditor"] = ProjectRoot .. "/Source/ThirdParty/ImGuiNodeEditor"
@@ -72,6 +117,7 @@ IncludeDir["DDSLoader"] = ProjectRoot .. "/Source/ThirdParty/DDSLoader"
 IncludeDir["lua"]   = ProjectRoot .. "/Source/ThirdParty/lua/src"
 IncludeDir["sol2"]  = ProjectRoot .. "/Source/ThirdParty/sol2/include"
 IncludeDir["miniaudio"]  = ProjectRoot .. "/Source/ThirdParty/miniaudio"
+IncludeDir["PhysX"] = PhysXRoot .. "/include"
 
 -- premake의 filter는 project()를 만나면 초기화된다.
 -- 두 프로젝트가 같은 런타임(/MDd vs /MD)으로 컴파일되지 않으면 링크가 실패하므로
@@ -181,6 +227,7 @@ project "KurisuEngine"
 		"%{IncludeDir.miniaudio}",
 		"%{IncludeDir.lua}",
 		"%{IncludeDir.sol2}",
+		"%{IncludeDir.PhysX}",
 	}
 
 	-- Lua는 엔진에 포함한다. 인터프리터/컴파일러 실행 파일의 main은 제외한다.
@@ -231,6 +278,8 @@ project "KurisuEditor"
 			postbuildcommands { '{COPYFILE} "' .. ProjectRelative(path.join(SdkLibDir, "libfbxsdk.dll")) .. '" "%{cfg.targetdir}"' }
 	end
 	filter {}
+
+	LinkPhysX()
 
 	pchheader "EnginePCH.h"
 	pchsource (ProjectRoot .. "/Source/Editor/EditorPCH.cpp")
@@ -292,6 +341,7 @@ project "KurisuEditor"
 		"%{IncludeDir.json}",
 		"%{IncludeDir.lua}",
 		"%{IncludeDir.sol2}",
+		"%{IncludeDir.PhysX}",
 	}
 
 	links
@@ -323,6 +373,7 @@ function ConfigureGameRuntime()
 	pchsource (ProjectRoot .. "/Source/Game/GamePCH.cpp")
 
 	links { "KurisuEngine" }
+	LinkPhysX()
 
 	-- 에디터와 같은 이유로 엔진 .obj를 직접 링크한다. 게임 코드는 라이트 액터 등을 직접 참조하지 않아 특히 빠지기 쉽다.
 	ConfigureSourceLink()
@@ -344,6 +395,7 @@ function ConfigureGameRuntime()
 		"%{IncludeDir.json}",
 		"%{IncludeDir.lua}",
 		"%{IncludeDir.sol2}",
+		"%{IncludeDir.PhysX}",
 	}
 
 	links
