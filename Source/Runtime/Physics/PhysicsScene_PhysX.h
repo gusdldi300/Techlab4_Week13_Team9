@@ -11,16 +11,24 @@ class FPhysicsScene_PhysX : public FPhysicsScene
 {
 public:
 	FPhysicsScene_PhysX() = default;
-	~FPhysicsScene_PhysX() = default;
+	~FPhysicsScene_PhysX();
 	FPhysicsScene_PhysX(const FPhysicsScene_PhysX&) = delete;
 	FPhysicsScene_PhysX& operator=(const FPhysicsScene_PhysX&) = delete;
 
 	void CreatePhysicsScene() override;
+	void StartFrame(float DeltaTime) override;
+	void EndFrame() override;
+	void AddActor(const FPhysicsActorHandle& Handle) override;
+
 
 private:
-	PxScene* gPxScene;
+	physx::PxScene* PhysXScene = nullptr;
 
-
+	// 아직 시뮬레이션하지 않은 누적 시간
+	float Accumulator = 0.0f;               
+	//// simulate 후 fetchResults 전인가
+	bool  bSimulating = false;              
+	static constexpr float FixedStep = 1.0f / 60.0f;
 
 
 

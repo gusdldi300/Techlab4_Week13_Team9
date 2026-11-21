@@ -7,6 +7,7 @@
 #include "Render/GeometryGenerator.h"
 #include "Collision/HitResult.h"
 #include "Core/Delegate/Delegate.h"
+#include "Physics/BodyInstance.h"
 #include "PrimitiveComponent.generated.h"
 
 class FPrimitiveSceneProxy;
@@ -101,6 +102,15 @@ public:
 	UPROPERTY(EditAnywhere)
 	bool bBlockComponent = false;
 
+	// ---- 물리 바디 (담당: A) ----
+	// true면 PhysX가 움직이는 Dynamic 바디를 만든다.
+	// false여도 bBlockComponent가 true면 움직이지 않는 Static 바디(바닥, 벽)를 만든다.
+	UPROPERTY(EditAnywhere)
+	bool bSimulatePhysics = false;
+
+	FBodyInstance& GetBodyInstance() { return BodyInstance; }
+	const FBodyInstance& GetBodyInstance() const { return BodyInstance; }
+
 	bool IsOverlappingComponent(const UPrimitiveComponent* Other) const;
 	const TArray<FOverlapInfo>& GetOverlapInfos() const { return OverlapInfos; }
 
@@ -110,7 +120,13 @@ public:
 	void DispatchHit(UPrimitiveComponent* OtherComp);
 
 protected:
+	virtual void OnRegister() override;
 	virtual void OnUnregister() override;
+
+	// 컴포넌트가 월드에 등록,해제될 때 물리 바디를 만들고 지운다. (언리얼의 CreatePhysicsState / DestroyPhysicsState)
+	virtual bool ShouldCreatePhysicsState() const;
+	void CreatePhysicsState();
+	void DestroyPhysicsState();
 	TArray<FOverlapInfo> OverlapInfos;
 
 	virtual bool ShouldCreateRenderState() const override
@@ -128,4 +144,7 @@ protected:
 private:
 	friend class FScene;
 	FPrimitiveSceneProxy* SceneProxy = nullptr;
+	FBodyInstance BodyInstance;
+
+
 };

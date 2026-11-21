@@ -96,7 +96,9 @@ bool UWorld::Init()
 
 	if(IsGameWorld())
 	{
-		PhysicsScene.CreatePhysicsScene();
+		PhysicsScene = MakePhysicsScene();
+
+		PhysicsScene->CreatePhysicsScene();
 	}
 
 	return true;
@@ -172,6 +174,12 @@ void UWorld::Tick(float RealDeltaTime)
 		TimeSeconds += DeltaTime;
 	}
 
+	// 월드 Tick에서 변경된 변환과 바운드를 렌더링 전에 반영합니다.
+	{
+		SCOPE_CYCLE_COUNTER(STAT_UpdateAllTransforms);
+		Scene.UpdateAllTransforms();
+	}
+
 	// 모든 SceneComponent의 Transform 갱신
 	{
 		SCOPE_CYCLE_COUNTER(STAT_UpdateAllTransforms);
@@ -193,10 +201,12 @@ void UWorld::Tick(float RealDeltaTime)
 		PreviewWorldTick(DeltaTime);
 	}
 
-	// 월드 Tick에서 변경된 변환과 바운드를 렌더링 전에 반영합니다.
+
+
+	if (PhysicsScene)
 	{
-		SCOPE_CYCLE_COUNTER(STAT_UpdateAllTransforms);
-		Scene.UpdateAllTransforms();
+		PhysicsScene->StartFrame(DeltaTime);
+		PhysicsScene->EndFrame();
 	}
 
 	// Tick 안의 모든 순회(틱 함수, 오브젝트 이터레이터, 오버랩 콜백)가 끝났으므로 이제 해제해도 안전하다.

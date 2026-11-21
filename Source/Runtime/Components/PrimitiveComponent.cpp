@@ -44,6 +44,54 @@ UPrimitiveComponent::~UPrimitiveComponent()
 
 }
 
+void UPrimitiveComponent::OnRegister()
+{
+	Super::OnRegister();
+	CreatePhysicsState();
+}
+
+bool UPrimitiveComponent::ShouldCreatePhysicsState() const
+{
+	// 물리에 참여하겠다고 표시한 컴포넌트만 바디를 만든다.
+	// 표시 없이 모든 프리미티브에 만들면 텍스트·빌보드 같은 장식까지 충돌 박스가 생긴다.
+	return bSimulatePhysics || bBlockComponent;
+}
+
+void UPrimitiveComponent::CreatePhysicsState()
+{
+	UWorld* World = GetWorld();
+	FPhysicsScene* Scene = World ? World->GetPhysicsScene() : nullptr;
+	if (!Scene || !ShouldCreatePhysicsState())
+	{
+		return;   // 에디터 월드에는 물리 Scene이 없다
+	}
+
+	// 메시가 없으면(로컬 바운드가 비어 있으면) 만들 모양이 없다.
+	const FBox LocalBounds = CalcLocalBounds();
+	const FVector LocalSize = LocalBounds.Max - LocalBounds.Min;
+	if (LocalSize.X <= 0.0f && LocalSize.Y <= 0.0f && LocalSize.Z <= 0.0f)
+	{
+		return;
+	}
+
+	const FVector Scale = GetWorldScale3D();
+	const FVector LocalCenter = (LocalBounds.Min + LocalBounds.Max) * 0.5f;
+
+	FBodyInstanceInitParams Params;
+	Params.WorldLocation    = GetWorldLocation();
+	Params.WorldRotation    = GetWorldRotation().Quaternion();
+	Params.BoxHalfExtent    = FVector(std::abs(LocalSize.X * Scale.X), std::abs(LocalSize.Y * Scale.Y), std::abs(LocalSize.Z * Scale.Z)) * 0.5f;
+	Params.BoxCenterOffset  = FVector(LocalCenter.X * Scale.X, LocalCenter.Y * Scale.Y, LocalCenter.Z * Scale.Z);
+	Params.bSimulatePhysics = bSimulatePhysics;
+
+	BodyInstance.InitBody(Params, this, Scene);
+}
+
+void UPrimitiveComponent::DestroyPhysicsState()
+{
+	BodyInstance.TermBody();
+}
+
 void UPrimitiveComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -51,6 +99,7 @@ void UPrimitiveComponent::BeginPlay()
 
 void UPrimitiveComponent::OnUnregister()
 {
+	DestroyPhysicsState();
 	Super::OnUnregister();
 	// 삭제/등록 해제된 도형을 상대의 OverlapInfos에 남기지 않는다.
 	while (!OverlapInfos.IsEmpty())
