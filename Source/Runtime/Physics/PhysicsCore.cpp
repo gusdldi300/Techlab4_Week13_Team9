@@ -33,6 +33,14 @@ bool FPhysicsCore::InitPhysX()
         return false;
     }
 
+    gDispatcher = PxDefaultCpuDispatcherCreate(2);
+    if (!gDispatcher)
+    {
+        KRS_LOG(Error, "[Physics] PxDefaultCpuDispatcherCreate failed");
+        ShutdownPhysX();   // 이미 만든 PVD, Transport, Foundation 정리
+        return false;
+    }
+
     KRS_LOG(Info, "[Physics] PhysX {}.{}.{} initialized",
         PX_PHYSICS_VERSION_MAJOR, PX_PHYSICS_VERSION_MINOR, PX_PHYSICS_VERSION_BUGFIX);
     return true;

@@ -9,6 +9,7 @@ namespace physx
 	class PxDefaultCpuDispatcher;
 	class PxDefaultAllocator;
 	class PxDefaultErrorCallback;
+	class PxPvdSceneClient;
 }
 
 
@@ -27,7 +28,8 @@ public:
 	static void ShutdownPhysX();
 
 	static FPhysicsCore& Get() { static FPhysicsCore Instance; return Instance; }
-	
+	physx::PxPhysics* GetPhysics() { return gPhysics; };
+	physx::PxCpuDispatcher* GetDispatcher() { return gDispatcher; };
 
 	// PhysX의 최하위 기반 객체. 프로세스에 하나만 만든다.
 	// 내부 메모리 할당과 에러 보고를 생성 시 넘긴 Allocator, ErrorCallback으로 전달한다.
@@ -46,6 +48,7 @@ public:
 
 	//PhysX 관련 객체들을 생성해주는 팩토리 객체 Shape, Material, Actor, Scene등이 있다.
 	static physx::PxPhysics* gPhysics;
-
+	//hysX가 시뮬레이션 작업을 잘게 나눈 뒤, 그 작업들을 어느 스레드에서 실행할지 맡기는 인터페이스
+	static physx::PxCpuDispatcher* gDispatcher;
 
 };

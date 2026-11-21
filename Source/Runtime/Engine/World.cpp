@@ -94,6 +94,11 @@ bool UWorld::Init()
 	LineBatcher = MakeUnique<FLineBatcher>();
 	LineBatcher->Init(nullptr, this);
 
+	if(IsGameWorld())
+	{
+		PhysicsScene.CreatePhysicsScene();
+	}
+
 	return true;
 }
 

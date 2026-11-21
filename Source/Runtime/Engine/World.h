@@ -16,7 +16,9 @@
 #include "Render/SceneRenderData.h"
 #include "Script/CoroutineScheduler.h"
 #include <functional>
+#include "Physics/PhysicsScene_PhysX.h"
 #include "World.generated.h"
+
 
 class ULevel;
 class FLineBatcher;
@@ -179,6 +181,8 @@ private:
 	TArray<ULevel*> Levels;
 
 	FScene Scene;
+	//물리 계산을 위한 물리엔진의 Scene, 
+	FPhysicsScene PhysicsScene;
 
 	// Slomo-hitstop
 	float GlobalTimeDilation = 1.0f;
