@@ -49,4 +49,21 @@ bool IsBackgroundDOFDepth(float LinearDepth)
     return LinearDepth == DOFBackgroundDepth;
 }
 
+// 반경은 절반 해상도의 세로 픽셀 단위로 보관한다.
+float ConvertDOFRadiusFullToHalf(float FullRadius)
+{
+    return FullRadius * HalfSizeAndInvSize.y * FullSizeAndInvSize.w;
+}
+
+float ConvertDOFRadiusHalfToFull(float HalfRadius)
+{
+    return HalfRadius * FullSizeAndInvSize.y * HalfSizeAndInvSize.w;
+}
+
+// 원본 화면에서 원형인 반경을 같은 UV 영역으로 환산한다.
+float2 ConvertDOFRadiusHalfToUV(float HalfRadius)
+{
+    return ConvertDOFRadiusHalfToFull(HalfRadius) * FullSizeAndInvSize.zw;
+}
+
 #endif
