@@ -2,6 +2,7 @@
 #include "Engine/World.h"
 #include "Engine/Level.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Camera/CameraOptics.h"
 #include "Camera/CameraModifier.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/Pawn.h"
@@ -53,13 +54,21 @@ FMatrix FMinimalViewInfo::CalculateProjectionMatrix() const
 
 void FMinimalViewInfo::BlendViewInfo(const FMinimalViewInfo& Other, float Alpha)
 {
+	SanitizeFloat(Alpha, 0.0f, 1.0f, 0.0f);
 	Location = FMath::Lerp(Location, Other.Location, Alpha);
 	Rotation = FMath::LerpRotator(Rotation, Other.Rotation, Alpha);
 	FOV = FMath::Lerp(FOV, Other.FOV, Alpha);
 	OrthoWidth = FMath::Lerp(OrthoWidth, Other.OrthoWidth, Alpha);
 	NearClip = FMath::Lerp(NearClip, Other.NearClip, Alpha);
 	FarClip = FMath::Lerp(FarClip, Other.FarClip, Alpha);
-	if (Alpha >= 0.5f) bIsOrthogonal = Other.bIsOrthogonal;
+	// 유효 초점거리는 보간한 센서 높이와 최종 FOV로 확정한다.
+	LensSettings.SensorHeightMm = FMath::Lerp(LensSettings.SensorHeightMm, Other.LensSettings.SensorHeightMm, Alpha);
+	if (Alpha >= 0.5f)
+	{
+		bIsOrthogonal = Other.bIsOrthogonal;
+		LensSettings.bUseFocalLength = Other.LensSettings.bUseFocalLength;
+	}
+	BlendDepthOfFieldSettings(DepthOfFieldSettings, Other.DepthOfFieldSettings, Alpha);
 }
 // =======================FViewTargetTransitionParams===============
 float FViewTargetTransitionParams::GetBlendAlpha(float TimePct) const
@@ -160,6 +169,9 @@ void APlayerCameraManager::UpdateCamera(float DeltaTime)
 	}
 	//효과
 	ApplyCameraModifiers(DeltaTime, NewPOV);
+	// FOV 효과까지 적용한 사본으로 렌더용 광학 값을 확정한다.
+	SanitizeDepthOfFieldSettings(NewPOV.DepthOfFieldSettings);
+	FinalizeCameraOptics(NewPOV.LensSettings, NewPOV.DepthOfFieldSettings, NewPOV.FOV);
 	
 	//Fade
 	if (bEnableFading && bAutoAnimateFade) UpdateFade(DeltaTime);
@@ -244,7 +256,10 @@ void APlayerCameraManager::CheckViewTarget(FViewTarget& VT)
 
 void APlayerCameraManager::UpdateViewTarget(FViewTarget& OutVT, float DeltaTime)
 {
-	if (OutVT.Target) OutVT.Target->CalcCamera(DeltaTime, OutVT.POV);
+	if (OutVT.Target)
+		OutVT.Target->CalcCamera(DeltaTime, OutVT.POV);
+	else
+		OutVT.POV = FMinimalViewInfo{};
 }
 
 void APlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewInfo& InOutPOV)

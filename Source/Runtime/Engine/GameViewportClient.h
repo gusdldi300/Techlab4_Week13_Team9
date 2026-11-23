@@ -84,7 +84,7 @@ public:
 	void SetWorld(UWorld* InWorld);
 
 	void SetCameraComponent(UCameraComponent* InCameraComponent);
-	// 이 뷰포트가 실제로 그리고 마우스 Ray를 만드는 카메라. 첫 CalcSceneView 전에는 null일 수 있다.
+	// 캐시가 없을 때 사용할 카메라. 피킹은 마지막 렌더링 뷰를 기준으로 한다.
 	UCameraComponent* GetCameraComponent() const { return CameraComponent; }
 
 	void Reset();
@@ -101,8 +101,7 @@ public:
 
 	static constexpr float UIDesignHeight = 1080.0f;
 
-	bool ScreenToWorldRay(
-		float X, float Y, FRay* OutRay);
+	bool ScreenToWorldRay(float X, float Y, FRay* OutRay);
 
 protected:
 	virtual bool HandleUIKey(int32 Key, bool bDown);
@@ -130,6 +129,9 @@ private:
 	uint32 Height = 0;
 	FSceneViewTargets ViewTargets;
 	FSceneRenderData RenderData;
+	// 시점 계산만 수행하는 호출은 피킹 기준을 바꾸지 않는다.
+	FSceneView LastRenderedView{};
+	bool bHasRenderedView = false;
 	// Draw가 게임 UI를 그릴 때 채우는 목록. 매 프레임 다시 채운다.
 	FUIDrawList UIDrawList;
 };

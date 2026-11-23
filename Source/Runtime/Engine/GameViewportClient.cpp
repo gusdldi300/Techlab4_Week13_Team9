@@ -9,6 +9,9 @@
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Camera/CameraOptics.h"
+#include "Collision/Ray.h"
+#include "Math/Vector4.h"
 #include <cmath>
 #include "Math/Frustum.h"
 #include "Render/RenderCommand.h"
@@ -79,34 +82,43 @@ void FGameViewportClient::LostFocus()
 	}
 }
 
-bool FGameViewportClient::ScreenToWorldRay(
-	float X, float Y, FRay* OutRay)
+bool FGameViewportClient::ScreenToWorldRay(float X, float Y, FRay* OutRay)
 {
-	assert(OutRay);
-
-	const FRect& Rect = GetRect();
-
-	if (!CameraComponent ||
-		Rect.Width <= 0.0f || Rect.Height <= 0.0f ||
-		Width == 0 || Height == 0)
+	const FRect& DisplayRect = GetRect();
+	if (!OutRay || !bHasRenderedView || DisplayRect.Width <= 0.0f || DisplayRect.Height <= 0.0f)
 	{
 		return false;
 	}
 
-	if (X < 0.0f || Y < 0.0f ||
-		X >= Rect.Width || Y >= Rect.Height)
+	if (!(X >= 0.0f && Y >= 0.0f && X < DisplayRect.Width && Y < DisplayRect.Height))
 	{
 		return false;
 	}
 
-	const float RenderX = X * Width / Rect.Width;
-	const float RenderY = Y * Height / Rect.Height;
+	// 표시 영역을 NDC로 변환하고 최종 렌더링 뷰로 역투영한다.
+	const float NdcX = 2.0f * X / DisplayRect.Width - 1.0f;
+	const float NdcY = 1.0f - 2.0f * Y / DisplayRect.Height;
+	const FMatrix InverseViewProjection = LastRenderedView.ViewProjectionMatrix.Inverse();
+	FVector4 NearPoint = FVector4(NdcX, NdcY, 0.0f, 1.0f) * InverseViewProjection;
+	FVector4 InteriorPoint = FVector4(NdcX, NdcY, 0.5f, 1.0f) * InverseViewProjection;
+	if (!std::isfinite(NearPoint.W) || !std::isfinite(InteriorPoint.W) || NearPoint.W == 0.0f || InteriorPoint.W == 0.0f)
+	{
+		return false;
+	}
 
-	*OutRay = CameraComponent->DeProjection(
-		FVector2(RenderX, RenderY),
-		static_cast<float>(Width),
-		static_cast<float>(Height));
+	NearPoint /= NearPoint.W;
+	InteriorPoint /= InteriorPoint.W;
+	const FVector NearWorld(NearPoint.X, NearPoint.Y, NearPoint.Z);
+	const FVector Direction = FVector(InteriorPoint.X, InteriorPoint.Y, InteriorPoint.Z) - NearWorld;
+	const float DirectionLengthSquared = Direction.SizeSquared();
+	if (!std::isfinite(DirectionLengthSquared) || DirectionLengthSquared <= 0.0f)
+	{
+		return false;
+	}
 
+	// 원근은 카메라 위치, 직교는 픽셀별 Near 위치에서 출발한다.
+	OutRay->Origin = LastRenderedView.bIsPerspective ? LastRenderedView.ViewLocation : NearWorld;
+	OutRay->Direction = Direction / std::sqrt(DirectionLengthSquared);
 	return true;
 }
 
@@ -126,6 +138,7 @@ UCameraComponent* FGameViewportClient::FindPlayerCamera() const
 void FGameViewportClient::SetWorld(UWorld* InWorld)
 {
 	if (World == InWorld) return;
+	bHasRenderedView = false;
 	LostFocus();
 	RenderData.ResetScene();
 	CameraComponent = nullptr;
@@ -172,6 +185,8 @@ FSceneView FGameViewportClient::CalcSceneView(const FRect& InViewRect)
 			OutView.ViewProjectionMatrix = OutView.ViewMatrix * OutView.ProjectionMatrix;
 			// 렌즈 값
 			OutView.FieldOfView = POV.FOV;
+			OutView.LensSettings = POV.LensSettings;
+			OutView.DepthOfFieldSettings = POV.DepthOfFieldSettings;
 			OutView.AspectRatio = Aspect;
 			OutView.NearClip = POV.NearClip;
 			OutView.FarClip = POV.FarClip;
@@ -195,36 +210,38 @@ FSceneView FGameViewportClient::CalcSceneView(const FRect& InViewRect)
 		}
 	}
 
+	FMinimalViewInfo POV{};
 	if (CameraComponent)
 	{
 		CameraComponent->SetAspectRatio(Aspect);
-
-		OutView.ViewLocation = CameraComponent->GetWorldLocation();
-		OutView.ViewRotation = CameraComponent->GetWorldRotation();
-		OutView.ViewForward = OutView.ViewRotation.Quaternion().GetForwardVector();
-		OutView.ViewMatrix = CameraComponent->GetViewMatrix();
-		OutView.ProjectionMatrix = CameraComponent->GetProjectionMatrix();
-		OutView.ViewProjectionMatrix = CameraComponent->GetViewProjectionMatrix();
-		OutView.FieldOfView = CameraComponent->GetFieldOfView();
-		OutView.AspectRatio = Aspect;
-		OutView.NearClip = CameraComponent->GetNearZ();
-		OutView.FarClip = CameraComponent->GetFarZ();
-		OutView.OrthoWidth = CameraComponent->GetOrthoWidth();
-		OutView.bIsPerspective = !CameraComponent->GetIsOrthogonal();
-		OutView.bIsWireframe = false;
+		CameraComponent->GetCameraView(0.0f, POV);
 	}
 	else
 	{
-		OutView.ViewLocation = FVector(-5.0f, -10.0f, 10.0f);
-		OutView.ViewRotation = FRotator(30.0f, 45.0f, 0.0f);
-		OutView.ViewForward = OutView.ViewRotation.Quaternion().GetForwardVector();
-		OutView.FieldOfView = 60.0f;
-		OutView.AspectRatio = Aspect;
-		OutView.NearClip = 0.1f;
-		OutView.FarClip = 1000.0f;
-		OutView.bIsPerspective = true;
-		OutView.bIsWireframe = false;
+		// 카메라가 없어도 기본 시점으로 행렬을 생성한다.
+		POV.Location = FVector(-5.0f, -10.0f, 10.0f);
+		POV.Rotation = FRotator(30.0f, 45.0f, 0.0f);
+		POV.FarClip = 1000.0f;
 	}
+
+	POV.AspectRatio = Aspect;
+	SanitizeDepthOfFieldSettings(POV.DepthOfFieldSettings);
+	FinalizeCameraOptics(POV.LensSettings, POV.DepthOfFieldSettings, POV.FOV);
+	OutView.ViewLocation = POV.Location;
+	OutView.ViewRotation = POV.Rotation;
+	OutView.ViewForward = POV.Rotation.Quaternion().GetForwardVector();
+	OutView.ViewMatrix = POV.CalculateViewMatrix();
+	OutView.ProjectionMatrix = POV.CalculateProjectionMatrix();
+	OutView.ViewProjectionMatrix = OutView.ViewMatrix * OutView.ProjectionMatrix;
+	OutView.FieldOfView = POV.FOV;
+	OutView.AspectRatio = POV.AspectRatio;
+	OutView.NearClip = POV.NearClip;
+	OutView.FarClip = POV.FarClip;
+	OutView.OrthoWidth = POV.OrthoWidth;
+	OutView.bIsPerspective = !POV.bIsOrthogonal;
+	OutView.bIsWireframe = false;
+	OutView.LensSettings = POV.LensSettings;
+	OutView.DepthOfFieldSettings = POV.DepthOfFieldSettings;
 
 	OutView.Frustum = ExtractFrustumPlanes(OutView.ViewProjectionMatrix);
 	OutView.FrustumCorners = GenerateFrustumCorners(OutView.ViewProjectionMatrix.Inverse());
@@ -248,7 +265,7 @@ bool FGameViewportClient::Draw(FRenderer* Renderer, FUIRenderer* UIRenderer)
 	// 보이는 물체와 라이트를 모은 뒤 패스를 순서대로 실행해 ViewTargets에 그린다.
 	FSceneRenderer SceneRenderer(World, SceneView, RenderData);
 	SceneRenderer.InitViews(Renderer, EngineShowFlags);
-	return SceneRenderer.Render(Renderer, ViewTargets, EngineShowFlags,
+	const bool bRendered = SceneRenderer.Render(Renderer, ViewTargets, EngineShowFlags,
 		[this, UIRenderer, &SceneView](FScenePassCallbacks& Callbacks)
 		{
 			// 게임 UI는 씬 위에 그려야 하므로 그 시점에 불릴 함수로 등록한다.
@@ -262,6 +279,10 @@ bool FGameViewportClient::Draw(FRenderer* Renderer, FUIRenderer* UIRenderer)
 			// 에디터가 등록해 둔 디버그 요소가 있으면 같이 등록한다.
 			if (DebugDrawDelegate) DebugDrawDelegate(SceneView, Callbacks.Overlays);
 		});
+	bHasRenderedView = bRendered;
+	if (bRendered)
+		LastRenderedView = SceneView;
+	return bRendered;
 }
 
 void FGameViewportClient::Resize(uint32 InWidth, uint32 InHeight)
@@ -271,6 +292,7 @@ void FGameViewportClient::Resize(uint32 InWidth, uint32 InHeight)
 		return;
 	}
 
+	bHasRenderedView = false;
 	Width = InWidth;
 	Height = InHeight;
 
@@ -285,6 +307,7 @@ void FGameViewportClient::Resize(uint32 InWidth, uint32 InHeight)
 
 void FGameViewportClient::Reset()
 {
+	bHasRenderedView = false;
 	// PIE가 끝나면 화면에 남은 위젯을 정리한다.
 	ClearViewportWidgets();
 

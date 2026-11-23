@@ -10,6 +10,8 @@
 #include "Render/SceneRenderData.h"
 #include "Render/SceneRenderOptions.h"
 #include "Render/Texture2D.h"
+#include "Camera/CameraLensSettings.h"
+#include "Camera/DepthOfFieldSettings.h"
 
 #include <functional>
 
@@ -89,6 +91,12 @@ public:
 
 	float GetViewFOV() const { return ViewFOV; }
 	void SetViewFOV(float InFOV) { ViewFOV = InFOV; }
+	float GetEffectiveViewFOV() const;
+
+	const FCameraLensSettings& GetLensSettings() const { return LensSettings; }
+	const FDepthOfFieldSettings& GetDepthOfFieldSettings() const { return DepthOfFieldSettings; }
+	void SetLensSettings(const FCameraLensSettings& InSettings) { LensSettings = InSettings; }
+	void SetDepthOfFieldSettings(const FDepthOfFieldSettings& InSettings) { DepthOfFieldSettings = InSettings; }
 
 	float GetOrthoWidth() const { return OrthoWidth; }
 	void SetOrthoWidth(float InWidth) { OrthoWidth = InWidth; }
@@ -198,6 +206,9 @@ protected:
 	bool bFocusTransition = false;
 	FRotator ViewRotation = FRotator(0.0f, 0.0f, 0.0f);
 	float ViewFOV = 60.0f;
+	// 에디터 자유 카메라 설정은 뷰포트별로 독립적으로 보관한다.
+	FCameraLensSettings LensSettings;
+	FDepthOfFieldSettings DepthOfFieldSettings;
 	float AspectRatio = 1.777778f;
 	float NearClip = 0.1f;
 	float FarClip = 10000.0f;

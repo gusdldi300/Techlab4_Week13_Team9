@@ -4,6 +4,8 @@
 #include "../Components/SceneComponent.h"
 #include "../Math/EngineMath.h"
 #include "../Math/Rotator.h"
+#include "Camera/CameraLensSettings.h"
+#include "Camera/DepthOfFieldSettings.h"
 #include "CameraComponent.generated.h"
 
 struct FMinimalViewInfo;
@@ -33,6 +35,12 @@ public:
 	// Get & Set
 	float GetFieldOfView() const { return FieldOfView; }
 	void SetFieldOfView(float InFieldOfView) { FieldOfView = InFieldOfView; }
+	float GetEffectiveFieldOfView() const;
+
+	const FCameraLensSettings& GetLensSettings() const { return LensSettings; }
+	const FDepthOfFieldSettings& GetDepthOfFieldSettings() const { return DepthOfFieldSettings; }
+	void SetLensSettings(const FCameraLensSettings& InSettings) { LensSettings = InSettings; }
+	void SetDepthOfFieldSettings(const FDepthOfFieldSettings& InSettings) { DepthOfFieldSettings = InSettings; }
 
 	float GetAspectRatio() const { return AspectRatio; }
 	void SetAspectRatio(float InAspectRatio) { AspectRatio = InAspectRatio; }
@@ -69,7 +77,15 @@ public:
 	void UpdateZoom(float DeltaTime);     // 마우스 휠 줌
 
 protected:
+	UPROPERTY(EditAnywhere)
 	float FieldOfView = 60.0f;
+
+	UPROPERTY(EditAnywhere)
+	FCameraLensSettings LensSettings;
+
+	UPROPERTY(EditAnywhere)
+	FDepthOfFieldSettings DepthOfFieldSettings;
+
 	float AspectRatio = 16.0f / 9.0f;
 	float NearClipPlane = 0.1f;
 	float FarClipPlane = 10000.0f;

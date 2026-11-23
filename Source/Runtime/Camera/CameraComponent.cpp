@@ -3,6 +3,7 @@
 #include "Input/InputSystem.h"
 #include "../Collision/Ray.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Camera/CameraOptics.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 
@@ -124,10 +125,20 @@ FMatrix UCameraComponent::GetViewMatrix() const
     return InverseTranslation * InverseRotation;
 }
 
+// 편집 원본을 유지하면서 렌즈 기준 모드를 해석한다.
+float UCameraComponent::GetEffectiveFieldOfView() const
+{
+    // 렌즈 설정을 반영한 화각을 구하되 편집 원본은 유지한다.
+    FCameraLensSettings ResolvedLens = LensSettings;
+    float EffectiveFov = FieldOfView;
+    ResolveCameraLens(ResolvedLens, EffectiveFov);
+    return EffectiveFov;
+}
+
 // 시야각·종횡비·클리핑 거리로 원근 행렬을 만든다.
 FMatrix UCameraComponent::GetPerspectiveMatrix() const
 {
-	const float HalfFOV = FMath::DegreesToRadians(FieldOfView) * 0.5f;
+	const float HalfFOV = FMath::DegreesToRadians(GetEffectiveFieldOfView()) * 0.5f;
 
 	const float YScale = 1.0f / tan(HalfFOV);
 	const float XScale = YScale / AspectRatio;
@@ -198,4 +209,10 @@ void UCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& OutPOV) 
     OutPOV.NearClip = NearClipPlane;
     OutPOV.FarClip = FarClipPlane;
     OutPOV.bIsOrthogonal = bIsOrthogonal;
+
+    // 시점 전환에 사용할 사본을 준비한다.
+    OutPOV.LensSettings = LensSettings;
+    OutPOV.DepthOfFieldSettings = DepthOfFieldSettings;
+    SanitizeDepthOfFieldSettings(OutPOV.DepthOfFieldSettings);
+    ResolveCameraLens(OutPOV.LensSettings, OutPOV.FOV);
 }

@@ -555,6 +555,8 @@ void AActor::CalcCamera(float DeltaTime, FMinimalViewInfo& OutPOV)
 		}
 	}
 	// 카메라없음 -> 액터자신
+	// 이전 대상의 렌즈·DOF 설정이 남지 않도록 초기화한다.
+	OutPOV = FMinimalViewInfo{};
 	OutPOV.Location = GetActorLocation();
 	OutPOV.Rotation = GetActorRotation();
 }

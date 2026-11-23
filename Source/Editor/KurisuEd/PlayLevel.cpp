@@ -81,6 +81,10 @@ void UEditorEngine::UpdatePIEViewCamera()
 			ViewRotation.LookDirection(GameView.ViewForward);
 			View->SetViewRotation(ViewRotation);
 			View->SetViewFOV(GameView.FieldOfView);
+			// 게임의 최종 광학 설정을 자유 카메라에 계승한다.
+			View->SetLensSettings(GameView.LensSettings);
+			View->SetDepthOfFieldSettings(GameView.DepthOfFieldSettings);
+			View->SetClipPlanes(GameView.NearClip, GameView.FarClip);
 			View->SetOrthoWidth(GameView.OrthoWidth);
 			View->SetIsPerspective(GameView.bIsPerspective);
 		}
@@ -392,6 +396,11 @@ UWorld* UEditorEngine::CreatePIEWorldByDuplication(FWorldContext& PIEContext, UW
 		UCameraComponent* Camera = NewPIEWorld->GetMainCamera()->GetCameraComponent();
 		Camera->SetWorldLocationAndRotation(Source->GetViewLocation(), Source->GetViewRotation(), false);
 		Camera->SetFieldOfView(Source->GetViewFOV());
+		// 복제한 MainCamera에 시작 뷰포트의 편집 설정을 전달한다.
+		Camera->SetLensSettings(Source->GetLensSettings());
+		Camera->SetDepthOfFieldSettings(Source->GetDepthOfFieldSettings());
+		Camera->SetNearZ(Source->GetNearClip());
+		Camera->SetFarZ(Source->GetFarClip());
 		Camera->SetOrthoWidth(Source->GetOrthoWidth());
 		Camera->SetIsOrthogonal(!Source->IsPerspective());
 	}
