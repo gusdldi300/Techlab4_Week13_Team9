@@ -20,6 +20,7 @@
 #include "Asset/AssetManager.h"
 
 #include "Engine/World.h"
+#include "Input/InputSystem.h"
 
 void USkeletalMeshComponent::SetAnimInstance(UAnimInstance* InInstance)
 {
@@ -97,7 +98,7 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
     }
 
 	// 이번 테스트가 실행되는 동안만 애니메이션 평가를 건너뛰어, 시작 자세와 떨어지는 바디를 비교하기 쉽게 한다.
-	if (AnimInstance && GetSkeletalMesh() && !HardcodedRagdoll)
+	if (AnimInstance && GetSkeletalMesh() && (!HardcodedRagdoll || !HardcodedRagdoll->IsSimulating()))
 	{
         bUpdatingAnimation = true;
 		if (auto* Instance = Cast<UAnimSingleNodeInstance>(AnimInstance))
@@ -123,12 +124,34 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
         bUpdatingAnimation = false;
 	}
 
-	if (HardcodedRagdoll)
+	if (HardcodedRagdoll && HardcodedRagdoll->IsSimulating())
 	{
 		HardcodedRagdoll->ApplyToMesh(*this);
 	}
 
 	Super::TickComponent(DeltaTime);
+
+	if (HardcodedRagdoll)
+	{
+		if (!HardcodedRagdoll->IsSimulating())
+		{
+			HardcodedRagdoll->SyncFromAnimation(*this);
+		}
+
+		// 첫 실험용 입력이다. 테스트 메시 하나만 활성화한다.
+		if (FInputSystem::IsKeyPressed(EKeyCode::R))
+		{
+			if (HardcodedRagdoll->SetSimulating(*this, true))
+			{
+				PendingRootMotion = FTransform();
+				bHasPendingRootMotion = false;
+			}
+		}
+		else if (FInputSystem::IsKeyPressed(EKeyCode::K))
+		{
+			HardcodedRagdoll->SetSimulating(*this, false);
+		}
+	}
 }
 
 const TArray<FBoneInfo>& USkeletalMeshComponent::GetBones() const

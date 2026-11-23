@@ -23,6 +23,10 @@ public:
     void DrawDebug(FLineBatcher& Lines) const;
     void ApplyToMesh(USkeletalMeshComponent& Mesh);
 
+    bool IsSimulating() const { return bBuilt && bSimulating; }
+    bool SyncFromAnimation(USkeletalMeshComponent& Mesh, bool bTeleport = false);
+    bool SetSimulating(USkeletalMeshComponent& Mesh, bool bEnable);
+
 private:
     static constexpr int32 BodyCount = 15;
     FBodyInstance Bodies[BodyCount];
@@ -38,4 +42,6 @@ private:
     float DebugRadius = 0.02f;
     bool bBuilt = false;
     bool bPoseErrorLogged = false;
+
+    bool bSimulating = false;
 };

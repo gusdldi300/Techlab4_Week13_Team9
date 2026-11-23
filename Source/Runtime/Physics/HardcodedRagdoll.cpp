@@ -28,7 +28,7 @@ namespace
         float TwistLimit;
     };
 
-    // 본 이름, 박스 두께, 질량, 부모 바디, 관절 각도(라디안)를 이 표에서 직접 지정한다.
+    // 본 이름, 박스 두께, 질량, 부모 바디, 관절 각도(라디안)를 이 표에서 직접 지정한다.(임시)
     // 손가락·척추 중간 본은 바디를 만들지 않고 가장 가까운 물리 부모를 따라간다.
     constexpr FBodyDefinition Definitions[] = {
         { "Hips",         "Spine",           -1, 0.85f,  8.0f, 0.00f, 0.00f },
@@ -274,6 +274,18 @@ bool FHardcodedRagdoll::Build(USkeletalMeshComponent& Mesh)
         return false;
     }
 
+    {
+        PxSceneWriteLock Lock(*NativeScene);
+
+        for (FBodyInstance& Body : Bodies)
+        {
+            PxRigidDynamic* Dynamic = Body.GetActorHandle().Actor->is<PxRigidDynamic>();
+            Dynamic->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
+        }
+    }
+
+    bSimulating = false;
+
     SourceMesh = Mesh.GetSkeletalMesh();
     bBuilt = true;
     KRS_LOG(Info, "[Ragdoll] Created {} bodies and {} D6 joints; self collision disabled", BodyCount, BodyCount - 1);
@@ -283,6 +295,7 @@ bool FHardcodedRagdoll::Build(USkeletalMeshComponent& Mesh)
 void FHardcodedRagdoll::Clear()
 {
     bBuilt = false;
+    bSimulating = false;
     bPoseErrorLogged = false;
     SourceMesh = nullptr;
     InitialLocalPose.Reset();
@@ -313,7 +326,7 @@ void FHardcodedRagdoll::Clear()
 
 void FHardcodedRagdoll::ApplyToMesh(USkeletalMeshComponent& Mesh)
 {
-    if (!bBuilt) return;
+    if (!bBuilt || !bSimulating) return;
     // 실행 도중 메시가 교체되면 이전 스켈레톤의 본 인덱스를 사용하지 않는다.
     if (Mesh.GetSkeletalMesh() != SourceMesh)
     {
@@ -383,4 +396,100 @@ void FHardcodedRagdoll::DrawDebug(FLineBatcher& Lines) const
         Lines.AddSphere(P2UVector(ParentAnchor.p), DebugRadius, Color);
         Lines.AddLine(P2UVector(ParentAnchor.p), P2UVector(ChildAnchor.p), Color);
     }
+}
+
+bool FHardcodedRagdoll::SyncFromAnimation(USkeletalMeshComponent& Mesh, bool bTeleport)
+{
+    if (!bBuilt || bSimulating || Mesh.GetSkeletalMesh() != SourceMesh) return false;
+    if (Mesh.GetBones().Num() != InitialLocalPose.Num()) return false;
+
+    PxScene* Scene = Bodies[0].GetActorHandle().Actor->getScene();
+    if (!Scene) return false;
+
+    PxTransform Targets[BodyCount];
+
+    // 먼저 모든 변환을 계산한다. 중간 실패로 일부 바디만 갱신되는 것을 피한다.
+    for (int32 I = 0; I < BodyCount; ++I)
+    {
+        const FMatrix BoneWorld = Mesh.GetBoneWorldMatrix(BoneIndices[I]);
+        const FMatrix BodyWorld = BoneInBody[I].Inverse() * BoneWorld;
+
+        FTransform Pose;
+        if (!MatrixToTransform(BodyWorld, Pose)) return false;
+
+        // 실행 중 캐릭터 크기를 바꾸는 기능은 지금은 다루지 않는다.
+        if (std::abs(Pose.Scale.X - 1.0f) > 0.001f || std::abs(Pose.Scale.Y - 1.0f) > 0.001f ||  std::abs(Pose.Scale.Z - 1.0f) > 0.001f)
+        {
+            return false;
+        }
+
+        Targets[I] = U2PTransform(Pose.Location, Pose.Rotation);
+    }
+
+    PxSceneWriteLock Lock(*Scene);
+
+    for (int32 I = 0; I < BodyCount; ++I)
+    {
+        PxRigidDynamic* Dynamic = Bodies[I].GetActorHandle().Actor->is<PxRigidDynamic>();
+
+        if (bTeleport)
+        {
+            // Dynamic 전환 직전에는 마지막 목표가 아니라 현재 자세에 즉시 맞춘다.
+            Dynamic->setGlobalPose(Targets[I]);
+        }
+        else
+        {
+            // 평상시에는 다음 물리 프레임에서 도달할 목표 자세를 전달한다.
+            Dynamic->setKinematicTarget(Targets[I]);
+        }
+    }
+
+    return true;
+}
+
+bool FHardcodedRagdoll::SetSimulating(USkeletalMeshComponent& Mesh, bool bEnable)
+{
+    if (!bBuilt || Mesh.GetSkeletalMesh() != SourceMesh) return false;
+    if (bEnable == bSimulating) return true;
+
+    if (bEnable)
+    {
+        // 현재 애니메이션 자세를 확정하고 바디를 즉시 맞춘다.
+        Mesh.RefreshBoneTransformsNow();
+
+        if (!SyncFromAnimation(Mesh, true))
+        {
+            KRS_LOG(Warning, "[Ragdoll] Cannot synchronize the current animation pose");
+            return false;
+        }
+
+        // 손가락 등 물리 바디가 없는 본은 전환 순간의 로컬 자세를 유지한다.
+        InitialLocalPose = Mesh.GetBoneSpaceTransforms();
+    }
+
+    PxScene* Scene = Bodies[0].GetActorHandle().Actor->getScene();
+    if (!Scene) return false;
+
+    {
+        PxSceneWriteLock Lock(*Scene);
+
+        for (FBodyInstance& Body : Bodies)
+        {
+            PxRigidDynamic* Dynamic = Body.GetActorHandle().Actor->is<PxRigidDynamic>();
+
+            Dynamic->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, !bEnable);
+
+            if (bEnable)
+            {
+                // 첫 실험에서는 애니메이션의 운동 속도를 전달하지 않고 정지 속도로 시작한다.
+                Dynamic->setLinearVelocity(PxVec3(0, 0, 0));
+                Dynamic->setAngularVelocity(PxVec3(0, 0, 0));
+                Dynamic->wakeUp();
+            }
+        }
+    }
+
+    bSimulating = bEnable;
+    KRS_LOG(Info, "[Ragdoll] {}", bEnable ? "Dynamic enabled" : "Kinematic enabled");
+    return true;
 }
