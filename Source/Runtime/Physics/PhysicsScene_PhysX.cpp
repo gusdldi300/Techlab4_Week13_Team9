@@ -68,13 +68,36 @@ void FPhysicsScene_PhysX::StartFrame(float DeltaTime)
     // 같은 Stat은 한 프레임 안에서 합산되므로 StartFrame과 EndFrame의 합이 Total이 된다.
     SCOPE_CYCLE_COUNTER(PhysicsStats::STAT_PhysicsTotal);
     Stats.FixedStep = FixedStep;
-    Stats.bSteppedLastFrame = false;
+    Stats.NumStepsLastFrame = 0;
 
     // 프레임이 크게 튀어도(디버거 정지 등) 한 번에 너무 많이 몰아서 돌리지 않는다
-    Accumulator = std::min(Accumulator + DeltaTime, FixedStep * 4.0f);
+    Accumulator = std::min(Accumulator + DeltaTime, FixedStep * MaxStepsPerFrame);
     if (Accumulator < FixedStep) return;
 
+    // 밀린 시간이 두 스텝 이상이면(60fps 미만) 마지막 하나만 남기고 여기서 바로 끝까지 돌린다.
+    // 이렇게 해야 30fps에서도 한 프레임에 2스텝을 돌아 물리가 실제 시간과 같은 속도로 움직인다.
+    while (Accumulator >= FixedStep * 2.0f)
+    {
+        Accumulator -= FixedStep;
+        BeginStep();
+        FinishStep();
+    }
+
+    // 마지막 스텝은 시작만 해 두고, 끝내는 일은 EndFrame이 맡는다.
     Accumulator -= FixedStep;
+    BeginStep();
+}
+
+void FPhysicsScene_PhysX::EndFrame()
+{
+    if (!bSimulating) return;
+
+    SCOPE_CYCLE_COUNTER(PhysicsStats::STAT_PhysicsTotal);
+    FinishStep();
+}
+
+void FPhysicsScene_PhysX::BeginStep()
+{
     {
         // Scene을 바꾸는 호출은 쓰기 잠금 안에서 한다. 쓰기는 혼자만 할 수 있다.
         SCOPE_CYCLE_COUNTER(PhysicsStats::STAT_PhysicsSimulate);
@@ -84,12 +107,8 @@ void FPhysicsScene_PhysX::StartFrame(float DeltaTime)
     bSimulating = true;
 }
 
-void FPhysicsScene_PhysX::EndFrame()
+void FPhysicsScene_PhysX::FinishStep()
 {
-    if (!bSimulating) return;
-
-    SCOPE_CYCLE_COUNTER(PhysicsStats::STAT_PhysicsTotal);
-
     {
         // fetchResults는 액터 포즈와 질의용 공간 구조를 고쳐 쓰므로 쓰기 잠금이 필요하다.
         // 이 동안 다른 스레드의 읽기(레이캐스트, 포즈 읽기)는 끝날 때까지 기다린다.
@@ -99,7 +118,7 @@ void FPhysicsScene_PhysX::EndFrame()
     }
     bSimulating = false;
     ++Stats.NumSteps;
-    Stats.bSteppedLastFrame = true;
+    ++Stats.NumStepsLastFrame;
 
     // 결과 포즈를 읽어 컴포넌트에 반영한다. 읽기끼리는 다른 스레드와 동시에 할 수 있다.
     // 주의: 이 잠금 안에서 Scene을 바꾸는 호출(쓰기)을 하면 같은 스레드에서 교착이 생긴다.

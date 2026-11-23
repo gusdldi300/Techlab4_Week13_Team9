@@ -570,8 +570,8 @@ const FRenderStats& Stats = RenderData.RenderStats;
 		}
 		else {
 			const FPhysicsSceneStats& PhysStats = PhysicsScene->GetStats();
-			Lines.Add({ std::format("Physics  [step {:.1f} ms, {}]", PhysStats.FixedStep * 1000.0f,
-				PhysStats.bSteppedLastFrame ? "stepped" : "waiting"), TitleColor });
+			Lines.Add({ std::format("Physics  [step {:.1f} ms, {} step(s) this frame]", PhysStats.FixedStep * 1000.0f,
+				PhysStats.NumStepsLastFrame), TitleColor });
 			Lines.Add({ std::format("  Bodies  Static {}   Dynamic {} (Kinematic {})",
 				PhysStats.NumStaticBodies, PhysStats.NumDynamicBodies, PhysStats.NumKinematicBodies), ValueColor });
 			Lines.Add({ std::format("  Active Dynamic {}   Synced Components {}",

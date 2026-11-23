@@ -18,7 +18,7 @@ struct FPhysicsSceneStats
 	uint32 NumActiveConstraints = 0;     // 관절 등 활성 구속
 	uint64 NumSteps = 0;                 // 지금까지 진행한 시뮬레이션 스텝 수
 	float  FixedStep = 0.0f;             // 한 스텝의 시간(초)
-	bool   bSteppedLastFrame = false;    // 직전 EndFrame에서 스텝을 끝냈는지
+	uint32 NumStepsLastFrame = 0;        // 직전 프레임에 돈 스텝 수 (0이면 누적 시간이 모자라 쉬었다)
 };
 
 
