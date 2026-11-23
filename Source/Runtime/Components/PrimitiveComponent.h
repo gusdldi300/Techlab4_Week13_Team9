@@ -108,6 +108,11 @@ public:
 	UPROPERTY(EditAnywhere)
 	bool bSimulatePhysics = false;
 
+	// 이 컴포넌트의 물리 모양 설계도. 메시 에셋이 소유하고 컴포넌트는 빌려 쓰기만 한다.
+	// 기본은 없음(null)이고, 없으면 메시 로컬 바운드 박스 하나로 바디를 만든다.
+	// 메시 에셋에 BodySetup이 생기면 메시 컴포넌트가 오버라이드해서 그것을 돌려준다.
+	virtual const UBodySetup* GetBodySetup() const { return nullptr; }
+
 	FBodyInstance& GetBodyInstance() { return BodyInstance; }
 	const FBodyInstance& GetBodyInstance() const { return BodyInstance; }
 

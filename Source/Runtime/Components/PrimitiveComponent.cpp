@@ -66,25 +66,33 @@ void UPrimitiveComponent::CreatePhysicsState()
 		return;   // 에디터 월드에는 물리 Scene이 없다
 	}
 
-	// 메시가 없으면(로컬 바운드가 비어 있으면) 만들 모양이 없다.
-	const FBox LocalBounds = CalcLocalBounds();
-	const FVector LocalSize = LocalBounds.Max - LocalBounds.Min;
-	if (LocalSize.X <= 0.0f && LocalSize.Y <= 0.0f && LocalSize.Z <= 0.0f)
-	{
-		return;
-	}
-
-	const FVector Scale = GetWorldScale3D();
-	const FVector LocalCenter = (LocalBounds.Min + LocalBounds.Max) * 0.5f;
-
 	FBodyInstanceInitParams Params;
 	Params.WorldLocation    = GetWorldLocation();
 	Params.WorldRotation    = GetWorldRotation().Quaternion();
-	Params.BoxHalfExtent    = FVector(std::abs(LocalSize.X * Scale.X), std::abs(LocalSize.Y * Scale.Y), std::abs(LocalSize.Z * Scale.Z)) * 0.5f;
-	Params.BoxCenterOffset  = FVector(LocalCenter.X * Scale.X, LocalCenter.Y * Scale.Y, LocalCenter.Z * Scale.Z);
+	Params.Scale3D          = GetWorldScale3D();
 	Params.bSimulatePhysics = bSimulatePhysics;
 
-	BodyInstance.InitBody(Params, this, Scene);
+	const UBodySetup* Setup = GetBodySetup();
+	if (!Setup)
+	{
+		// BodySetup이 없으면 메시 로컬 바운드를 박스 하나로 대신 쓴다. 스케일은 InitBody가 곱한다.
+		// 메시가 없으면(로컬 바운드가 비어 있으면) 만들 모양이 없다.
+		const FBox LocalBounds = CalcLocalBounds();
+		const FVector LocalSize = LocalBounds.Max - LocalBounds.Min;
+		if (LocalSize.X <= 0.0f && LocalSize.Y <= 0.0f && LocalSize.Z <= 0.0f)
+		{
+			return;
+		}
+
+		FKBoxElem Box;
+		Box.Center = (LocalBounds.Min + LocalBounds.Max) * 0.5f;
+		Box.X = LocalSize.X;   // FKBoxElem은 전체 크기다. 반 크기 변환은 InitBody가 한다.
+		Box.Y = LocalSize.Y;
+		Box.Z = LocalSize.Z;
+		Params.FallbackGeom.BoxElems.Add(Box);
+	}
+
+	BodyInstance.InitBody(Setup, Params, this, Scene);
 }
 
 void UPrimitiveComponent::DestroyPhysicsState()
