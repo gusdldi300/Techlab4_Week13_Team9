@@ -69,7 +69,11 @@ void FPhysicsScene_PhysX::StartFrame(float DeltaTime)
     if (Accumulator < FixedStep) return;
 
     Accumulator -= FixedStep;
-    PhysXScene->simulate(FixedStep);
+    {
+        // Scene을 바꾸는 호출은 쓰기 잠금 안에서 한다. 쓰기는 혼자만 할 수 있다.
+        PxSceneWriteLock WriteLock(*PhysXScene);
+        PhysXScene->simulate(FixedStep);
+    }
     bSimulating = true;
 }
 
@@ -77,8 +81,18 @@ void FPhysicsScene_PhysX::EndFrame()
 {
     if (!bSimulating) return;
 
-    PhysXScene->fetchResults(true);
+    {
+        // fetchResults는 액터 포즈와 질의용 공간 구조를 고쳐 쓰므로 쓰기 잠금이 필요하다.
+        // 이 동안 다른 스레드의 읽기(레이캐스트, 포즈 읽기)는 끝날 때까지 기다린다.
+        PxSceneWriteLock WriteLock(*PhysXScene);
+        PhysXScene->fetchResults(true);
+    }
     bSimulating = false;
+
+    // 결과 포즈를 읽어 컴포넌트에 반영한다. 읽기끼리는 다른 스레드와 동시에 할 수 있다.
+    // 주의: 이 잠금 안에서 Scene을 바꾸는 호출(쓰기)을 하면 같은 스레드에서 교착이 생긴다.
+    //       SyncComponentToBody가 부르는 컴포넌트 코드에서 바디 포즈를 다시 쓰지 않도록 한다.
+    PxSceneReadLock ReadLock(*PhysXScene);
     PxU32 Count = 0;
     PxActor** Actors = PhysXScene->getActiveActors(Count);
     for (PxU32 i = 0; i < Count; ++i)
@@ -106,5 +120,6 @@ void FPhysicsScene_PhysX::AddActor(const FPhysicsActorHandle& Handle)
         return;
     }
 
+    PxSceneWriteLock WriteLock(*PhysXScene);
     PhysXScene->addActor(*Handle.Actor);
 }
