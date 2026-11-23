@@ -7,6 +7,7 @@
 
 #include "Render/PostProcess/HeightFogRenderer.h"
 #include "Render/PostProcess/FXAARenderer.h"
+#include "Render/PostProcess/DepthOfFieldRenderer.h"
 #include "Render/PostProcess/ToneMapData.h"
 #include "Render/DecalData.h"
 
@@ -150,6 +151,9 @@ void FRenderer::InitScenePasses()
 	HeightFog->Init(this);
 	FXAA = MakeUnique<FFXAARenderer>();
 	FXAA->Init(this);
+	DepthOfField = MakeUnique<FDepthOfFieldRenderer>();
+	// 계산 셰이더가 준비되기 전에는 원본 HDR을 전달한다.
+	DepthOfField->Init();
 	CameraOverlay = MakeUnique<FCameraOverlayRenderer>();   // FXAA->Init(this); 아래
 	CameraOverlay->Init(this);
 	ToneMapConstants = RenderCommand::CreateConstantBuffer(sizeof(FToneMapData));

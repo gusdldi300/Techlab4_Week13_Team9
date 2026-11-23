@@ -82,9 +82,48 @@ namespace
 	{
 		TUniquePtr<FTexture2D> Texture;
 		FRenderGraphTextureDesc Desc{};
+		uint64 EstimatedBytes = 0;
+		uint64 LastUsedSerial = 0;
 		bool bInUse = false;
 	};
 	static std::vector<FPooledTexture> GTexturePool;
+	static uint64 GPoolSerial = 0;
+	static uint32 GLiveGraphCount = 0;
+	// 사용 중인 자원을 제외한 재사용 대기 자원의 추정 보존 한도다.
+	static constexpr uint64 MaxUnusedPoolBytes = 512ull * 1024ull * 1024ull;
+	// 프레임 수가 아니라 그래프 반환 횟수를 기준으로 한다.
+	static constexpr uint64 MaxUnusedGraphAge = 120;
+
+	void TrimTexturePool()
+	{
+		std::erase_if(GTexturePool, [](const FPooledTexture& Item)
+		{
+			return !Item.bInUse && GPoolSerial - Item.LastUsedSerial > MaxUnusedGraphAge;
+		});
+
+		uint64 UnusedBytes = 0;
+		for (const FPooledTexture& Item : GTexturePool)
+		{
+			if (!Item.bInUse)
+				UnusedBytes += Item.EstimatedBytes;
+		}
+
+		while (UnusedBytes > MaxUnusedPoolBytes)
+		{
+			auto Oldest = GTexturePool.end();
+			for (auto It = GTexturePool.begin(); It != GTexturePool.end(); ++It)
+			{
+				if (It->bInUse)
+					continue;
+				if (Oldest == GTexturePool.end() || It->LastUsedSerial < Oldest->LastUsedSerial)
+					Oldest = It;
+			}
+			if (Oldest == GTexturePool.end())
+				break;
+			UnusedBytes -= Oldest->EstimatedBytes;
+			GTexturePool.erase(Oldest);
+		}
+	}
 
 	FTexture2D* AcquireTexture(const FRenderGraphTextureDesc& Desc)
 	{
@@ -112,28 +151,50 @@ namespace
 			(HasFlag(Desc.BindFlags, ETextureBindFlags::RenderTarget) && !NewTex->GetRTV()) ||
 			(HasFlag(Desc.BindFlags, ETextureBindFlags::DepthStencil) && !NewTex->GetDSV()) ||
 			(HasFlag(Desc.BindFlags, ETextureBindFlags::ShaderResource) && !NewTex->GetSRV())) return nullptr;
-		FTexture2D* Ptr = NewTex.get();
-		GTexturePool.push_back({ std::move(NewTex), Desc, true });
-		return Ptr;
+		FPooledTexture Item{};
+		Item.Desc = Desc;
+		Item.EstimatedBytes = static_cast<uint64>(Desc.Width) * Desc.Height * FormatToBytes(NewTex->GetFormat());
+		Item.LastUsedSerial = GPoolSerial;
+		Item.bInUse = true;
+		Item.Texture = std::move(NewTex);
+		FTexture2D* Result = Item.Texture.get();
+		GTexturePool.push_back(std::move(Item));
+		return Result;
 	}
+}
+
+FRenderGraphBuilder::FRenderGraphBuilder()
+{
+	++GLiveGraphCount;
 }
 
 FRenderGraphBuilder::~FRenderGraphBuilder()
 {
-	for (auto& Entry : Textures)
+	const uint64 ReleasedSerial = ++GPoolSerial;
+	for (const FImportedTexture& Entry : Textures)
 	{
-		if (Entry.bTransient && Entry.Texture)
+		if (!Entry.bTransient || !Entry.Texture)
+			continue;
+		for (FPooledTexture& Item : GTexturePool)
 		{
-			for (auto& Item : GTexturePool)
+			if (Item.Texture.get() == Entry.Texture)
 			{
-				if (Item.Texture.get() == Entry.Texture)
-				{
-					Item.bInUse = false;
-					break;
-				}
+				Item.bInUse = false;
+				Item.LastUsedSerial = ReleasedSerial;
+				break;
 			}
 		}
 	}
+	--GLiveGraphCount;
+	TrimTexturePool();
+}
+
+bool FRenderGraphBuilder::ReleaseTexturePool()
+{
+	if (GLiveGraphCount != 0)
+		return false;
+	GTexturePool.clear();
+	return true;
 }
 
 FRenderGraphTextureRef FRenderGraphBuilder::ImportTexture(FTexture2D* Texture, const char* Name)
@@ -152,6 +213,21 @@ FRenderGraphTextureRef FRenderGraphBuilder::ImportTexture(FTexture2D* Texture, c
 	Entry.Desc.Width = Texture->GetWidth();
 	Entry.Desc.Height = Texture->GetHeight();
 	Entry.Desc.Format = Texture->GetTextureFormat();
+	Entry.Desc.BindFlags = ETextureBindFlags::None;
+	ComPtr<ID3D11Texture2D> NativeTexture;
+	if (SUCCEEDED(Texture->GetRawPtr()->QueryInterface(IID_PPV_ARGS(NativeTexture.GetAddressOf()))))
+	{
+		D3D11_TEXTURE2D_DESC NativeDesc{};
+		NativeTexture->GetDesc(&NativeDesc);
+		if (NativeDesc.BindFlags & D3D11_BIND_SHADER_RESOURCE)
+			Entry.Desc.BindFlags |= ETextureBindFlags::ShaderResource;
+		if (NativeDesc.BindFlags & D3D11_BIND_RENDER_TARGET)
+			Entry.Desc.BindFlags |= ETextureBindFlags::RenderTarget;
+		if (NativeDesc.BindFlags & D3D11_BIND_DEPTH_STENCIL)
+			Entry.Desc.BindFlags |= ETextureBindFlags::DepthStencil;
+		if (NativeDesc.BindFlags & D3D11_BIND_UNORDERED_ACCESS)
+			Entry.Desc.BindFlags |= ETextureBindFlags::UnorderedAccess;
+	}
 	Textures.push_back(std::move(Entry));
 	return { Index, this };
 }
@@ -176,13 +252,93 @@ FTexture2D* FRenderGraphBuilder::Resolve(FRenderGraphTextureRef Ref) const
 
 bool FRenderGraphBuilder::ValidatePass(const FRenderGraphRasterPassDesc& Desc) const
 {
-	return !(Desc.ColorAttachments.empty() && !Desc.DepthAttachment.Texture);
+	if (Desc.Name.empty() || (Desc.ColorAttachments.empty() && !Desc.DepthAttachment.Texture))
+		return false;
+	if (Desc.ColorAttachments.size() > D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT)
+		return false;
+	if (Desc.ReadTextures.size() > D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT)
+		return false;
+
+	uint32 OutputWidth = 0;
+	uint32 OutputHeight = 0;
+	std::vector<FRenderGraphTextureRef> Outputs;
+
+	auto Overlaps = [this](FRenderGraphTextureRef A, FRenderGraphTextureRef B)
+	{
+		if (A.Index == B.Index)
+			return true;
+		FTexture2D* TextureA = Textures[A.Index].Texture;
+		FTexture2D* TextureB = Textures[B.Index].Texture;
+		return TextureA && TextureB && TextureA->GetRawPtr() == TextureB->GetRawPtr();
+	};
+
+	auto AddOutput = [&](FRenderGraphTextureRef Ref, ETextureBindFlags RequiredFlag)
+	{
+		FRenderGraphTextureDesc TextureDesc{};
+		if (!GetTextureDesc(Ref, TextureDesc))
+			return false;
+		if (!TextureDesc.Width || !TextureDesc.Height || !HasFlag(TextureDesc.BindFlags, RequiredFlag))
+			return false;
+
+		if (OutputWidth == 0)
+		{
+			OutputWidth = TextureDesc.Width;
+			OutputHeight = TextureDesc.Height;
+		}
+		else if (OutputWidth != TextureDesc.Width || OutputHeight != TextureDesc.Height)
+		{
+			return false;
+		}
+
+		for (FRenderGraphTextureRef Existing : Outputs)
+		{
+			if (Overlaps(Existing, Ref))
+				return false;
+		}
+		Outputs.push_back(Ref);
+		return true;
+	};
+
+	for (const FRenderGraphColorAttachment& Attachment : Desc.ColorAttachments)
+	{
+		if (!AddOutput(Attachment.Texture, ETextureBindFlags::RenderTarget))
+			return false;
+	}
+	if (Desc.DepthAttachment.Texture && !AddOutput(Desc.DepthAttachment.Texture, ETextureBindFlags::DepthStencil))
+		return false;
+
+	for (FRenderGraphTextureRef Input : Desc.ReadTextures)
+	{
+		FRenderGraphTextureDesc InputDesc{};
+		if (!GetTextureDesc(Input, InputDesc) || !HasFlag(InputDesc.BindFlags, ETextureBindFlags::ShaderResource))
+			return false;
+		// 같은 패스에서 같은 리소스를 읽고 쓰지 않는다.
+		for (FRenderGraphTextureRef Output : Outputs)
+		{
+			if (Overlaps(Input, Output))
+				return false;
+		}
+	}
+
+	const uint32 ViewportWidth = Desc.Viewport.Width ? Desc.Viewport.Width : OutputWidth;
+	const uint32 ViewportHeight = Desc.Viewport.Height ? Desc.Viewport.Height : OutputHeight;
+	if (Desc.Viewport.X > OutputWidth || Desc.Viewport.Y > OutputHeight)
+		return false;
+	return ViewportWidth <= OutputWidth - Desc.Viewport.X && ViewportHeight <= OutputHeight - Desc.Viewport.Y;
+}
+
+bool FRenderGraphBuilder::GetTextureDesc(FRenderGraphTextureRef Ref, FRenderGraphTextureDesc& OutDesc) const
+{
+	OutDesc = {};
+	if (Ref.Owner != this || Ref.Index >= Textures.size())
+		return false;
+	OutDesc = Textures[Ref.Index].Desc;
+	return true;
 }
 
 bool FRenderGraphBuilder::AddRasterPass(FRenderGraphRasterPassDesc Desc, std::function<void()> Execute)
 {
 	if (bExecuted || !Execute) return false;
-	uint32 Width = 0, Height = 0;
 	if (!ValidatePass(Desc)) return false;
 	FRasterPass Pass{};
 	Pass.Desc = std::move(Desc);
@@ -303,6 +459,11 @@ bool FRenderGraphBuilder::Execute() // 등록되어 있던
 
 		RenderCommand::SetViewport(Viewport.X, Viewport.Y, Viewport.Width, Viewport.Height);
 		Pass.Execute();
+		// 패스 입력이 다음 패스나 다음 뷰에 남지 않게 한다.
+		if (!Pass.Desc.ReadTextures.empty())
+		{
+			RenderCommand::UnbindShaderResources(0, static_cast<uint32>(Pass.Desc.ReadTextures.size()), EShaderBindFlagBits::Vertex | EShaderBindFlagBits::Pixel);
+		}
 		RenderCommand::EndRenderPass();
 	}
 	return true;

@@ -32,7 +32,7 @@ struct FSceneOverlayCallbacks
 
 struct FScenePassCallbacks // 기본 도형 다 그려진 후 그려져야 될 목록들
 {
-	std::function<bool()> HeightFog;
+	std::function<bool(FTexture2D*, FTexture2D*)> HeightFog;
 	std::function<FConstantBuffer*(bool)> TranslucentFogConstants;
 	std::function<void()> SceneText;
 	std::function<void()> DepthVisualization;
@@ -86,8 +86,8 @@ public:
 	const FSceneRenderData& GetRenderData() const { return RenderData; }
 	
 private:
-	bool AddCorePasses(FRenderGraphBuilder& Graph, FRenderer* Renderer, FSceneViewTargets& Targets,
-		const FSceneRenderOptions& Options);
+	bool AddCorePasses(FRenderGraphBuilder& Graph, FRenderer* Renderer, FSceneViewTargets& Targets, const FSceneRenderOptions& Options, FRenderGraphTextureRef& OutLightingHDR);
+	bool AddHDRPostProcessPasses(FRenderGraphBuilder& Graph, FRenderer* Renderer, const FSceneRenderOptions& Options, const FScenePassCallbacks& Callbacks, FRenderGraphTextureRef LightingHDR, FRenderGraphTextureRef SceneColor, FRenderGraphTextureRef Depth);
 	bool AddWorldNormalPass(FRenderGraphBuilder& Graph, FRenderer* Renderer, FSceneViewTargets& Targets,
 		const FSceneRenderOptions& Options);
 	bool BindForwardLighting(FRenderer* Renderer, const FSceneRenderOptions& Options, FTexture2D* ShadowMask);

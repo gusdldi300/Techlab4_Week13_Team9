@@ -14,6 +14,7 @@
 #include "Render/PostProcess/HeightFogRenderer.h"
 #include "Render/PostProcess/CameraOverlayRenderer.h"
 #include "Render/PostProcess/FXAARenderer.h"
+#include "Render/PostProcess/DepthOfFieldRenderer.h"
 #include "Render/PostProcess/ToneMapData.h"
 #include "Render/DecalData.h"
 #include "Render/SkyboxRenderer.h"
@@ -296,9 +297,9 @@ bool FSceneRenderer::AddWorldNormalPass(FRenderGraphBuilder& Graph, FRenderer* R
 		});
 }
 
-bool FSceneRenderer::AddCorePasses(FRenderGraphBuilder& Graph, FRenderer* Renderer, FSceneViewTargets& Targets,
-	const FSceneRenderOptions& Options)
+bool FSceneRenderer::AddCorePasses(FRenderGraphBuilder& Graph, FRenderer* Renderer, FSceneViewTargets& Targets, const FSceneRenderOptions& Options, FRenderGraphTextureRef& OutLightingHDR)
 {
+	OutLightingHDR = {};
 	if (!World || !Renderer || !Targets.SceneColor || !Targets.Depth)
 		return false;
 	const uint32 Width = Targets.SceneColor->GetWidth();
@@ -311,9 +312,8 @@ bool FSceneRenderer::AddCorePasses(FRenderGraphBuilder& Graph, FRenderer* Render
 	if (Options.bShowWorldNormal)
 		return AddWorldNormalPass(Graph, Renderer, Targets, Options);
 
-	const FRenderGraphTextureRef SceneColor = Graph.ImportTexture(Targets.SceneColor.get(), "SceneColor"); // Texture Handle 리턴 해줌
 	const FRenderGraphTextureRef Depth = Graph.ImportTexture(Targets.Depth.get(), "SceneDepth");
-	if (!SceneColor || !Depth)
+	if (!Depth)
 		return false;
 
 	const FRenderGraphTextureDesc HDRDesc{ Width, Height, ETextureFormat::R16G16B16A16_Float };
@@ -690,32 +690,76 @@ bool FSceneRenderer::AddCorePasses(FRenderGraphBuilder& Graph, FRenderer* Render
 
 	
 
+	// 톤매핑 이전의 HDR 장면을 후속 패스에 전달한다.
+	OutLightingHDR = LightingHDR;
+	return true;
+}
+
+bool FSceneRenderer::AddHDRPostProcessPasses(FRenderGraphBuilder& Graph, FRenderer* Renderer, const FSceneRenderOptions& Options, const FScenePassCallbacks& Callbacks, FRenderGraphTextureRef LightingHDR, FRenderGraphTextureRef SceneColor, FRenderGraphTextureRef Depth)
+{
+	FPipelineState* ToneMapPipeline = FRenderResourceManager::GetPSO(EPSOType::ToneMap);
+	FConstantBuffer* ToneMapConstants = Renderer->GetToneMapConstants();
+	if (!ToneMapPipeline || !ToneMapPipeline->Shader ||
+		!ToneMapPipeline->Shader->VertexShader || !ToneMapPipeline->Shader->PixelShader ||
+		!ToneMapConstants || !ToneMapConstants->GetBuffer())
+	{
+		return false;
+	}
+
+	// 안개와 투명체를 HDR 장면에 반영한 뒤 DOF 입력으로 사용한다.
+	if (Options.bDrawPrimitives && Options.bEnableFog && Callbacks.HeightFog)
+	{
+		FRenderGraphRasterPassDesc FogPass = MakeViewportPass("HeightFog", LightingHDR);
+		FogPass.ReadTextures = { Depth };
+		auto DrawFog = Callbacks.HeightFog;
+		auto ExecuteFog = [this, &Graph, LightingHDR, Depth, DrawFog]()
+		{
+			bHasFog = DrawFog(Graph.Resolve(Depth), Graph.Resolve(LightingHDR));
+		};
+		if (!Graph.AddRasterPass(std::move(FogPass), std::move(ExecuteFog)))
+			return false;
+	}
+
+	if (Options.bDrawPrimitives)
+	{
+		auto GetFog = Callbacks.TranslucentFogConstants;
+		auto ExecuteTranslucent = [this, Renderer, GetFog]()
+		{
+			RenderTranslucent(Renderer, GetFog ? GetFog(bHasFog) : nullptr);
+		};
+		if (!Graph.AddRasterPass(MakeViewportPass("Translucent", LightingHDR, Depth), std::move(ExecuteTranslucent)))
+			return false;
+	}
+
+	FRenderGraphTextureRef PostProcessHDR = LightingHDR;
+	const bool bAllowDepthOfField = Options.bEnableDepthOfField && Options.bDrawPrimitives && !Options.bShowSceneDepth && !Options.bShowWorldNormal && !Options.bShowLightCulling && !Options.bShowCascade;
+	if (FDepthOfFieldRenderer* DepthOfField = Renderer->GetDepthOfField())
+	{
+		const FDepthOfFieldQualitySettings Quality{};
+		if (!DepthOfField->AddPasses(Graph, View, LightingHDR, Depth, bAllowDepthOfField, Quality, PostProcessHDR))
+			return false;
+	}
+
+	// DOF 비활성 상태에서는 원본 HDR을 톤매핑한다.
 	FRenderGraphRasterPassDesc ToneMap{};
 	ToneMap.Name = "ToneMap";
-	ToneMap.ReadTextures = { LightingHDR };
+	ToneMap.ReadTextures = { PostProcessHDR };
 	ToneMap.ColorAttachments = { { SceneColor, ERenderGraphLoadAction::Clear, { 0.0f, 0.0f, 0.0f, 1.0f } } };
-	if (!Graph.AddRasterPass(std::move(ToneMap), [this, Renderer, &Graph, LightingHDR, bGamma = Options.bGammaCorrection, DisplayGamma = Options.DisplayGamma]
-		{
-			if (bCorePassSucceeded)
-			{
-				if (FPipelineState* Pipeline = FRenderResourceManager::GetPSO(EPSOType::ToneMap);
-					Pipeline && Pipeline->Shader && Pipeline->Shader->VertexShader && Pipeline->Shader->PixelShader)
-				{
-					FToneMapData Data{};
-					Data.InvGamma = 1.0f / std::max(DisplayGamma, 0.01f);
-					Data.bGammaCorretion = bGamma ? 1.0f : 0.0f;
-					FConstantBuffer* Constants = Renderer->GetToneMapConstants();
-					RenderCommand::UpdateBufferData(Constants, &Data, sizeof(Data));
-
-					RenderCommand::BindPipelineState(*Pipeline);
-					RenderCommand::BindConstantBuffer(0, Constants, EShaderBindFlagBits::Pixel);
-					RenderCommand::BindVertexBuffer(nullptr);
-					RenderCommand::Draw(3);
-				}
-			}
-		})) return false;
-
-	return true;
+	const FPipelineState PipelineSnapshot = *ToneMapPipeline;
+	FToneMapData ToneMapData{};
+	ToneMapData.InvGamma = 1.0f / std::max(Options.DisplayGamma, 0.01f);
+	ToneMapData.bGammaCorretion = Options.bGammaCorrection ? 1.0f : 0.0f;
+	auto ExecuteToneMap = [this, PipelineSnapshot, ToneMapConstants, ToneMapData]()
+	{
+		if (!bCorePassSucceeded)
+			return;
+		RenderCommand::UpdateBufferData(ToneMapConstants, &ToneMapData, sizeof(ToneMapData));
+		RenderCommand::BindPipelineState(PipelineSnapshot);
+		RenderCommand::BindConstantBuffer(0, ToneMapConstants, EShaderBindFlagBits::Pixel);
+		RenderCommand::BindVertexBuffer(nullptr);
+		RenderCommand::Draw(3);
+	};
+	return Graph.AddRasterPass(std::move(ToneMap), std::move(ExecuteToneMap));
 }
 
 bool FSceneRenderer::AddViewportPasses(FRenderGraphBuilder& Graph, FRenderer* Renderer,
@@ -728,7 +772,8 @@ bool FSceneRenderer::AddViewportPasses(FRenderGraphBuilder& Graph, FRenderer* Re
 		// 디버그 보기에서 현재 뷰의 실제 타일 목록을 생성한다.
 		CoreOptions.LightingModel = ELightingModel::Lambert;
 	}
-	if (!AddCorePasses(Graph, Renderer, Targets, CoreOptions)) // 기본적으로 그려져야 되는 Core Pass 들
+	FRenderGraphTextureRef LightingHDR{};
+	if (!AddCorePasses(Graph, Renderer, Targets, CoreOptions, LightingHDR))
 		return false;
 	
 	const FRenderGraphTextureRef SceneColor = Graph.ImportTexture(Targets.SceneColor.get(), "SceneColor");
@@ -737,22 +782,10 @@ bool FSceneRenderer::AddViewportPasses(FRenderGraphBuilder& Graph, FRenderer* Re
 	bHasFog = false;
 	bFXAAPassSucceeded = true;
 
-	if (!Options.bShowWorldNormal && Options.bDrawPrimitives && Options.bEnableFog && Callbacks.HeightFog)
+	if (!Options.bShowWorldNormal)
 	{
-		FRenderGraphRasterPassDesc Pass = MakeViewportPass("HeightFog", SceneColor);
-		Pass.ReadTextures = { Depth };
-		if (!Graph.AddRasterPass(std::move(Pass), [this, DrawFog = Callbacks.HeightFog]
-			{
-			bHasFog = DrawFog();
-			})) return false;
-	}
-	if (!Options.bShowWorldNormal && Options.bDrawPrimitives)
-	{
-		if (!Graph.AddRasterPass(MakeViewportPass("Translucent", SceneColor, Depth),
-			[this, Renderer, GetFog = Callbacks.TranslucentFogConstants]
-			{
-			RenderTranslucent(Renderer, GetFog ? GetFog(bHasFog) : nullptr);
-			})) return false;
+		if (!AddHDRPostProcessPasses(Graph, Renderer, Options, Callbacks, LightingHDR, SceneColor, Depth))
+			return false;
 	}
 	if (!Options.bShowWorldNormal && Callbacks.SceneText &&
 		!Graph.AddRasterPass(MakeViewportPass("SceneText", SceneColor, Depth), Callbacks.SceneText))
@@ -855,9 +888,9 @@ bool FSceneRenderer::Render(FRenderer* Renderer, FSceneViewTargets& Targets, con
 		return false;
 
 	FScenePassCallbacks Callbacks;
-	Callbacks.HeightFog = [this, Renderer, DepthTarget, ColorTarget]
+	Callbacks.HeightFog = [this, Renderer](FTexture2D* DepthTexture, FTexture2D* ColorTexture)
 		{
-			return RenderHeightFog(Renderer, DepthTarget, ColorTarget);
+			return RenderHeightFog(Renderer, DepthTexture, ColorTexture);
 		};
 	Callbacks.TranslucentFogConstants = [Renderer](bool bHasFog)
 		{
