@@ -5,7 +5,7 @@
 
 float UBodySetup::CalculateMass() const
 {
-	if (PhysMaterial == nullptr) return AggGeom.GetVolume() * 0.001f;
+	if (PhysMaterial == nullptr) return AggGeom.GetVolume() * 1000.0f;
 
-	return AggGeom.GetVolume() * PhysMaterial->GetDensity() * 0.001f;
+	return AggGeom.GetVolume() * PhysMaterial->GetDensity() * 1000.0f;
 }
