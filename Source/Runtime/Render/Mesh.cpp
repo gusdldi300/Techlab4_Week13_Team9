@@ -12,8 +12,10 @@ UStaticMesh::~UStaticMesh()
 {
     for (FPrimitiveSceneProxy* Proxy : RenderProxies)
         Proxy->OnMeshDestroyed();
-	delete BodySetup;
+	// 포인터를 먼저 끊고 지운다. 지워지는 BodySetup의 소멸자가 DetachBodySetup으로 이 메시를 다시 건드려도 아무 일도 없다.
+	UBodySetup* OldSetup = BodySetup;
 	BodySetup = nullptr;
+	delete OldSetup;
 	VertexBuffer = nullptr;
 	IndexBuffer = nullptr;
 }
@@ -36,7 +38,9 @@ size_t UStaticMesh::FMaterialSlotsHash::operator()(const std::vector<UMaterial*>
 
 void UStaticMesh::CreateBodySetup(const FString& BodySetupPath)
 {
-	delete BodySetup;
+	UBodySetup* OldSetup = BodySetup;
+	BodySetup = nullptr;
+	delete OldSetup;
 	BodySetup = NewObject<UBodySetup>(this);
 
 	if (!BodySetupPath.empty() && BodySetup->LoadFromFile(BodySetupPath))
@@ -58,6 +62,14 @@ void UStaticMesh::CreateBodySetup(const FString& BodySetupPath)
 	Box.Y = Size.Y;
 	Box.Z = Size.Z;
 	BodySetup->AggGeom.BoxElems.Add(Box);
+}
+
+void UStaticMesh::DetachBodySetup(UBodySetup* Setup)
+{
+	if (BodySetup == Setup)
+	{
+		BodySetup = nullptr;
+	}
 }
 
 void UStaticMesh::RebuildRenderData()

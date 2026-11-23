@@ -1,11 +1,20 @@
 #include "EnginePCH.h"
 #include "BodySetup.h"
 #include "PhysicalMaterial.h"
+#include "Render/Mesh.h"
 #include "Serialization/MemoryReader.h"
 #include "Serialization/MemoryWriter.h"
 #include <fstream>
 #include <limits>
 
+
+UBodySetup::~UBodySetup()
+{
+	if (UStaticMesh* OwnerMesh = Cast<UStaticMesh>(GetOuter()))
+	{
+		OwnerMesh->DetachBodySetup(this);
+	}
+}
 
 float UBodySetup::CalculateMass() const
 {
