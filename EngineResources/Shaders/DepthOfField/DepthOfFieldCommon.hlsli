@@ -35,4 +35,18 @@ FDepthOfFieldVertexOutput MakeDepthOfFieldVertex(uint VertexID)
     return Output;
 }
 
+// 양수는 실제 거리(m), 0은 배경, -1은 잘못된 깊이다.
+static const float DOFBackgroundDepth = 0.0f;
+static const float DOFInvalidDepth = -1.0f;
+
+bool IsValidDOFDepth(float LinearDepth)
+{
+    return isfinite(LinearDepth) && LinearDepth >= DOFBackgroundDepth;
+}
+
+bool IsBackgroundDOFDepth(float LinearDepth)
+{
+    return LinearDepth == DOFBackgroundDepth;
+}
+
 #endif
