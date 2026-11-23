@@ -3,6 +3,7 @@
 #include <PxPhysicsAPI.h>
 #include "PhysicsCore.h"
 #include "BodyInstance.h"
+#include "Physics/PhysicsStats.h"
 using namespace physx;
 
 std::unique_ptr<FPhysicsScene> MakePhysicsScene()
@@ -64,6 +65,11 @@ void FPhysicsScene_PhysX::StartFrame(float DeltaTime)
 {
     if (!PhysXScene || bSimulating) return;
 
+    // 같은 Stat은 한 프레임 안에서 합산되므로 StartFrame과 EndFrame의 합이 Total이 된다.
+    SCOPE_CYCLE_COUNTER(PhysicsStats::STAT_PhysicsTotal);
+    Stats.FixedStep = FixedStep;
+    Stats.bSteppedLastFrame = false;
+
     // 프레임이 크게 튀어도(디버거 정지 등) 한 번에 너무 많이 몰아서 돌리지 않는다
     Accumulator = std::min(Accumulator + DeltaTime, FixedStep * 4.0f);
     if (Accumulator < FixedStep) return;
@@ -71,6 +77,7 @@ void FPhysicsScene_PhysX::StartFrame(float DeltaTime)
     Accumulator -= FixedStep;
     {
         // Scene을 바꾸는 호출은 쓰기 잠금 안에서 한다. 쓰기는 혼자만 할 수 있다.
+        SCOPE_CYCLE_COUNTER(PhysicsStats::STAT_PhysicsSimulate);
         PxSceneWriteLock WriteLock(*PhysXScene);
         PhysXScene->simulate(FixedStep);
     }
@@ -81,27 +88,49 @@ void FPhysicsScene_PhysX::EndFrame()
 {
     if (!bSimulating) return;
 
+    SCOPE_CYCLE_COUNTER(PhysicsStats::STAT_PhysicsTotal);
+
     {
         // fetchResults는 액터 포즈와 질의용 공간 구조를 고쳐 쓰므로 쓰기 잠금이 필요하다.
         // 이 동안 다른 스레드의 읽기(레이캐스트, 포즈 읽기)는 끝날 때까지 기다린다.
+        SCOPE_CYCLE_COUNTER(PhysicsStats::STAT_PhysicsFetchResults);
         PxSceneWriteLock WriteLock(*PhysXScene);
         PhysXScene->fetchResults(true);
     }
     bSimulating = false;
+    ++Stats.NumSteps;
+    Stats.bSteppedLastFrame = true;
 
     // 결과 포즈를 읽어 컴포넌트에 반영한다. 읽기끼리는 다른 스레드와 동시에 할 수 있다.
     // 주의: 이 잠금 안에서 Scene을 바꾸는 호출(쓰기)을 하면 같은 스레드에서 교착이 생긴다.
     //       SyncComponentToBody가 부르는 컴포넌트 코드에서 바디 포즈를 다시 쓰지 않도록 한다.
     PxSceneReadLock ReadLock(*PhysXScene);
+
+    // 스텝이 끝난 직후의 통계를 엔진 타입으로 옮겨 둔다. 에디터의 stat physics는 이 복사본만 읽는다.
+    PxSimulationStatistics SimStats;
+    PhysXScene->getSimulationStatistics(SimStats);
+    Stats.NumStaticBodies        = SimStats.nbStaticBodies;
+    Stats.NumDynamicBodies       = SimStats.nbDynamicBodies;
+    Stats.NumKinematicBodies     = SimStats.nbKinematicBodies;
+    Stats.NumActiveDynamicBodies = SimStats.nbActiveDynamicBodies;
+    Stats.NumContactPairs        = SimStats.nbDiscreteContactPairsWithContacts;
+    Stats.NumNewTouches          = SimStats.nbNewTouches;
+    Stats.NumLostTouches         = SimStats.nbLostTouches;
+    Stats.NumActiveConstraints   = SimStats.nbActiveConstraints;
+
+    SCOPE_CYCLE_COUNTER(PhysicsStats::STAT_PhysicsSyncComponents);
     PxU32 Count = 0;
     PxActor** Actors = PhysXScene->getActiveActors(Count);
+    uint32 NumSynced = 0;
     for (PxU32 i = 0; i < Count; ++i)
     {
         if (FBodyInstance* Body = static_cast<FBodyInstance*>(Actors[i]->userData))
         {
             Body->SyncComponentToBody();
+            ++NumSynced;
         }
     }
+    Stats.NumSyncedComponents = NumSynced;
 
 }
 
