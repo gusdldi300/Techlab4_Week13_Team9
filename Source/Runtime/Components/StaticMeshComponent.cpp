@@ -103,3 +103,8 @@ void UStaticMeshComponent::SubmitToRenderQueue(TQueue<FRenderPacket>& RenderQueu
 	}
 }
 */
+
+const UBodySetup* UStaticMeshComponent::GetBodySetup() const
+{
+	return StaticMesh ? StaticMesh->GetBodySetup() : nullptr;
+}
