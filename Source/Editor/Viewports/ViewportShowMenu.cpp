@@ -26,6 +26,7 @@ void FViewportsPanel::DrawShowMenu()
         Settings.bShowUUID = Defaults.bShowUUID;
         Settings.bDrawCascadeBounds = Defaults.bDrawCascadeBounds;
         Settings.bShowRootDebug = Defaults.bShowRootDebug;
+        Settings.bShowRagdollBodies = Defaults.bShowRagdollBodies;
         Settings.bShowVignette = Defaults.bShowVignette;
         Settings.bShowCameraOverlay = Defaults.bShowCameraOverlay;
     }
@@ -42,6 +43,7 @@ void FViewportsPanel::DrawShowMenu()
             { "Decal", "stat decal", EStatFlags::Decal },
             { "Skinning", "stat skinning", EStatFlags::Skinning },
             { "Particle", "stat particle", EStatFlags::Particle },
+            { "Ragdoll", "stat ragdoll", EStatFlags::Ragdoll },
         };
         FString Message;
         if (IconMenuItem(nullptr, "Hide All", false, EIndicator::None))
@@ -77,6 +79,7 @@ void FViewportsPanel::DrawShowMenu()
     Flag("Pivot", "Object UUID", Settings.bShowUUID);
     SectionHeader("PIE");
     Flag("SkeletalMesh", "Root Bone", Settings.bShowRootDebug);
+    Flag("SkeletalMesh", "Ragdoll Bodies", Settings.bShowRagdollBodies);
     Flag("Lighting", "Vignette", Settings.bShowVignette);
     Flag("Camera", "Camera Fade / Letterbox", Settings.bShowCameraOverlay);
     ImGui::Spacing();

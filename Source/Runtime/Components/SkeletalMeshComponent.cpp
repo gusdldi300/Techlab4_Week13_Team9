@@ -668,3 +668,8 @@ void DrawHardcodedRagdolls(UWorld* World, FLineBatcher* LineBatcher)
 		}
 	}
 }
+
+FRagdollDebugStats USkeletalMeshComponent::GetRagdollDebugStats() const
+{
+	return HardcodedRagdoll ? HardcodedRagdoll->GetDebugStats() : FRagdollDebugStats{};
+}

@@ -294,6 +294,9 @@ bool FHardcodedRagdoll::Build(USkeletalMeshComponent& Mesh)
 
 void FHardcodedRagdoll::Clear()
 {
+    LastKinematicSyncMs = 0.0;
+    LastPhysicsPoseMs = 0.0;
+
     bBuilt = false;
     bSimulating = false;
     bPoseErrorLogged = false;
@@ -326,6 +329,7 @@ void FHardcodedRagdoll::Clear()
 
 void FHardcodedRagdoll::ApplyToMesh(USkeletalMeshComponent& Mesh)
 {
+    LastPhysicsPoseMs = 0.0;
     if (!bBuilt || !bSimulating) return;
     // 실행 도중 메시가 교체되면 이전 스켈레톤의 본 인덱스를 사용하지 않는다.
     if (Mesh.GetSkeletalMesh() != SourceMesh)
@@ -337,7 +341,10 @@ void FHardcodedRagdoll::ApplyToMesh(USkeletalMeshComponent& Mesh)
     if (InitialLocalPose.Num() != Bones.Num()) return;
     PxScene* Scene = Bodies[0].GetActorHandle().Actor->getScene();
     if (!Scene) return;
+
+    FScopeCycleCounter Timer(RagdollStats::STAT_PhysicsPose);
     FMatrix TargetComponent[BodyCount];
+
     const FMatrix WorldToComponent = Mesh.GetWorldMatrix().Inverse();
     {
         PxSceneReadLock Lock(*Scene);
@@ -369,6 +376,7 @@ void FHardcodedRagdoll::ApplyToMesh(USkeletalMeshComponent& Mesh)
         NewComponent[Bone] = Local.GetLocalMatrix() * ParentComponent;
     }
     Mesh.SetBoneSpaceTransforms(Result);
+    LastPhysicsPoseMs = FPlatformTime::ToMilliseconds64(Timer.Finish());
 }
 
 void FHardcodedRagdoll::DrawDebug(FLineBatcher& Lines) const
@@ -400,12 +408,15 @@ void FHardcodedRagdoll::DrawDebug(FLineBatcher& Lines) const
 
 bool FHardcodedRagdoll::SyncFromAnimation(USkeletalMeshComponent& Mesh, bool bTeleport)
 {
+    LastKinematicSyncMs = 0.0;
+
     if (!bBuilt || bSimulating || Mesh.GetSkeletalMesh() != SourceMesh) return false;
     if (Mesh.GetBones().Num() != InitialLocalPose.Num()) return false;
 
     PxScene* Scene = Bodies[0].GetActorHandle().Actor->getScene();
     if (!Scene) return false;
 
+    FScopeCycleCounter Timer(RagdollStats::STAT_KinematicSync);
     PxTransform Targets[BodyCount];
 
     // 먼저 모든 변환을 계산한다. 중간 실패로 일부 바디만 갱신되는 것을 피한다.
@@ -443,7 +454,7 @@ bool FHardcodedRagdoll::SyncFromAnimation(USkeletalMeshComponent& Mesh, bool bTe
             Dynamic->setKinematicTarget(Targets[I]);
         }
     }
-
+    LastKinematicSyncMs = FPlatformTime::ToMilliseconds64(Timer.Finish());
     return true;
 }
 
@@ -492,4 +503,22 @@ bool FHardcodedRagdoll::SetSimulating(USkeletalMeshComponent& Mesh, bool bEnable
     bSimulating = bEnable;
     KRS_LOG(Info, "[Ragdoll] {}", bEnable ? "Dynamic enabled" : "Kinematic enabled");
     return true;
+}
+
+FRagdollDebugStats FHardcodedRagdoll::GetDebugStats() const
+{
+    FRagdollDebugStats Stats;
+
+    if (!bBuilt) return Stats;
+
+    Stats.Instances = 1;
+    Stats.SimulatingInstances = bSimulating ? 1 : 0;
+    Stats.Bodies = BodyCount;
+    Stats.Joints = BodyCount - 1;
+
+    // 현재 상태와 관계없는 이전 측정값은 표시하지 않는다.
+    Stats.KinematicSyncMs = bSimulating ? 0.0 : LastKinematicSyncMs;
+    Stats.PhysicsPoseMs = bSimulating ? LastPhysicsPoseMs : 0.0;
+
+    return Stats;
 }

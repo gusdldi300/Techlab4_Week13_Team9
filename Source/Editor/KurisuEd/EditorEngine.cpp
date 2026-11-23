@@ -2126,8 +2126,10 @@ void UEditorEngine::DrawPIEDebug(UWorld* World, const FMatrix& ViewProjection)
 		DrawSkeletalRootDebug(World, LineBatcher);
 	}
 
-	// Show Root 설정과 관계없이 테스트 바디를 표시한다.
-	DrawHardcodedRagdolls(World, LineBatcher);
+	if (Settings.bShowRagdollBodies)
+	{
+		DrawHardcodedRagdolls(World, LineBatcher);
+	}
 
 	// 모은 선들을 한 번에 그린다.
 	LineBatcher->SetDepthTest(false);

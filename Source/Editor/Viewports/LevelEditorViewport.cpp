@@ -17,6 +17,7 @@
 #include "Engine/Level.h"
 #include "GameFramework/Actor.h"
 #include "Asset/AssetManager.h"
+#include "Components/SkeletalMeshComponent.h"
 
 FLevelEditorViewportClient* GCurrentLevelEditingViewportClient = nullptr;
 
@@ -178,6 +179,11 @@ void FLevelEditorViewportClient::Draw(const FSceneView* View, FScenePassCallback
 				{
 					DrawParticleSystems(GetWorld(), LineBatcher);
 					DrawParticleLODDistances(GetWorld(), LineBatcher, SelectedActor);
+				}
+
+				if (Settings.bShowRagdollBodies)
+				{
+					DrawHardcodedRagdolls(GetWorld(), LineBatcher);
 				}
 
 				LineBatcher->OnRender(SceneView.ViewProjectionMatrix);

@@ -85,6 +85,8 @@ public:
 
 	void DrawHardcodedRagdollDebug(FLineBatcher* Lines) const;
 
+	FRagdollDebugStats GetRagdollDebugStats() const;
+
 
 protected:
 	// 단일 애니메이션 에셋 경로/루프/재생 속도를 씬에 저장·복원한다 (Serialize에서 부른다)

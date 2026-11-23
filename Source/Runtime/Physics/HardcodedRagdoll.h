@@ -3,6 +3,7 @@
 #include "Physics/BodyInstance.h"
 #include "Math/Matrix.h"
 #include "Math/Transform.h"
+#include "Physics/RagdollStats.h"
 
 class USkeletalMeshComponent;
 class USkeletalMesh;
@@ -27,6 +28,8 @@ public:
     bool SyncFromAnimation(USkeletalMeshComponent& Mesh, bool bTeleport = false);
     bool SetSimulating(USkeletalMeshComponent& Mesh, bool bEnable);
 
+    FRagdollDebugStats GetDebugStats() const;
+
 private:
     static constexpr int32 BodyCount = 15;
     FBodyInstance Bodies[BodyCount];
@@ -44,4 +47,7 @@ private:
     bool bPoseErrorLogged = false;
 
     bool bSimulating = false;
+
+    double LastKinematicSyncMs = 0.0;
+    double LastPhysicsPoseMs = 0.0;
 };
