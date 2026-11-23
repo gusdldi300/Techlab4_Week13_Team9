@@ -20,6 +20,8 @@ public:
 	// 메시가 바뀌면 슬롯 구성이 달라지므로 덮어쓰기를 비운다
 	void SetStaticMesh(UStaticMesh* InStaticMesh);
 	UStaticMesh* GetStaticMesh() const { return StaticMesh; }
+	// 메시가 소유한 물리 설계도를 빌려준다. 메시가 없으면 null이고, 그때는 부모의 바운드 박스 대체 경로를 탄다.
+	virtual const UBodySetup* GetBodySetup() const override;
 	virtual UStaticMesh* GetRenderMesh() const override { return StaticMesh; }
 
 	virtual int32 GetNumMaterials() const override;

@@ -20,6 +20,9 @@
 #include "Components/SkinnedMeshComponent.h"
 #include "Components/ParticleSystemComponent.h"
 #include "Particles/ParticleEmitterInstance.h"
+#include "Engine/World.h"
+#include "Physics/PhysicsScene.h"
+#include "Physics/PhysicsStats.h"
 #include "Editor/Gizmo/Gizmo.h"
 #include "Input/InputSystem.h"
 
@@ -556,6 +559,43 @@ const FRenderStats& Stats = RenderData.RenderStats;
 		Lines.Add({ std::format("  Particles {} / {} ({:.1f} %)", Active, Capacity,
 			Capacity > 0 ? 100.0 * static_cast<double>(Active) / static_cast<double>(Capacity) : 0.0), ValueColor });
 		Lines.Add({ std::format("  Memory {:.1f} KB", static_cast<double>(MemoryBytes) / 1024.0), ValueColor });
+	}
+
+	if (FStatOverlay::IsEnabled(EStatFlags::Physics)) {
+		// 물리 Scene은 게임 월드(PIE, Game)에만 있다. 에디터 뷰포트에서는 없다고만 표시한다.
+		const UWorld* World = Client->GetWorld();
+		const FPhysicsScene* PhysicsScene = World ? World->GetPhysicsScene() : nullptr;
+		if (!PhysicsScene) {
+			Lines.Add({ "Physics  (no physics scene: run PIE)", TitleColor });
+		}
+		else {
+			const FPhysicsSceneStats& PhysStats = PhysicsScene->GetStats();
+			Lines.Add({ std::format("Physics  [step {:.1f} ms, {} step(s) this frame]", PhysStats.FixedStep * 1000.0f,
+				PhysStats.NumStepsLastFrame), TitleColor });
+			Lines.Add({ std::format("  Bodies  Static {}   Dynamic {} (Kinematic {})",
+				PhysStats.NumStaticBodies, PhysStats.NumDynamicBodies, PhysStats.NumKinematicBodies), ValueColor });
+			Lines.Add({ std::format("  Active Dynamic {}   Synced Components {}",
+				PhysStats.NumActiveDynamicBodies, PhysStats.NumSyncedComponents), ValueColor });
+			Lines.Add({ std::format("  Contact Pairs {}   New {}   Lost {}",
+				PhysStats.NumContactPairs, PhysStats.NumNewTouches, PhysStats.NumLostTouches), ValueColor });
+			Lines.Add({ std::format("  Constraints {}   Steps {}",
+				PhysStats.NumActiveConstraints, PhysStats.NumSteps), ValueColor });
+		}
+
+		ProfileLines.Add({ "Physics (ms)", TitleColor, { "Last", "Avg", "Max" } });
+		for (TStatId Id : { PhysicsStats::STAT_PhysicsTotal, PhysicsStats::STAT_PhysicsSimulate,
+							PhysicsStats::STAT_PhysicsFetchResults, PhysicsStats::STAT_PhysicsSyncComponents }) {
+			FProfileStatLine Line{ "  " + FString(Id.GetName()), ValueColor };
+			if (const FCycleStatData* D = FStatRegistry::Find(Id)) {
+				Line.Values[0] = std::format("{:.2f}", D->GetLastMs());
+				Line.Values[1] = std::format("{:.2f}", D->GetRecentAverageMs());
+				Line.Values[2] = std::format("{:.2f}", D->GetMaxMs());
+			}
+			else {
+				Line.Values[0] = Line.Values[1] = Line.Values[2] = "-";
+			}
+			ProfileLines.Add(Line);
+		}
 	}
 
 	if (Lines.Num() == 0 && ProfileLines.Num() == 0)

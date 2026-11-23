@@ -14,6 +14,7 @@ enum class EStatFlags : uint32
 	Decal	= 1 << 4,
 	Skinning= 1 << 5,
 	Particle= 1 << 6,
+	Physics = 1 << 7,
 };
 DEFINE_ENUM_OPERATORS(EStatFlags)
 
