@@ -66,4 +66,11 @@ float2 ConvertDOFRadiusHalfToUV(float HalfRadius)
     return ConvertDOFRadiusHalfToFull(HalfRadius) * FullSizeAndInvSize.zw;
 }
 
+float ComputeDOFBlurAmount(float RadiusFullPixels)
+{
+    // 원본 화면의 픽셀 반경을 기준으로 전환한다.
+    const float Transition = saturate((RadiusFullPixels - 0.5f) / 1.5f);
+    return Transition * Transition * (3.0f - 2.0f * Transition);
+}
+
 #endif

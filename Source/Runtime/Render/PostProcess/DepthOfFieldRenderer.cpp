@@ -269,10 +269,11 @@ bool FDepthOfFieldRenderer::AddPasses(FRenderGraphBuilder& Graph, const FSceneVi
     if (!AddStage(Graph, EPass::NearBokeh, Data, std::move(NearInputs), { Resources.NearBokeh }))
         return false;
 
-    // 원본 HDR은 최종 합성까지 읽기 전용으로 유지한다.
-    if (!AddStage(Graph, EPass::Composite, Data, { SceneHDR, Resources.LinearDepth, Resources.CoCAndDepthBlur, Resources.FarBokeh, Resources.NearBokeh, Resources.FarParams, Resources.NearParams }, { Resources.CompositeHDR }))
+    // t0~t4는 Composite.hlsl의 입력 선언 순서와 일치한다.
+    if (!AddStage(Graph, EPass::Composite, Data, { SceneHDR, Resources.LinearDepth, Resources.CoCAndDepthBlur, Resources.FarBokeh, Resources.NearBokeh }, { Resources.CompositeHDR }))
         return false;
 
+    // 원본과 다른 HDR 텍스처로 출력해 읽기·쓰기 충돌을 피한다.
     OutColor = Resources.CompositeHDR;
     return true;
 }

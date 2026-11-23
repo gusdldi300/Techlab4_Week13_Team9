@@ -154,8 +154,14 @@ float4 ComputeDOFBokeh(FDepthOfFieldVertexOutput Input)
                 continue;
 
             const float KernelArea = max(Aperture.UnitArea * RadiusFull * RadiusFull, CellAreaFull);
-            const float SampleWeight = CellAreaFull * ApertureCoverage / KernelArea;
-            // 면적 밀도로 적분하며 HDR 색상에 커버리지를 다시 곱하지 않는다.
+            float SampleWeight = CellAreaFull * ApertureCoverage / KernelArea;
+
+#if DOF_NEAR_LAYER
+            // 퍼져 나갈 원본의 반경으로 전환하며 RGB와 커버리지에 함께 적용한다.
+            SampleWeight *= ComputeDOFBlurAmount(RadiusFull);
+#endif
+
+            // SampleColor.rgb에는 이미 커버리지가 곱해져 있다.
             AccumulatedColor += SampleColor * SampleWeight;
         }
     }
