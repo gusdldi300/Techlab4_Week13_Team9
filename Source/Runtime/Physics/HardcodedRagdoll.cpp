@@ -1,68 +1,84 @@
 #include "EnginePCH.h"
 #include "Physics/HardcodedRagdoll.h"
-
+#include "Animation/BonePose.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/World.h"
-
+#include "Math/Box.h"
 #include "Physics/PhysicsCore.h"
 #include "Physics/PhysicsScene.h"
 #include "Physics/PhysXConversions.h"
-
-#include "Math/Box.h"
-#include "Math/Transform.h"
 #include "Render/LineBatcher.h"
-
 #include <foundation/PxMathUtils.h>
 #include <algorithm>
-
-#include "Animation/BonePose.h"
-#include "Math/Rotator.h"
+#include <cctype>
+#include <cmath>
 
 using namespace physx;
 
 namespace
 {
-    FVector GetBonePosition(USkeletalMeshComponent& Mesh, int32 BoneIndex)
+    struct FBodyDefinition
     {
-        return Mesh.GetBoneWorldMatrix(BoneIndex).TransformPosition(FVector(0.0f, 0.0f, 0.0f));
+        const char* Bone;
+        const char* EndBone;
+        int32 ParentBody;
+        float WidthRatio;
+        float Mass;
+        float SwingLimit;
+        float TwistLimit;
+    };
+
+    // 본 이름, 박스 두께, 질량, 부모 바디, 관절 각도(라디안)를 이 표에서 직접 지정한다.
+    // 손가락·척추 중간 본은 바디를 만들지 않고 가장 가까운 물리 부모를 따라간다.
+    constexpr FBodyDefinition Definitions[] = {
+        { "Hips",         "Spine",           -1, 0.85f,  8.0f, 0.00f, 0.00f },
+        { "Spine",        "Neck",             0, 0.40f, 12.0f, 0.45f, 0.35f },
+        { "Head",         "HeadTop_End",      1, 0.65f,  5.0f, 0.65f, 0.50f },
+        { "LeftArm",      "LeftForeArm",      1, 0.15f,  2.0f, 1.30f, 0.70f },
+        { "LeftForeArm",  "LeftHand",         3, 0.15f,  1.0f, 1.10f, 0.15f },
+        { "LeftHand",     "LeftHandMiddle1",  4, 0.55f,  0.5f, 0.50f, 0.25f },
+        { "RightArm",     "RightForeArm",     1, 0.15f,  2.0f, 1.30f, 0.70f },
+        { "RightForeArm", "RightHand",        6, 0.15f,  1.0f, 1.10f, 0.15f },
+        { "RightHand",    "RightHandMiddle1", 7, 0.55f,  0.5f, 0.50f, 0.25f },
+        { "LeftUpLeg",    "LeftLeg",          0, 0.20f,  5.0f, 1.00f, 0.45f },
+        { "LeftLeg",      "LeftFoot",         9, 0.18f,  3.0f, 1.10f, 0.12f },
+        { "LeftFoot",     "LeftToeBase",     10, 0.40f,  1.0f, 0.45f, 0.20f },
+        { "RightUpLeg",   "RightLeg",         0, 0.20f,  5.0f, 1.00f, 0.45f },
+        { "RightLeg",     "RightFoot",       12, 0.18f,  3.0f, 1.10f, 0.12f },
+        { "RightFoot",    "RightToeBase",    13, 0.40f,  1.0f, 0.45f, 0.20f },
+    };
+
+    int32 FindRigBone(const USkeletalMeshComponent& Mesh, const char* Name)
+    {
+        const FString Qualified = FString("mixamorig:") + Name;
+        int32 Index = Mesh.FindBoneIndex(Qualified);
+        if (Index >= 0) return Index;
+        Index = Mesh.FindBoneIndex(Name);
+        if (Index >= 0) return Index;
+
+        // 소닉의 LeftLeg7·LeftFoot8처럼 임포트 시 붙은 숫자 접미사도 명시적 본 이름에 연결한다.
+        int32 Match = -1;
+        const auto& Bones = Mesh.GetBones();
+        for (int32 I = 0; I < Bones.Num(); ++I)
+        {
+            const FString& BoneName = Bones[I].Name;
+            const size_t Colon = BoneName.find_last_of(':');
+            const FString ShortName = Colon == FString::npos ? BoneName : BoneName.substr(Colon + 1);
+            const size_t Length = std::char_traits<char>::length(Name);
+            if (ShortName.compare(0, Length, Name) != 0 || ShortName.size() <= Length) continue;
+            const bool bDigits = std::all_of(ShortName.begin() + Length, ShortName.end(), [](unsigned char C) { return std::isdigit(C) != 0; });
+            if (!bDigits) continue;
+            if (Match >= 0) return -1;
+            Match = I;
+        }
+        return Match;
     }
 
-    bool MakeSegment(FBodyInstance& Body, FPhysicsScene* Scene, const FVector& Start, const FVector& End, FVector& OutHalfExtent)
+    bool IsDescendant(const TArray<FBoneInfo>& Bones, int32 Child, int32 Ancestor)
     {
-        const PxVec3 A = U2PVector(Start);
-        const PxVec3 B = U2PVector(End);
-
-        const PxVec3 Delta = B - A;
-        const float Length = Delta.magnitude();
-
-        if (Length < 0.001f)
-        {
-            return false;
-        }
-
-        const PxVec3 Direction = Delta / Length;
-
-        // 박스의 긴 방향인 로컬 X축을
-        // Start → End 방향에 맞춘다.
-        const PxQuat Rotation = PxShortestRotation(PxVec3(1.0f, 0.0f, 0.0f), Direction);
-
-        // 길이의 약 90%를 채운다.
-        // 관절 주변에서 박스가 심하게 겹치지 않도록 약간 줄인다.
-        const float Thickness = Length * 0.15f;
-
-        OutHalfExtent = FVector(Length * 0.45f, Thickness, Thickness);
-
-        FBodyInstanceInitParams Params;
-        Params.WorldLocation = P2UVector((A + B) * 0.5f);
-        Params.WorldRotation = P2UQuat(Rotation);
-        Params.BoxHalfExtent = OutHalfExtent;
-        Params.BoxCenterOffset = FVector(0.0f, 0.0f, 0.0f);
-        Params.bSimulatePhysics = true;
-
-        // 본별 바디가 메시 컴포넌트 전체를 움직이면 안 된다.
-        Body.InitBody(Params, nullptr, Scene);
-
-        return Body.IsValidBodyInstance();
+        for (int32 I = Child; I >= 0; I = Bones[I].ParentIndex)
+            if (I == Ancestor) return true;
+        return false;
     }
 
     FMatrix BodyPoseToMatrix(const PxTransform& Pose)
@@ -70,52 +86,28 @@ namespace
         FTransform Transform;
         Transform.Location = P2UVector(Pose.p);
         Transform.Rotation = P2UQuat(Pose.q);
-        Transform.Scale = FVector(1.0f, 1.0f, 1.0f);
-
         return Transform.GetLocalMatrix();
     }
 
-    bool MatrixToTransform(const FMatrix& Matrix, FTransform& OutTransform)
+    bool MatrixToTransform(const FMatrix& Matrix, FTransform& Out)
     {
-        // 행벡터 방식:
-        // 각 행은 스케일이 포함된 로컬 축이다.
-        const FVector AxisX(Matrix.M[0][0], Matrix.M[0][1], Matrix.M[0][2]);
+        const FVector X(Matrix.M[0][0], Matrix.M[0][1], Matrix.M[0][2]);
+        const FVector Y(Matrix.M[1][0], Matrix.M[1][1], Matrix.M[1][2]);
+        const FVector Z(Matrix.M[2][0], Matrix.M[2][1], Matrix.M[2][2]);
+        const FVector Scale(X.Size(), Y.Size(), Z.Size());
+        if (!std::isfinite(Scale.X + Scale.Y + Scale.Z) || std::min({ Scale.X, Scale.Y, Scale.Z }) < 0.000001f) return false;
+        const FVector NX = X / Scale.X;
+        const FVector NY = Y / Scale.Y;
+        const FVector NZ = Z / Scale.Z;
+        if (std::abs(NX.Dot(NY)) > 0.001f || std::abs(NX.Dot(NZ)) > 0.001f || std::abs(NY.Dot(NZ)) > 0.001f || NX.Cross(NY).Dot(NZ) < 0.999f) return false;
 
-        const FVector AxisY(Matrix.M[1][0], Matrix.M[1][1], Matrix.M[1][2]);
-
-        const FVector AxisZ(Matrix.M[2][0], Matrix.M[2][1], Matrix.M[2][2]);
-
-        const FVector Scale(AxisX.Size(), AxisY.Size(), AxisZ.Size());
-
-        // 크기가 0인 축으로는 회전을 복원할 수 없다.
-        constexpr float MinScale = 0.000001f;
-
-        if (Scale.X < MinScale || Scale.Y < MinScale || Scale.Z < MinScale)
-        {
-            return false;
-        }
-
-        // 각 축의 길이를 나눠 스케일을 제거한다.
-        FMatrix RotationMatrix = FMatrix::Identity;
-
-        for (int32 Column = 0; Column < 3; ++Column)
-        {
-            RotationMatrix.M[0][Column] = Matrix.M[0][Column] / Scale.X;
-
-            RotationMatrix.M[1][Column] = Matrix.M[1][Column] / Scale.Y;
-
-            RotationMatrix.M[2][Column] = Matrix.M[2][Column] / Scale.Z;
-        }
-
-        OutTransform.Location = FVector(Matrix.M[3][0], Matrix.M[3][1], Matrix.M[3][2]);
-
-        OutTransform.Scale = Scale;
-
-        OutTransform.Rotation = MatrixToRotator(RotationMatrix).Quaternion().Normalized();
-
-        return true;
+        // 엔진은 행벡터, PhysX는 열벡터이므로 엔진의 행을 PhysX의 열로 옮긴다. 오일러 각을 거치지 않아 수직 자세에서도 회전이 유지된다.
+        const PxQuat Rotation(PxMat33(U2PVector(NX), U2PVector(NY), U2PVector(NZ)));
+        Out.Location = FVector(Matrix.M[3][0], Matrix.M[3][1], Matrix.M[3][2]);
+        Out.Scale = Scale;
+        Out.Rotation = P2UQuat(Rotation).Normalized();
+        return Rotation.isFinite() && std::isfinite(Out.Location.X + Out.Location.Y + Out.Location.Z);
     }
-
 }
 
 FHardcodedRagdoll::~FHardcodedRagdoll()
@@ -123,438 +115,272 @@ FHardcodedRagdoll::~FHardcodedRagdoll()
     Clear();
 }
 
-bool FHardcodedRagdoll::Build(USkeletalMeshComponent& Mesh,  const FString& UpperArmBone,  const FString& ForeArmBone,  const FString& HandBone)
+bool FHardcodedRagdoll::Build(USkeletalMeshComponent& Mesh)
 {
+    static_assert(sizeof(Definitions) / sizeof(Definitions[0]) == BodyCount);
     Clear();
-
     UWorld* World = Mesh.GetWorld();
     FPhysicsScene* Scene = World ? World->GetPhysicsScene() : nullptr;
-
     PxPhysics* Physics = FPhysicsCore::Get().GetPhysics();
-
-    if (!Scene || !Physics)
-    {
-        KRS_LOG(Warning, "[Ragdoll] Physics scene is not ready");
-        return false;
-    }
-
-    const int32 UpperIndex = Mesh.FindBoneIndex(UpperArmBone);
-    const int32 ForeIndex = Mesh.FindBoneIndex(ForeArmBone);
-    const int32 HandIndex = Mesh.FindBoneIndex(HandBone);
-
-    if (UpperIndex < 0 || ForeIndex < 0 || HandIndex < 0)
-    {
-        KRS_LOG(Warning, "[Ragdoll] Bone not found: {}, {}, {}", UpperArmBone, ForeArmBone, HandBone);
-
-        return false;
-    }
+    if (!Scene || !Physics || !Mesh.GetSkeletalMesh()) return false;
 
     Mesh.RefreshBoneTransformsNow();
-
-    const FVector Shoulder = GetBonePosition(Mesh, UpperIndex);
-    const FVector Elbow = GetBonePosition(Mesh, ForeIndex);
-    const FVector Wrist = GetBonePosition(Mesh, HandIndex);
-
-    const bool bUpperCreated = MakeSegment(Bodies[0], Scene, Shoulder, Elbow, HalfExtents[0]);
-
-    const bool bForeCreated = MakeSegment(Bodies[1], Scene, Elbow, Wrist, HalfExtents[1]);
-
-    if (!bUpperCreated || !bForeCreated)
+    const auto& Bones = Mesh.GetBones();
+    InitialLocalPose = Mesh.GetBoneSpaceTransforms();
+    TArray<FMatrix> InitialWorld;
+    InitialWorld.SetNum(Bones.Num());
+    for (int32 I = 0; I < Bones.Num(); ++I)
     {
-        Clear();
-        return false;
+        // 양수 균일 스케일을 전제로 한다. 실패 시 일부 바디만 남기지 않고 전체 생성을 취소한다.
+        if (Bones[I].ParentIndex < -1 || Bones[I].ParentIndex >= I)
+        {
+            KRS_LOG(Warning, "[Ragdoll] Invalid skeleton hierarchy at {}", Bones[I].Name);
+            Clear();
+            return false;
+        }
+        InitialWorld[I] = Mesh.GetBoneWorldMatrix(I);
+        FTransform Check;
+        if (!MatrixToTransform(InitialWorld[I], Check) || std::abs(Check.Scale.X - Check.Scale.Y) > Check.Scale.X * 0.001f || std::abs(Check.Scale.X - Check.Scale.Z) > Check.Scale.X * 0.001f)
+        {
+            KRS_LOG(Warning, "[Ragdoll] Use positive uniform scale without shear: {}", Bones[I].Name);
+            Clear();
+            return false;
+        }
     }
 
-    // 테스트 바닥: 시작 자세의 팔보다 아래에 둔다.
-    const float MinZ = std::min({ Shoulder.Z, Elbow.Z, Wrist.Z });
+    FVector Starts[BodyCount];
+    FVector Ends[BodyCount];
+    float MinBottom = FLT_MAX;
+    float MaxTop = -FLT_MAX;
+    float MaxSize = 0.0f;
+    for (int32 I = 0; I < BodyCount; ++I)
+    {
+        const FBodyDefinition& Def = Definitions[I];
+        BoneIndices[I] = FindRigBone(Mesh, Def.Bone);
+        const int32 EndIndex = FindRigBone(Mesh, Def.EndBone);
+        const int32 BoneIndex = BoneIndices[I];
+        if (BoneIndex < 0 || EndIndex < 0 || BoneIndex == EndIndex || !IsDescendant(Bones, EndIndex, BoneIndex))
+        {
+            KRS_LOG(Warning, "[Ragdoll] Missing or invalid bone segment: {} -> {}", Def.Bone, Def.EndBone);
+            Clear();
+            return false;
+        }
+        if (Def.ParentBody >= 0 && !IsDescendant(Bones, BoneIndex, BoneIndices[Def.ParentBody]))
+        {
+            KRS_LOG(Warning, "[Ragdoll] Invalid parent body for {}", Def.Bone);
+            Clear();
+            return false;
+        }
+        Starts[I] = InitialWorld[BoneIndex].TransformPosition(FVector::ZeroVector);
+        Ends[I] = InitialWorld[EndIndex].TransformPosition(FVector::ZeroVector);
+        const PxVec3 Delta = U2PVector(Ends[I] - Starts[I]);
+        const float Length = Delta.magnitude();
+        if (!std::isfinite(Length) || Length < 0.001f)
+        {
+            KRS_LOG(Warning, "[Ragdoll] Bone segment is too short: {}", Def.Bone);
+            Clear();
+            return false;
+        }
 
-    const float Span = (U2PVector(Wrist) - U2PVector(Shoulder)).magnitude();
+        HalfExtents[I] = FVector(Length * 0.45f, Length * Def.WidthRatio, Length * Def.WidthRatio);
+        FBodyInstanceInitParams Params;
+        Params.WorldLocation = (Starts[I] + Ends[I]) * 0.5f;
+        Params.WorldRotation = P2UQuat(PxShortestRotation(PxVec3(1, 0, 0), Delta / Length));
+        Params.BoxHalfExtent = HalfExtents[I];
+        Params.BoxCenterOffset = FVector::ZeroVector;
+        Params.bSimulatePhysics = true;
+        Bodies[I].InitBody(Params, nullptr, Scene);
+        if (!Bodies[I].IsValidBodyInstance())
+        {
+            Clear();
+            return false;
+        }
+        // FBodyInstance가 보장하는 최소 박스 크기를 디버그와 바닥 배치에도 적용한다.
+        for (int32 Axis = 0; Axis < 3; ++Axis) HalfExtents[I][Axis] = std::max(HalfExtents[I][Axis], 0.01f);
+        const PxTransform Pose = Bodies[I].GetActorHandle().Actor->getGlobalPose();
+        BoneInBody[I] = InitialWorld[BoneIndex] * BodyPoseToMatrix(Pose).Inverse();
+        const PxMat33 Rotation(Pose.q);
+        const float VerticalExtent = std::abs(Rotation.column0.z) * HalfExtents[I].X + std::abs(Rotation.column1.z) * HalfExtents[I].Y + std::abs(Rotation.column2.z) * HalfExtents[I].Z;
+        MinBottom = std::min(MinBottom, Pose.p.z - VerticalExtent);
+        MaxTop = std::max(MaxTop, Pose.p.z + VerticalExtent);
+        MaxSize = std::max(MaxSize, Length);
+    }
 
-    const float FloorWidth = std::max(2.0f, Span * 3.0f);
-
-    FloorHalfExtent = FVector(FloorWidth, FloorWidth, 0.05f);
-
-    // HalfExtents.X는 박스 길이의 절반이다.
-    const float UpperLength = HalfExtents[0].X * 2.0f;
-    const float ForeLength = HalfExtents[1].X * 2.0f;
-
-    // 모델 크기에 비례한 낙하 공간을 확보한다.
-    const float DropDistance = std::max(0.8f, UpperLength + ForeLength);
-
+    const float Height = std::max(MaxTop - MinBottom, 0.1f);
+    DebugRadius = std::max(Height * 0.008f, 0.005f);
+    FloorHalfExtent = FVector(Height * 2.0f + MaxSize, Height * 2.0f + MaxSize, std::max(Height * 0.025f, 0.05f));
     FBodyInstanceInitParams FloorParams;
-    FloorParams.WorldLocation = FVector(Shoulder.X, Shoulder.Y, MinZ - DropDistance);
-
+    FloorParams.WorldLocation = FVector(Starts[0].X, Starts[0].Y, MinBottom - Height * 0.3f - FloorHalfExtent.Z);
     FloorParams.WorldRotation = FQuat::Identity();
     FloorParams.BoxHalfExtent = FloorHalfExtent;
-    FloorParams.BoxCenterOffset = FVector(0.0f, 0.0f, 0.0f);
-    FloorParams.bSimulatePhysics = false; // 정적 바닥
-
+    FloorParams.BoxCenterOffset = FVector::ZeroVector;
+    FloorParams.bSimulatePhysics = false;
     TestFloor.InitBody(FloorParams, nullptr, Scene);
-
     if (!TestFloor.IsValidBodyInstance())
     {
         Clear();
         return false;
     }
 
-    PxRigidActor* Upper = Bodies[0].GetActorHandle().Actor;
-    PxRigidActor* Fore = Bodies[1].GetActorHandle().Actor;
-
-    PxScene* NativeScene = Upper->getScene();
-
-    if (!NativeScene)
-    {
-        Clear();
-        return false;
-    }
-
+    PxScene* NativeScene = Bodies[0].GetActorHandle().Actor->getScene();
+    bool bSucceeded = NativeScene != nullptr;
+    if (NativeScene)
     {
         PxSceneWriteLock Lock(*NativeScene);
-
-        // 첫 실험은 두 바디의 질량을 동일하게 둔다.
-        for (FBodyInstance& Body : Bodies)
+        // 첫 단계는 자체 충돌을 끈 Aggregate를 사용해 겹치는 초기 박스가 서로 밀어내는 현상을 피한다. 바닥·다른 물체와는 충돌한다.
+        Aggregate = Physics->createAggregate(BodyCount, false);
+        bSucceeded = Aggregate != nullptr;
+        for (int32 I = 0; bSucceeded && I < BodyCount; ++I)
         {
-            PxRigidDynamic* Dynamic = Body.GetActorHandle().Actor->is<PxRigidDynamic>();
-
+            PxRigidActor* Actor = Bodies[I].GetActorHandle().Actor;
+            NativeScene->removeActor(*Actor);
+            bSucceeded = Aggregate->addActor(*Actor);
+            PxRigidDynamic* Dynamic = Actor->is<PxRigidDynamic>();
             if (Dynamic)
             {
-                PxRigidBodyExt::setMassAndUpdateInertia(*Dynamic, 1.0f);
-
+                PxRigidBodyExt::setMassAndUpdateInertia(*Dynamic, Definitions[I].Mass);
                 Dynamic->setLinearDamping(0.05f);
-                Dynamic->setAngularDamping(0.2f);
-                Dynamic->setSolverIterationCounts(8, 2);
+                Dynamic->setAngularDamping(0.3f);
+                Dynamic->setSolverIterationCounts(16, 4);
+                Dynamic->setRigidBodyFlag(PxRigidBodyFlag::eENABLE_SPECULATIVE_CCD, true);
             }
         }
+        if (bSucceeded) NativeScene->addAggregate(*Aggregate);
 
-        // 두 바디가 공유해야 하는 관절의 월드 프레임.
-        // 이번에는 위치만 팔꿈치에 두고 월드 축을 사용한다.
-        const PxTransform JointWorld(U2PVector(Elbow), PxQuat(PxIdentity));
-
-        // 같은 월드 프레임을 각 바디의 로컬 공간으로 변환한다.
-        const PxTransform Local0 = Upper->getGlobalPose().getInverse() * JointWorld;
-
-        const PxTransform Local1 = Fore->getGlobalPose().getInverse() * JointWorld;
-
-        ElbowJoint = PxD6JointCreate(*Physics, Upper, Local0, Fore, Local1);
-
-        if (ElbowJoint)
+        for (int32 I = 1; bSucceeded && I < BodyCount; ++I)
         {
-            // 관절 위치가 벌어지지 않도록 이동 3축 잠금.
-            ElbowJoint->setMotion(PxD6Axis::eX, PxD6Motion::eLOCKED);
-            ElbowJoint->setMotion(PxD6Axis::eY, PxD6Motion::eLOCKED);
-            ElbowJoint->setMotion(PxD6Axis::eZ, PxD6Motion::eLOCKED);
-
-            // 첫 실험은 회전 3축을 제한된 범위에서 허용한다.
-            ElbowJoint->setMotion(PxD6Axis::eTWIST, PxD6Motion::eLIMITED);
-            ElbowJoint->setMotion(PxD6Axis::eSWING1, PxD6Motion::eLIMITED);
-            ElbowJoint->setMotion(PxD6Axis::eSWING2, PxD6Motion::eLIMITED);
-
-            ElbowJoint->setTwistLimit(PxJointAngularLimitPair(-0.5f, 0.5f));
-
-            ElbowJoint->setSwingLimit(PxJointLimitCone(0.8f, 0.8f));
-
-            // 서로 연결된 두 바디끼리의 충돌은 끈다.
-            ElbowJoint->setConstraintFlag(PxConstraintFlag::eCOLLISION_ENABLED, false);
+            PxRigidActor* Parent = Bodies[Definitions[I].ParentBody].GetActorHandle().Actor;
+            PxRigidActor* Child = Bodies[I].GetActorHandle().Actor;
+            const PxTransform JointWorld(U2PVector(Starts[I]), Child->getGlobalPose().q);
+            PxD6Joint* Joint = PxD6JointCreate(*Physics, Parent, Parent->getGlobalPose().getInverse() * JointWorld, Child, Child->getGlobalPose().getInverse() * JointWorld);
+            Joints[I - 1] = Joint;
+            bSucceeded = Joint != nullptr;
+            if (!Joint) break;
+            Joint->setMotion(PxD6Axis::eX, PxD6Motion::eLOCKED);
+            Joint->setMotion(PxD6Axis::eY, PxD6Motion::eLOCKED);
+            Joint->setMotion(PxD6Axis::eZ, PxD6Motion::eLOCKED);
+            Joint->setMotion(PxD6Axis::eTWIST, PxD6Motion::eLIMITED);
+            Joint->setMotion(PxD6Axis::eSWING1, PxD6Motion::eLIMITED);
+            Joint->setMotion(PxD6Axis::eSWING2, PxD6Motion::eLIMITED);
+            Joint->setTwistLimit(PxJointAngularLimitPair(-Definitions[I].TwistLimit, Definitions[I].TwistLimit));
+            Joint->setSwingLimit(PxJointLimitCone(Definitions[I].SwingLimit, Definitions[I].SwingLimit));
+            Joint->setConstraintFlag(PxConstraintFlag::eCOLLISION_ENABLED, false);
         }
-
-
-        // 어깨 관절의 월드 프레임.
-        // 위치는 어깨 본에 맞추고,
-        // 방향은 시작 시점 위팔 바디의 회전에 맞춘다.
-        const PxTransform ShoulderWorld(U2PVector(Shoulder), Upper->getGlobalPose().q);
-        // 위팔 바디 기준으로 어깨 연결점을 표현한다.
-        const PxTransform ShoulderLocal = Upper->getGlobalPose().getInverse() * ShoulderWorld;
-
-        ShoulderJoint = PxD6JointCreate(*Physics, nullptr, ShoulderWorld, Upper, ShoulderLocal);
-
-        if (ShoulderJoint)
-        {
-            // 어깨 연결점이 이동하지 않도록 한다.
-            ShoulderJoint->setMotion(PxD6Axis::eX, PxD6Motion::eLOCKED);
-
-            ShoulderJoint->setMotion(PxD6Axis::eY, PxD6Motion::eLOCKED);
-
-            ShoulderJoint->setMotion(PxD6Axis::eZ, PxD6Motion::eLOCKED);
-
-            // 첫 실험에서는 어깨 회전을 모두 허용한다.
-            ShoulderJoint->setMotion(PxD6Axis::eTWIST, PxD6Motion::eFREE);
-
-            ShoulderJoint->setMotion(PxD6Axis::eSWING1, PxD6Motion::eFREE);
-
-            ShoulderJoint->setMotion(PxD6Axis::eSWING2, PxD6Motion::eFREE);
-        }
-
     }
-
-    // 쓰기 잠금이 끝난 뒤 실패 처리를 한다.
-    if (!ElbowJoint || !ShoulderJoint)
+    if (!bSucceeded)
     {
-        KRS_LOG(Warning, "[Ragdoll] Failed to create elbow or shoulder joint");
-
+        KRS_LOG(Warning, "[Ragdoll] Failed to create full-body actors or joints");
         Clear();
         return false;
     }
 
-    BoneIndices[0] = UpperIndex;
-    BoneIndices[1] = ForeIndex;
-
-    InitialLocalPose = Mesh.GetBoneSpaceTransforms();
-
-    {
-        PxSceneReadLock Lock(*NativeScene);
-
-        for (int32 I = 0; I < 2; ++I)
-        {
-            const FMatrix BoneWorld = Mesh.GetBoneWorldMatrix(BoneIndices[I]);
-
-            const PxTransform BodyPose = Bodies[I].GetActorHandle().Actor->getGlobalPose();
-
-            const FMatrix BodyWorld = BodyPoseToMatrix(BodyPose);
-
-            BoneInBody[I] = BoneWorld * BodyWorld.Inverse();
-        }
-    }
-
-
+    SourceMesh = Mesh.GetSkeletalMesh();
     bBuilt = true;
-
-    KRS_LOG(Info, "[Ragdoll] Created two bodies and two D6 joint");
-
+    KRS_LOG(Info, "[Ragdoll] Created {} bodies and {} D6 joints; self collision disabled", BodyCount, BodyCount - 1);
     return true;
 }
 
 void FHardcodedRagdoll::Clear()
 {
     bBuilt = false;
-
-    BoneIndices[0] = -1;
-    BoneIndices[1] = -1;
-
+    bPoseErrorLogged = false;
+    SourceMesh = nullptr;
     InitialLocalPose.Reset();
-
-    // 모든 바디는 같은 씬에 생성한다.
-    PxScene* Scene = nullptr;
-
+    for (int32& Index : BoneIndices) Index = -1;
+    PxScene* Scene = TestFloor.IsValidBodyInstance() ? TestFloor.GetActorHandle().Actor->getScene() : nullptr;
     for (FBodyInstance& Body : Bodies)
+        if (!Scene && Body.IsValidBodyInstance()) Scene = Body.GetActorHandle().Actor->getScene();
+
+    const auto Release = [this]()
     {
-        if (Body.IsValidBodyInstance())
+        for (PxD6Joint*& Joint : Joints)
         {
-            Scene = Body.GetActorHandle().Actor->getScene();
-            if (Scene)
-            {
-                break;
-            }
+            if (Joint) Joint->release();
+            Joint = nullptr;
         }
-    }
-
-    if (!Scene && TestFloor.IsValidBodyInstance())
-    {
-        Scene = TestFloor.GetActorHandle().Actor->getScene();
-    }
-
-    const auto ReleaseObjects = [this]()
-        {
-            if (ShoulderJoint)
-            {
-                ShoulderJoint->release();
-                ShoulderJoint = nullptr;
-            }
-
-            // 관절이 바디를 참조하므로 관절부터 해제한다.
-            if (ElbowJoint)
-            {
-                ElbowJoint->release();
-                ElbowJoint = nullptr;
-            }
-
-            for (FBodyInstance& Body : Bodies)
-            {
-                Body.TermBody();
-            }
-
-            TestFloor.TermBody();
-        };
-
+        for (FBodyInstance& Body : Bodies) Body.TermBody();
+        if (Aggregate) Aggregate->release();
+        Aggregate = nullptr;
+        TestFloor.TermBody();
+    };
     if (Scene)
     {
         PxSceneWriteLock Lock(*Scene);
-        ReleaseObjects();
+        Release();
     }
-    else
-    {
-        ReleaseObjects();
-    }
-}
-
-void FHardcodedRagdoll::DrawDebug(FLineBatcher& Lines) const
-{
-    if (!bBuilt)
-    {
-        return;
-    }
-
-    PxScene* Scene = Bodies[0].GetActorHandle().Actor->getScene();
-
-    if (!Scene)
-    {
-        return;
-    }
-
-    PxSceneReadLock Lock(*Scene);
-
-    const auto DrawBody = [&Lines](const FBodyInstance& Body, const FVector& HalfExtent, const FVector4& Color)
-        {
-            const PxTransform Pose = Body.GetActorHandle().Actor->getGlobalPose();
-
-            FTransform Transform;
-            Transform.Location = P2UVector(Pose.p);
-            Transform.Rotation = P2UQuat(Pose.q);
-
-            const FBox LocalBox{ HalfExtent * -1.0f, HalfExtent};
-
-            Lines.AddOrientedBox(LocalBox, Transform.GetLocalMatrix(), Color);
-        };
-
-    DrawBody(Bodies[0], HalfExtents[0], FVector4(1.0f, 0.4f, 0.1f, 1.0f));
-
-    DrawBody(Bodies[1], HalfExtents[1], FVector4(0.1f, 0.8f, 1.0f, 1.0f));
-
-    DrawBody(TestFloor, FloorHalfExtent, FVector4(0.4f, 1.0f, 0.4f, 1.0f));
-
-    if (ShoulderJoint)
-    {
-        // actor0은 nullptr이므로 이 프레임은 월드 기준이다.
-        const PxTransform FixedAnchor = ShoulderJoint->getLocalPose(PxJointActorIndex::eACTOR0);
-
-        // actor1은 위팔 바디이므로 월드로 변환한다.
-        const PxTransform UpperAnchor = Bodies[0].GetActorHandle().Actor->getGlobalPose() * ShoulderJoint->getLocalPose(PxJointActorIndex::eACTOR1);
-
-        const FVector FixedPosition = P2UVector(FixedAnchor.p);
-        const FVector UpperPosition = P2UVector(UpperAnchor.p);
-
-        const float Radius = std::max(0.02f, HalfExtents[0].X * 0.1f);
-
-        // 고정된 어깨 위치: 자홍색
-        Lines.AddSphere(FixedPosition, Radius, FVector4(1.0f, 0.0f, 1.0f, 1.0f));
-
-        // 실제 위팔의 어깨 연결점: 흰색
-        Lines.AddSphere(UpperPosition, Radius * 0.7f, FVector4(1.0f, 1.0f, 1.0f, 1.0f));
-
-        Lines.AddLine(FixedPosition, UpperPosition, FVector4(1.0f, 0.0f, 1.0f, 1.0f));
-    }
-
-    if (ElbowJoint)
-    {
-        const PxTransform Anchor0 = Bodies[0].GetActorHandle().Actor->getGlobalPose() * ElbowJoint->getLocalPose(PxJointActorIndex::eACTOR0);
-
-        const PxTransform Anchor1 = Bodies[1].GetActorHandle().Actor->getGlobalPose() * ElbowJoint->getLocalPose(PxJointActorIndex::eACTOR1);
-
-        const FVector4 Color(1.0f, 1.0f, 0.0f, 1.0f);
-
-        Lines.AddSphere(P2UVector(Anchor0.p), 0.02f, Color);
-        Lines.AddSphere(P2UVector(Anchor1.p), 0.02f, Color);
-        Lines.AddLine(P2UVector(Anchor0.p), P2UVector(Anchor1.p), Color);
-    }
+    else Release();
 }
 
 void FHardcodedRagdoll::ApplyToMesh(USkeletalMeshComponent& Mesh)
 {
-    if (!bBuilt)
+    if (!bBuilt) return;
+    // 실행 도중 메시가 교체되면 이전 스켈레톤의 본 인덱스를 사용하지 않는다.
+    if (Mesh.GetSkeletalMesh() != SourceMesh)
     {
+        Clear();
         return;
     }
-
     const auto& Bones = Mesh.GetBones();
-    const int32 NumBones = Bones.Num();
-
-    if (NumBones == 0 || InitialLocalPose.Num() != NumBones)
-    {
-        return;
-    }
-
-    // 테스트 도중 스켈레톤이 바뀌는 경우를 방어한다.
-    for (int32 I = 0; I < 2; ++I)
-    {
-        if (BoneIndices[I] < 0 || BoneIndices[I] >= NumBones)
-        {
-            return;
-        }
-    }
-
+    if (InitialLocalPose.Num() != Bones.Num()) return;
     PxScene* Scene = Bodies[0].GetActorHandle().Actor->getScene();
-
-    if (!Scene)
-    {
-        return;
-    }
-
-    // PhysX에서는 현재 두 바디의 자세만 읽는다.
-    FMatrix TargetBoneWorld[2];
-
+    if (!Scene) return;
+    FMatrix TargetComponent[BodyCount];
+    const FMatrix WorldToComponent = Mesh.GetWorldMatrix().Inverse();
     {
         PxSceneReadLock Lock(*Scene);
-
-        for (int32 I = 0; I < 2; ++I)
-        {
-            const PxTransform BodyPose = Bodies[I].GetActorHandle().Actor->getGlobalPose();
-
-            const FMatrix BodyWorld = BodyPoseToMatrix(BodyPose);
-
-            TargetBoneWorld[I] = BoneInBody[I] * BodyWorld;
-        }
-    }
-
-    // 월드 → 메시 컴포넌트 공간
-    const FMatrix WorldToComponent = Mesh.GetWorldMatrix().Inverse();
-
-    FMatrix TargetBoneComponent[2];
-
-    for (int32 I = 0; I < 2; ++I)
-    {
-        TargetBoneComponent[I] = TargetBoneWorld[I] * WorldToComponent;
+        for (int32 I = 0; I < BodyCount; ++I)
+            TargetComponent[I] = BoneInBody[I] * BodyPoseToMatrix(Bodies[I].GetActorHandle().Actor->getGlobalPose()) * WorldToComponent;
     }
 
     FCompactPose Result;
-    Result.SetNumBones(NumBones);
-
-    TArray<FMatrix> NewComponentMatrices;
-    NewComponentMatrices.SetNum(NumBones);
-
-    // 현재 스켈레톤은 부모 본이 자식보다 앞에 있다.
-    // 따라서 부모부터 최종 자세를 계산할 수 있다.
-    for (int32 BoneIndex = 0; BoneIndex < NumBones; ++BoneIndex)
+    Result.SetNumBones(Bones.Num());
+    TArray<FMatrix> NewComponent;
+    NewComponent.SetNum(Bones.Num());
+    for (int32 Bone = 0; Bone < Bones.Num(); ++Bone)
     {
-        const int32 ParentIndex = Bones[BoneIndex].ParentIndex;
-
-        const FMatrix ParentComponent = ParentIndex >= 0 ? NewComponentMatrices[ParentIndex] : FMatrix::Identity;
-
-        FTransform Local = InitialLocalPose[BoneIndex];
-
-        int32 BodyIndex = -1;
-
-        if (BoneIndex == BoneIndices[0])
+        const int32 Parent = Bones[Bone].ParentIndex;
+        const FMatrix ParentComponent = Parent >= 0 ? NewComponent[Parent] : FMatrix::Identity;
+        FTransform Local = InitialLocalPose[Bone];
+        for (int32 I = 0; I < BodyCount; ++I)
         {
-            BodyIndex = 0;
-        }
-        else if (BoneIndex == BoneIndices[1])
-        {
-            BodyIndex = 1;
-        }
-
-        if (BodyIndex >= 0)
-        {
-            const FMatrix LocalMatrix = TargetBoneComponent[BodyIndex] * ParentComponent.Inverse();
-
-            if (!MatrixToTransform(LocalMatrix, Local))
+            if (BoneIndices[I] != Bone) continue;
+            if (!MatrixToTransform(TargetComponent[I] * ParentComponent.Inverse(), Local))
             {
+                if (!bPoseErrorLogged) KRS_LOG(Warning, "[Ragdoll] Cannot convert physics pose for {}; check uniform scale", Bones[Bone].Name);
+                bPoseErrorLogged = true;
                 return;
             }
+            break;
         }
-
-        Result[BoneIndex] = Local;
-
-        NewComponentMatrices[BoneIndex] =  Local.GetLocalMatrix() * ParentComponent;
+        Result[Bone] = Local;
+        NewComponent[Bone] = Local.GetLocalMatrix() * ParentComponent;
     }
-
     Mesh.SetBoneSpaceTransforms(Result);
+}
+
+void FHardcodedRagdoll::DrawDebug(FLineBatcher& Lines) const
+{
+    if (!bBuilt) return;
+    PxScene* Scene = Bodies[0].GetActorHandle().Actor->getScene();
+    if (!Scene) return;
+    PxSceneReadLock Lock(*Scene);
+    const auto DrawBody = [&Lines](const FBodyInstance& Body, const FVector& Extent, const FVector4& Color)
+    {
+        const FMatrix World = BodyPoseToMatrix(Body.GetActorHandle().Actor->getGlobalPose());
+        Lines.AddOrientedBox(FBox{ Extent * -1.0f, Extent }, World, Color);
+    };
+    for (int32 I = 0; I < BodyCount; ++I)
+    {
+        const FVector4 Color = I < 3 ? FVector4(0.9f, 0.2f, 0.9f, 1.0f) : (I < 9 ? FVector4(1.0f, 0.5f, 0.1f, 1.0f) : FVector4(0.1f, 0.8f, 1.0f, 1.0f));
+        DrawBody(Bodies[I], HalfExtents[I], Color);
+    }
+    DrawBody(TestFloor, FloorHalfExtent, FVector4(0.4f, 1.0f, 0.4f, 1.0f));
+    for (int32 I = 1; I < BodyCount; ++I)
+    {
+        const PxTransform ParentAnchor = Bodies[Definitions[I].ParentBody].GetActorHandle().Actor->getGlobalPose() * Joints[I - 1]->getLocalPose(PxJointActorIndex::eACTOR0);
+        const PxTransform ChildAnchor = Bodies[I].GetActorHandle().Actor->getGlobalPose() * Joints[I - 1]->getLocalPose(PxJointActorIndex::eACTOR1);
+        const FVector4 Color(1.0f, 1.0f, 0.0f, 1.0f);
+        Lines.AddSphere(P2UVector(ParentAnchor.p), DebugRadius, Color);
+        Lines.AddLine(P2UVector(ParentAnchor.p), P2UVector(ChildAnchor.p), Color);
+    }
 }

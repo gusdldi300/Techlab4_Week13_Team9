@@ -1,56 +1,41 @@
 #pragma once
 
 #include "Physics/BodyInstance.h"
-#include "Core/EngineString.h"
 #include "Math/Matrix.h"
 #include "Math/Transform.h"
 
 class USkeletalMeshComponent;
+class USkeletalMesh;
 class FLineBatcher;
+namespace physx { class PxD6Joint; class PxAggregate; }
 
-namespace physx
-{
-    class PxD6Joint;
-}
-
+// Mixamo 계열 캐릭터의 전신 바디와 관절을 직접 지정하는 첫 래그돌 실험이다.
 class FHardcodedRagdoll
 {
 public:
     FHardcodedRagdoll() = default;
     ~FHardcodedRagdoll();
-
     FHardcodedRagdoll(const FHardcodedRagdoll&) = delete;
     FHardcodedRagdoll& operator=(const FHardcodedRagdoll&) = delete;
 
-    bool Build(USkeletalMeshComponent& Mesh, const FString& UpperArmBone, const FString& ForeArmBone, const FString& HandBone);
-
+    bool Build(USkeletalMeshComponent& Mesh);
     void Clear();
     void DrawDebug(FLineBatcher& Lines) const;
-
     void ApplyToMesh(USkeletalMeshComponent& Mesh);
 
 private:
-    // [0] 위팔, [1] 아래팔
-    FBodyInstance Bodies[2];
-
-    // 이번 예제만을 위한 별도 바닥
+    static constexpr int32 BodyCount = 15;
+    FBodyInstance Bodies[BodyCount];
     FBodyInstance TestFloor;
-
-    physx::PxD6Joint* ElbowJoint = nullptr;
-    physx::PxD6Joint* ShoulderJoint = nullptr;
-
-    // 디버그 박스를 그릴 때 사용
-    FVector HalfExtents[2];
+    physx::PxD6Joint* Joints[BodyCount - 1] = {};
+    physx::PxAggregate* Aggregate = nullptr;
+    FVector HalfExtents[BodyCount];
     FVector FloorHalfExtent;
-
-    bool bBuilt = false;
-
-    // Bodies[0], Bodies[1]에 대응하는 본 인덱스
-    int32 BoneIndices[2] = { -1, -1 };
-
-    // 각 본을 해당 바디 기준으로 표현한 변환
-    FMatrix BoneInBody[2];
-
-    // 물리 바디가 없는 본은 시작 시점의 로컬 자세를 유지한다.
+    int32 BoneIndices[BodyCount] = {};
+    FMatrix BoneInBody[BodyCount];
     TArray<FTransform> InitialLocalPose;
+    const USkeletalMesh* SourceMesh = nullptr;
+    float DebugRadius = 0.02f;
+    bool bBuilt = false;
+    bool bPoseErrorLogged = false;
 };

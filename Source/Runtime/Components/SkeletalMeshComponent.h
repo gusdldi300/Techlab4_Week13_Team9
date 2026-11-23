@@ -77,20 +77,9 @@ public:
 	// 디버그: root 본 구체 + 액터 위치(root 높이)에서 root까지의 선
 	void DrawRootDebug(FLineBatcher* LineBatcher) const;
 
-	////////////////////
-	// 테스트 대상 메시에서만 켠다.
+	// 켜면 BeginPlay에서 Mixamo 계열 본에 하드코딩 전신 래그돌을 생성한다.
 	UPROPERTY(EditAnywhere)
 	bool bTestHardcodedRagdoll = false;
-
-	// 아래 이름은 예시다. 실제 모델의 본 이름으로 바꿔야 한다.
-	UPROPERTY(EditAnywhere)
-	FString TestUpperArmBone = "mixamorig:LeftArm";
-
-	UPROPERTY(EditAnywhere)
-	FString TestForeArmBone = "mixamorig:LeftForeArm";
-
-	UPROPERTY(EditAnywhere)
-	FString TestHandBone = "mixamorig:LeftHand";
 
 	void EndPlay() override;
 

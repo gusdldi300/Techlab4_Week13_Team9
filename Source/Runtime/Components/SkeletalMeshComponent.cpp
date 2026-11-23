@@ -69,8 +69,6 @@ void USkeletalMeshComponent::BeginPlay()
 		}
 	}
 
-	/////// hadrdcoding ragdoll 추가
-
 	if (bTestHardcodedRagdoll)
 	{
 		// 첫 실험에서는 기준 자세에서 바디를 배치한다.
@@ -79,9 +77,12 @@ void USkeletalMeshComponent::BeginPlay()
 
 		HardcodedRagdoll = MakeUnique<FHardcodedRagdoll>();
 
-		if (!HardcodedRagdoll->Build(*this, TestUpperArmBone, TestForeArmBone, TestHandBone))
+		// 일반 컴포넌트 바디 대신 본별 바디를 사용해 컴포넌트 전체의 중복 이동을 방지한다.
+		DestroyPhysicsState();
+		if (!HardcodedRagdoll->Build(*this))
 		{
 			HardcodedRagdoll.reset();
+			CreatePhysicsState();
 		}
 	}
 
