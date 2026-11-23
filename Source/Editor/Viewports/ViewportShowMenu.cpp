@@ -20,6 +20,7 @@ void FViewportsPanel::DrawShowMenu()
         Settings.bDrawPrimitives = Defaults.bDrawPrimitives;
         Settings.bShowSkeletalMesh = Defaults.bShowSkeletalMesh;
         Settings.bShowParticles = Defaults.bShowParticles;
+        Settings.bShowPhysicsBodies = Defaults.bShowPhysicsBodies;
         Settings.bDrawDecals = Defaults.bDrawDecals;
         Settings.bDrawBatchLine = Defaults.bDrawBatchLine;
         Settings.bDrawBoundingBox = Defaults.bDrawBoundingBox;
@@ -70,6 +71,7 @@ void FViewportsPanel::DrawShowMenu()
     Flag("Decals", "Decals", Settings.bDrawDecals);
     Flag("Grid", "Grid", Settings.bDrawBatchLine);
     Flag("Particles", "Particles", Settings.bShowParticles);
+    Flag("Collision", "Physics Bodies", Settings.bShowPhysicsBodies);
     Flag("SkeletalMesh", "Skeletal Meshes", Settings.bShowSkeletalMesh);
     Flag("StaticMesh", "Static Meshes", Settings.bDrawPrimitives);
     SectionHeader("Developer");
