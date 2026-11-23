@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <iterator>
+#include <string>
 #include <utility>
 
 bool FDepthOfFieldRenderer::Init()
@@ -15,6 +16,7 @@ bool FDepthOfFieldRenderer::Init()
     {
         "EngineResources/Shaders/DepthOfField/CoC.hlsl",
         "EngineResources/Shaders/DepthOfField/Downsample.hlsl",
+        "EngineResources/Shaders/DepthOfField/LayerPyramid.hlsl",
         "EngineResources/Shaders/DepthOfField/DilateNearHorizontal.hlsl",
         "EngineResources/Shaders/DepthOfField/DilateNearVertical.hlsl",
         "EngineResources/Shaders/DepthOfField/FarBokeh.hlsl",
@@ -65,8 +67,8 @@ FDepthOfFieldData FDepthOfFieldRenderer::BuildData(const FSceneView& View, uint3
 
     float MaximumRadius = Quality.MaxBlurRadiusFullResolutionPixels;
     SanitizeFloat(MaximumRadius, 1.0f, 256.0f, 64.0f);
-    const uint32 NearSamples = std::clamp(Quality.NearSampleCount, 8u, 64u);
-    const uint32 FarSamples = std::clamp(Quality.FarSampleCount, 8u, 64u);
+    const uint32 NearSamples = std::clamp(Quality.NearSampleCount, 8u, 256u);
+    const uint32 FarSamples = std::clamp(Quality.FarSampleCount, 8u, 256u);
 
     const float MetersPerWorldUnit = 0.01f * WorldToCm;
     FDepthOfFieldData Data{};
@@ -95,6 +97,35 @@ bool FDepthOfFieldRenderer::CreateResources(FRenderGraphBuilder& Graph, uint32 W
     OutResources.FarColor = Graph.CreateTexture({ HalfWidth, HalfHeight, ETextureFormat::R16G16B16A16_Float }, "DOF.FarColor");
     OutResources.NearParams = Graph.CreateTexture({ HalfWidth, HalfHeight, ETextureFormat::R32G32_Float }, "DOF.NearParams");
     OutResources.FarParams = Graph.CreateTexture({ HalfWidth, HalfHeight, ETextureFormat::R32G32_Float }, "DOF.FarParams");
+
+    uint32 LevelWidth = HalfWidth;
+    uint32 LevelHeight = HalfHeight;
+    FRenderGraphTextureRef PreviousNearColor = OutResources.NearColor;
+    FRenderGraphTextureRef PreviousNearParams = OutResources.NearParams;
+    FRenderGraphTextureRef PreviousFarColor = OutResources.FarColor;
+    FRenderGraphTextureRef PreviousFarParams = OutResources.FarParams;
+
+    for (uint32 Level = 0; Level < DOFPyramidLevelCount; ++Level)
+    {
+        // 1×1 이후에는 마지막 텍스처를 공유한다.
+        if (LevelWidth != 1 || LevelHeight != 1)
+        {
+            LevelWidth = LevelWidth / 2 + LevelWidth % 2;
+            LevelHeight = LevelHeight / 2 + LevelHeight % 2;
+            const std::string Suffix = std::to_string(Level + 1);
+            PreviousNearColor = Graph.CreateTexture({ LevelWidth, LevelHeight, ETextureFormat::R16G16B16A16_Float }, ("DOF.NearColorPyramid" + Suffix).c_str());
+            PreviousNearParams = Graph.CreateTexture({ LevelWidth, LevelHeight, ETextureFormat::R32G32_Float }, ("DOF.NearParamsPyramid" + Suffix).c_str());
+            PreviousFarColor = Graph.CreateTexture({ LevelWidth, LevelHeight, ETextureFormat::R16G16B16A16_Float }, ("DOF.FarColorPyramid" + Suffix).c_str());
+            PreviousFarParams = Graph.CreateTexture({ LevelWidth, LevelHeight, ETextureFormat::R32G32_Float }, ("DOF.FarParamsPyramid" + Suffix).c_str());
+            if (!PreviousNearColor || !PreviousNearParams || !PreviousFarColor || !PreviousFarParams)
+                return false;
+        }
+
+        OutResources.NearColorPyramid[Level] = PreviousNearColor;
+        OutResources.NearParamsPyramid[Level] = PreviousNearParams;
+        OutResources.FarColorPyramid[Level] = PreviousFarColor;
+        OutResources.FarParamsPyramid[Level] = PreviousFarParams;
+    }
     OutResources.NearSpreadHorizontal = Graph.CreateTexture({ HalfWidth, HalfHeight, ETextureFormat::R16_Float }, "DOF.NearSpreadHorizontal");
     OutResources.NearSpreadRadius = Graph.CreateTexture({ HalfWidth, HalfHeight, ETextureFormat::R16_Float }, "DOF.NearSpreadRadius");
     OutResources.NearBokeh = Graph.CreateTexture({ HalfWidth, HalfHeight, ETextureFormat::R16G16B16A16_Float }, "DOF.NearBokeh");
@@ -108,12 +139,13 @@ bool FDepthOfFieldRenderer::CreateResources(FRenderGraphBuilder& Graph, uint32 W
         OutResources.NearBokeh && OutResources.FarBokeh && OutResources.CompositeHDR;
 }
 
-bool FDepthOfFieldRenderer::AddStage(FRenderGraphBuilder& Graph, EPass Stage, const FDepthOfFieldData& Data, std::initializer_list<FRenderGraphTextureRef> Inputs, std::initializer_list<FRenderGraphTextureRef> Outputs)
+bool FDepthOfFieldRenderer::AddStage(FRenderGraphBuilder& Graph, EPass Stage, const FDepthOfFieldData& Data, std::vector<FRenderGraphTextureRef> Inputs, std::initializer_list<FRenderGraphTextureRef> Outputs)
 {
     static constexpr const char* PassNames[] =
     {
         "DOF.CoC",
         "DOF.Downsample",
+        "DOF.LayerPyramid",
         "DOF.DilateNearHorizontal",
         "DOF.DilateNearVertical",
         "DOF.FarBokeh",
@@ -125,7 +157,7 @@ bool FDepthOfFieldRenderer::AddStage(FRenderGraphBuilder& Graph, EPass Stage, co
     const size_t PassIndex = static_cast<size_t>(Stage);
     FRenderGraphRasterPassDesc Pass{};
     Pass.Name = PassNames[PassIndex];
-    Pass.ReadTextures.assign(Inputs.begin(), Inputs.end());
+    Pass.ReadTextures = std::move(Inputs);
 
     for (FRenderGraphTextureRef Output : Outputs)
     {
@@ -184,6 +216,32 @@ bool FDepthOfFieldRenderer::AddPasses(FRenderGraphBuilder& Graph, const FSceneVi
     if (!AddStage(Graph, EPass::Downsample, Data, { SceneHDR, Resources.LinearDepth, Resources.CoCAndDepthBlur }, { Resources.NearColor, Resources.FarColor, Resources.NearParams, Resources.FarParams }))
         return false;
 
+    FRenderGraphTextureRef PreviousNearColor = Resources.NearColor;
+    FRenderGraphTextureRef PreviousNearParams = Resources.NearParams;
+    FRenderGraphTextureRef PreviousFarColor = Resources.FarColor;
+    FRenderGraphTextureRef PreviousFarParams = Resources.FarParams;
+
+    for (uint32 Level = 0; Level < DOFPyramidLevelCount; ++Level)
+    {
+        // 1×1 이후 공유 핸들에는 같은 텍스처로 쓰는 패스를 등록하지 않는다.
+        if (PreviousNearColor.Index != Resources.NearColorPyramid[Level].Index)
+        {
+            if (!AddStage(Graph, EPass::LayerPyramid, Data, { PreviousNearColor, PreviousNearParams }, { Resources.NearColorPyramid[Level], Resources.NearParamsPyramid[Level] }))
+                return false;
+        }
+
+        if (PreviousFarColor.Index != Resources.FarColorPyramid[Level].Index)
+        {
+            if (!AddStage(Graph, EPass::LayerPyramid, Data, { PreviousFarColor, PreviousFarParams }, { Resources.FarColorPyramid[Level], Resources.FarParamsPyramid[Level] }))
+                return false;
+        }
+
+        PreviousNearColor = Resources.NearColorPyramid[Level];
+        PreviousNearParams = Resources.NearParamsPyramid[Level];
+        PreviousFarColor = Resources.FarColorPyramid[Level];
+        PreviousFarParams = Resources.FarParamsPyramid[Level];
+    }
+
     // 탐색 범위는 보수적으로 확장하고 실제 기여는 보케 패스에서 판단한다.
     if (!AddStage(Graph, EPass::DilateNearHorizontal, Data, { Resources.NearParams }, { Resources.NearSpreadHorizontal }))
         return false;
@@ -191,10 +249,24 @@ bool FDepthOfFieldRenderer::AddPasses(FRenderGraphBuilder& Graph, const FSceneVi
     if (!AddStage(Graph, EPass::DilateNearVertical, Data, { Resources.NearSpreadHorizontal }, { Resources.NearSpreadRadius }))
         return false;
 
-    if (!AddStage(Graph, EPass::FarBokeh, Data, { Resources.FarColor, Resources.FarParams, Resources.LinearDepth, Resources.CoCAndDepthBlur }, { Resources.FarBokeh }))
+    // t0~t9는 색상, t10~t19는 대응하는 메타데이터다.
+    std::vector<FRenderGraphTextureRef> NearInputs{ Resources.NearColor };
+    std::vector<FRenderGraphTextureRef> FarInputs{ Resources.FarColor };
+    NearInputs.insert(NearInputs.end(), Resources.NearColorPyramid.begin(), Resources.NearColorPyramid.end());
+    FarInputs.insert(FarInputs.end(), Resources.FarColorPyramid.begin(), Resources.FarColorPyramid.end());
+    NearInputs.push_back(Resources.NearParams);
+    FarInputs.push_back(Resources.FarParams);
+    NearInputs.insert(NearInputs.end(), Resources.NearParamsPyramid.begin(), Resources.NearParamsPyramid.end());
+    FarInputs.insert(FarInputs.end(), Resources.FarParamsPyramid.begin(), Resources.FarParamsPyramid.end());
+    NearInputs.push_back(Resources.NearSpreadRadius);
+    FarInputs.push_back(Resources.FarParams);
+    NearInputs.push_back(Resources.LinearDepth);
+    FarInputs.push_back(Resources.LinearDepth);
+
+    if (!AddStage(Graph, EPass::FarBokeh, Data, std::move(FarInputs), { Resources.FarBokeh }))
         return false;
 
-    if (!AddStage(Graph, EPass::NearBokeh, Data, { Resources.NearColor, Resources.NearParams, Resources.NearSpreadRadius, Resources.LinearDepth }, { Resources.NearBokeh }))
+    if (!AddStage(Graph, EPass::NearBokeh, Data, std::move(NearInputs), { Resources.NearBokeh }))
         return false;
 
     // 원본 HDR은 최종 합성까지 읽기 전용으로 유지한다.
