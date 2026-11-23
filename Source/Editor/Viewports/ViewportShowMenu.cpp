@@ -43,6 +43,7 @@ void FViewportsPanel::DrawShowMenu()
             { "Decal", "stat decal", EStatFlags::Decal },
             { "Skinning", "stat skinning", EStatFlags::Skinning },
             { "Particle", "stat particle", EStatFlags::Particle },
+            { "Physics", "stat physics", EStatFlags::Physics },
         };
         FString Message;
         if (IconMenuItem(nullptr, "Hide All", false, EIndicator::None))

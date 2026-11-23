@@ -69,7 +69,14 @@ namespace
 		return FPaths::EngineContentPrefix + Key;
 	}
 
-	UStaticMesh* CreateStaticMesh(const FStaticMeshData* MeshData)
+	// 메시 파일 옆에 두는 물리 설계도 파일 경로. 예: "Chair.obj" → "Chair.obj.bodysetup"
+	FString GetBodySetupPath(const FString& AssetPath)
+	{
+		return FAssetUtils::ResolveAssetFilePath(AssetPath) + ".bodysetup";
+	}
+
+	// BodySetupPath가 비어 있으면(엔진 기본 메시) 바운드 박스로 BodySetup을 만든다.
+	UStaticMesh* CreateStaticMesh(const FStaticMeshData* MeshData, const FString& BodySetupPath = {})
 	{
 		if (!MeshData || !MeshData->Vertices.Num() || !MeshData->Indices.Num())
 			return nullptr;
@@ -138,6 +145,10 @@ namespace
 		{
 			FLoadStageTimer Timer{ "Mesh/RebuildRenderData" };
 			Mesh->RebuildRenderData();
+		}
+		{
+			FLoadStageTimer Timer{ "Mesh/CreateBodySetup" };
+			Mesh->CreateBodySetup(BodySetupPath);
 		}
 
 		return Mesh;
@@ -620,7 +631,7 @@ UStaticMesh* UAssetManager::LoadObjStaticMesh(const FString& Path)
 	FLoadStageTimer ReadTimer{ "Mesh/ReadBakedOrCook" };
 	TUniquePtr<FStaticMeshData> Data = FObjImporter::LoadStaticMeshData(FAssetUtils::ResolveAssetFilePath(Path));
 	ReadTimer.Stop();
-	UStaticMesh* Mesh = CreateStaticMesh(Data.get());   // Data가 nullptr이면 nullptr 반환
+	UStaticMesh* Mesh = CreateStaticMesh(Data.get(), GetBodySetupPath(Path));   // Data가 nullptr이면 nullptr 반환
 	if (!Mesh)
 	{
 		return nullptr;
@@ -643,7 +654,7 @@ URenderAsset* UAssetManager::LoadFbxMesh(const FString& Path, FString& OutError)
 		return nullptr;
 	}
 	URenderAsset* Asset = nullptr;
-	if (Data.Kind == EFbxMeshKind::Static) Asset = CreateStaticMesh(&Data.StaticMesh);
+	if (Data.Kind == EFbxMeshKind::Static) Asset = CreateStaticMesh(&Data.StaticMesh, GetBodySetupPath(Path));
 	else
 	{
 		auto* Mesh = NewObject<USkeletalMesh>();

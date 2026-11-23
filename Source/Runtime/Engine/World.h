@@ -16,7 +16,9 @@
 #include "Render/SceneRenderData.h"
 #include "Script/CoroutineScheduler.h"
 #include <functional>
+#include "Physics/PhysicsScene.h"
 #include "World.generated.h"
+
 
 class ULevel;
 class FLineBatcher;
@@ -127,6 +129,9 @@ public:
 	bool IsPlayInEditor() const { return WorldType == EWorldType::PIE; }
 	bool IsGameWorld() const { return WorldType == EWorldType::Game || WorldType == EWorldType::PIE; }
 
+	// 게임 월드(Game, PIE)에만 있다. 에디터·프리뷰 월드는 nullptr이다.
+	FPhysicsScene* GetPhysicsScene() const { return PhysicsScene.get(); }
+
 	static UWorld* GetDuplicatedWorldForPIE(UWorld* InWorld);
 
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
@@ -179,6 +184,8 @@ private:
 	TArray<ULevel*> Levels;
 
 	FScene Scene;
+	//물리 계산을 위한 물리엔진의 Scene, 
+	std::unique_ptr<FPhysicsScene> PhysicsScene;
 
 	// Slomo-hitstop
 	float GlobalTimeDilation = 1.0f;

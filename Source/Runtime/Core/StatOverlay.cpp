@@ -105,11 +105,13 @@ bool FStatOverlay::ExecCommand(const FString& CommandLine, FString& OutMessage)
 		Target = EStatFlags::Skinning;
 	else if (EqualsIgnoreCase(Arg, "particle"))
 		Target = EStatFlags::Particle;
+	else if (EqualsIgnoreCase(Arg, "physics"))
+		Target = EStatFlags::Physics;
 
 
 	if (Target == EStatFlags::None)
 	{
-		OutMessage = std::format("stat: unknown stat '{}'. Available: fps, memory, profile, light, decal, skinning, particle, all, none", Arg);
+		OutMessage = std::format("stat: unknown stat '{}'. Available: fps, memory, profile, light, decal, skinning, particle, physics, all, none", Arg);
 		return true;
 	}
 
