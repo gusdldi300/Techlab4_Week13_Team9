@@ -2,6 +2,7 @@
 
 #include "SkinnedMeshComponent.h"
 #include "Animation/AnimInstance.h"
+#include "Physics/HardcodedRagdoll.h"
 #include "SkeletalMeshComponent.generated.h"
 
 class UAnimInstance;
@@ -17,6 +18,7 @@ extern bool GShowSkeletalRootDebug;
 class UAnimationAsset;
 class UAnimSingleNodeInstance;
 class UAnimGraphInstance;
+void DrawHardcodedRagdolls(UWorld* World, FLineBatcher* LineBatcher);
 
 UCLASS()
 class USkeletalMeshComponent : public USkinnedMeshComponent
@@ -75,12 +77,33 @@ public:
 	// 디버그: root 본 구체 + 액터 위치(root 높이)에서 root까지의 선
 	void DrawRootDebug(FLineBatcher* LineBatcher) const;
 
+	////////////////////
+	// 테스트 대상 메시에서만 켠다.
+	UPROPERTY(EditAnywhere)
+	bool bTestHardcodedRagdoll = false;
+
+	// 아래 이름은 예시다. 실제 모델의 본 이름으로 바꿔야 한다.
+	UPROPERTY(EditAnywhere)
+	FString TestUpperArmBone = "mixamorig:LeftArm";
+
+	UPROPERTY(EditAnywhere)
+	FString TestForeArmBone = "mixamorig:LeftForeArm";
+
+	UPROPERTY(EditAnywhere)
+	FString TestHandBone = "mixamorig:LeftHand";
+
+	void EndPlay() override;
+
+	void DrawHardcodedRagdollDebug(FLineBatcher* Lines) const;
+
+
 protected:
 	// 단일 애니메이션 에셋 경로/루프/재생 속도를 씬에 저장·복원한다 (Serialize에서 부른다)
 	void SerializeSingleAnimation(FStructuredArchive::FRecord& Record);
 
 	void RefreshBoneTransforms() override;
 	void OnSkeletalMeshChanged() override;
+	void OnUnregister() override;
 
 private:
     UPROPERTY()
@@ -98,4 +121,6 @@ private:
 
 	FTransform PendingRootMotion;           // 월드 공간 누적값
 	bool bHasPendingRootMotion = false;
+
+	TUniquePtr<FHardcodedRagdoll> HardcodedRagdoll;
 };

@@ -19,6 +19,8 @@
 #include "Animation/BlendSpaceFile.h"
 #include "Asset/AssetManager.h"
 
+#include "Engine/World.h"
+
 void USkeletalMeshComponent::SetAnimInstance(UAnimInstance* InInstance)
 {
 	if (AnimInstance == InInstance)
@@ -66,6 +68,23 @@ void USkeletalMeshComponent::BeginPlay()
 			}
 		}
 	}
+
+	/////// hadrdcoding ragdoll 추가
+
+	if (bTestHardcodedRagdoll)
+	{
+		// 첫 실험에서는 기준 자세에서 바디를 배치한다.
+		ResetPose();
+		RefreshBoneTransformsNow();
+
+		HardcodedRagdoll = MakeUnique<FHardcodedRagdoll>();
+
+		if (!HardcodedRagdoll->Build(*this, TestUpperArmBone, TestForeArmBone, TestHandBone))
+		{
+			HardcodedRagdoll.reset();
+		}
+	}
+
 }
 
 void USkeletalMeshComponent::TickComponent(float DeltaTime)
@@ -76,7 +95,8 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
         ReloadAnimBlueprint();
     }
 
-	if (AnimInstance && GetSkeletalMesh())
+	// 이번 테스트가 실행되는 동안만 애니메이션 평가를 건너뛰어, 시작 자세와 떨어지는 바디를 비교하기 쉽게 한다.
+	if (AnimInstance && GetSkeletalMesh() && !HardcodedRagdoll)
 	{
         bUpdatingAnimation = true;
 		if (auto* Instance = Cast<UAnimSingleNodeInstance>(AnimInstance))
@@ -101,6 +121,12 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
 		}
         bUpdatingAnimation = false;
 	}
+
+	if (HardcodedRagdoll)
+	{
+		HardcodedRagdoll->ApplyToMesh(*this);
+	}
+
 	Super::TickComponent(DeltaTime);
 }
 
@@ -578,4 +604,43 @@ UAnimGraphInstance* USkeletalMeshComponent::CreateAnimGraph()
     SetAnimInstance(Instance.get());
     ManagedAnimGraph = std::move(Instance);
     return ManagedAnimGraph.get();
+}
+
+
+void USkeletalMeshComponent::EndPlay()
+{
+	HardcodedRagdoll.reset();
+	Super::EndPlay();
+}
+
+void USkeletalMeshComponent::OnUnregister()
+{
+	HardcodedRagdoll.reset();
+	Super::OnUnregister();
+}
+
+void USkeletalMeshComponent::DrawHardcodedRagdollDebug(FLineBatcher* Lines) const
+{
+	if (Lines && HardcodedRagdoll)
+	{
+		HardcodedRagdoll->DrawDebug(*Lines);
+	}
+}
+
+void DrawHardcodedRagdolls(UWorld* World, FLineBatcher* LineBatcher)
+{
+	if (!World || !LineBatcher)
+	{
+		return;
+	}
+
+	for (TObjectIterator<USkeletalMeshComponent> It; It; ++It)
+	{
+		USkeletalMeshComponent* Mesh = *It;
+
+		if (Mesh &&	Mesh->GetWorld() == World && Mesh->IsRegistered())
+		{
+			Mesh->DrawHardcodedRagdollDebug(LineBatcher);
+		}
+	}
 }
