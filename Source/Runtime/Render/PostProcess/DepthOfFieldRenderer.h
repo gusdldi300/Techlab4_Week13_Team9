@@ -5,6 +5,7 @@
 #include "Render/SceneView.h"
 #include "Render/RenderGraph/RenderGraph.h"
 #include "Render/PostProcess/DepthOfFieldData.h"
+#include "Render/PostProcess/DepthOfFieldViewSettings.h"
 
 #include <array>
 #include <initializer_list>
@@ -60,6 +61,8 @@ public:
     // 비활성이면 OutColor에 입력 HDR을 그대로 반환한다.
     bool AddPasses(FRenderGraphBuilder& Graph, const FSceneView& View, FRenderGraphTextureRef SceneHDR, FRenderGraphTextureRef SceneDepth, bool bEnabled, const FDepthOfFieldQualitySettings& Quality, FRenderGraphTextureRef& OutColor);
 
+    bool AddDebugPasses(FRenderGraphBuilder& Graph, const FSceneView& View, FRenderGraphTextureRef SceneDepth, FRenderGraphTextureRef OutputColor, const FDepthOfFieldQualitySettings& Quality, const FDepthOfFieldViewSettings& Settings);
+
 private:
     enum class EPass : uint8
     {
@@ -83,4 +86,6 @@ private:
 
     std::array<FPipelineState, PassCount> Pipelines;
     TUniquePtr<FConstantBuffer> ConstantBuffer;
+    FPipelineState DebugPipeline;
+    TUniquePtr<FConstantBuffer> DebugConstantBuffer;
 };

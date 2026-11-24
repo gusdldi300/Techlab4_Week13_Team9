@@ -1,4 +1,4 @@
-﻿#include "EnginePCH.h"
+#include "EnginePCH.h"
 #include "Render/SceneRenderer.h"
 #include "Render/Renderer.h"
 #include "Render/SceneLightResources.h"
@@ -36,6 +36,14 @@ DECLARE_CYCLE_STAT("Decal Draw", STAT_DecalDraw);
 
 namespace
 {
+	bool ShouldVisualizeDepthOfField(const FSceneView& View, const FSceneRenderOptions& Options)
+	{
+		const uint32 DebugIndex = static_cast<uint32>(Options.DepthOfField.DebugView);
+		const bool bValidDebugView = DebugIndex > 0 && DebugIndex < static_cast<uint32>(EDepthOfFieldDebugView::Count);
+
+		return Options.bEnableDepthOfField && Options.bDrawPrimitives && View.bIsPerspective && !View.bIsWireframe && bValidDebugView && !Options.bShowSceneDepth && !Options.bShowWorldNormal && !Options.bShowLightCulling && !Options.bShowCascade;
+	}
+
 	std::atomic<uint32> GCascadeCount{ 4 };
 	std::atomic<float> GCascadeLogRatio{ 0.8f };
 
@@ -697,6 +705,19 @@ bool FSceneRenderer::AddCorePasses(FRenderGraphBuilder& Graph, FRenderer* Render
 
 bool FSceneRenderer::AddHDRPostProcessPasses(FRenderGraphBuilder& Graph, FRenderer* Renderer, const FSceneRenderOptions& Options, const FScenePassCallbacks& Callbacks, FRenderGraphTextureRef LightingHDR, FRenderGraphTextureRef SceneColor, FRenderGraphTextureRef Depth)
 {
+	FDepthOfFieldRenderer* DepthOfField = Renderer->GetDepthOfField();
+	FSceneView DepthOfFieldView = View;
+
+	// 원본 카메라와 최종 투영 행렬은 유지하고 DOF 설정 사본만 바꾼다.
+	if (Options.DepthOfField.bOverrideCamera)
+		DepthOfFieldView.DepthOfFieldSettings = Options.DepthOfField.OverrideSettings;
+
+	if (ShouldVisualizeDepthOfField(View, Options))
+	{
+		const FDepthOfFieldQualitySettings Quality{};
+		return DepthOfField && DepthOfField->AddDebugPasses(Graph, DepthOfFieldView, Depth, SceneColor, Quality, Options.DepthOfField);
+	}
+
 	FPipelineState* ToneMapPipeline = FRenderResourceManager::GetPSO(EPSOType::ToneMap);
 	FConstantBuffer* ToneMapConstants = Renderer->GetToneMapConstants();
 	if (!ToneMapPipeline || !ToneMapPipeline->Shader ||
@@ -733,10 +754,11 @@ bool FSceneRenderer::AddHDRPostProcessPasses(FRenderGraphBuilder& Graph, FRender
 
 	FRenderGraphTextureRef PostProcessHDR = LightingHDR;
 	const bool bAllowDepthOfField = Options.bEnableDepthOfField && Options.bDrawPrimitives && !Options.bShowSceneDepth && !Options.bShowWorldNormal && !Options.bShowLightCulling && !Options.bShowCascade;
-	if (FDepthOfFieldRenderer* DepthOfField = Renderer->GetDepthOfField())
+	if (DepthOfField)
 	{
 		const FDepthOfFieldQualitySettings Quality{};
-		if (!DepthOfField->AddPasses(Graph, View, LightingHDR, Depth, bAllowDepthOfField, Quality, PostProcessHDR))
+		// override 적용 후에도 BuildData에서 최종 광학 값을 검증한다.
+		if (!DepthOfField->AddPasses(Graph, DepthOfFieldView, LightingHDR, Depth, bAllowDepthOfField, Quality, PostProcessHDR))
 			return false;
 	}
 
@@ -766,6 +788,7 @@ bool FSceneRenderer::AddViewportPasses(FRenderGraphBuilder& Graph, FRenderer* Re
 	FSceneViewTargets& Targets, const FSceneRenderOptions& Options,
 	const FScenePassCallbacks& Callbacks) // 뷰포트에 그려져야 되는 패스들을 옵션에 따라 정해진 순서로 Graph에 등록
 {
+	const bool bDepthOfFieldDebug = ShouldVisualizeDepthOfField(View, Options);
 	FSceneRenderOptions CoreOptions = Options;
 	if (Options.bShowLightCulling)
 	{
@@ -787,7 +810,7 @@ bool FSceneRenderer::AddViewportPasses(FRenderGraphBuilder& Graph, FRenderer* Re
 		if (!AddHDRPostProcessPasses(Graph, Renderer, Options, Callbacks, LightingHDR, SceneColor, Depth))
 			return false;
 	}
-	if (!Options.bShowWorldNormal && Callbacks.SceneText &&
+	if (!bDepthOfFieldDebug && !Options.bShowWorldNormal && Callbacks.SceneText &&
 		!Graph.AddRasterPass(MakeViewportPass("SceneText", SceneColor, Depth), Callbacks.SceneText))
 		return false;
 
@@ -798,7 +821,7 @@ bool FSceneRenderer::AddViewportPasses(FRenderGraphBuilder& Graph, FRenderer* Re
 		if (!Graph.AddRasterPass(std::move(Pass), Callbacks.DepthVisualization)) return false;
 	}
 
-	if (!Options.bShowWorldNormal && !Options.bShowSceneDepth &&
+	if (!bDepthOfFieldDebug && !Options.bShowWorldNormal && !Options.bShowSceneDepth &&
 		View.NeedsCameraOverlay(Options.bShowVignette, Options.bShowCameraOverlay))
 	{
 		const uint32 Width = Targets.SceneColor->GetWidth();
@@ -813,7 +836,7 @@ bool FSceneRenderer::AddViewportPasses(FRenderGraphBuilder& Graph, FRenderer* Re
 	}
 
 	FRenderGraphTextureRef FinalColor = SceneColor;
-	if (!Options.bShowWorldNormal && Callbacks.FXAAOutput && Callbacks.FXAA)
+	if (!bDepthOfFieldDebug && !Options.bShowWorldNormal && Callbacks.FXAAOutput && Callbacks.FXAA)
 	{
 		FinalColor = Graph.ImportTexture(Callbacks.FXAAOutput, "FXAAOutput");
 		if (!FinalColor) return false;
@@ -900,8 +923,7 @@ bool FSceneRenderer::Render(FRenderer* Renderer, FSceneViewTargets& Targets, con
 	Callbacks.SceneText = [this, Renderer] { RenderSceneText(Renderer); };
 
 	FFXAARenderer* FXAA = Renderer->GetFXAA();
-	const bool bUseFXAA = Options.bEnableFXAA && !Options.bShowSceneDepth &&
-		!Options.bShowWorldNormal && FXAA && FXAA->PrepareOutput(ColorTarget);
+	const bool bUseFXAA = Options.bEnableFXAA && !ShouldVisualizeDepthOfField(View, Options) && !Options.bShowSceneDepth && !Options.bShowWorldNormal && FXAA && FXAA->PrepareOutput(ColorTarget);
 	if (bUseFXAA)
 	{
 		Callbacks.FXAAOutput = FXAA->GetOutputTarget().get();

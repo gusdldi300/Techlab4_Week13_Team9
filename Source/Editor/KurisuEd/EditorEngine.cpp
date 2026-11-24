@@ -1074,6 +1074,8 @@ void UEditorEngine::Tick(const float DeltaTime)
 					const FEditorSettings& S = EditorSettings->GetSettings();
 					FSceneRenderOptions& ShowFlags = Context->GameViewport->EngineShowFlags;
 					ShowFlags.bEnableFXAA = S.bEnableFXAA;
+					ShowFlags.bEnableDepthOfField = S.bEnableDepthOfField;
+					ShowFlags.DepthOfField = S.DepthOfField;
 					ShowFlags.bCacheShadows = S.bCacheShadows;
 					ShowFlags.PcfMode = S.PcfMode;
 					ShowFlags.LightingModel = S.LightingModel;

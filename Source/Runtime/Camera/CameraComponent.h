@@ -20,6 +20,7 @@ public:
 
 	// 매 프레임 카메라 입력/이동 처리
 	virtual void TickComponent(float DeltaTime) override;
+	void PostEditChangeProperty(const FProperty& Property) override;
 
 	// Camera 행렬 계산
 	FMatrix GetViewMatrix() const;

@@ -6,6 +6,20 @@
 #include "Camera/CameraOptics.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "UObject/Property.h"
+
+void UCameraComponent::PostEditChangeProperty(const FProperty& Property)
+{
+    Super::PostEditChangeProperty(Property);
+
+    // FOV를 직접 편집하면 FOV 기준으로 전환한다.
+    if (Property.Name == "FieldOfView")
+        LensSettings.bUseFocalLength = false;
+
+    SanitizeDepthOfFieldSettings(DepthOfFieldSettings);
+    ResolveCameraLens(LensSettings, FieldOfView);
+    FinalizeCameraOptics(LensSettings, DepthOfFieldSettings, FieldOfView);
+}
 
 // 외부 입력 관리 시 기본 입력을 생략해 ViewportLayout와 카메라의 중복 갱신을 막는다.
 void UCameraComponent::TickComponent(float DeltaTime)

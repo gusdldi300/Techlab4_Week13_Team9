@@ -7,6 +7,7 @@
 #include "Render/RenderEnums.h"
 #include "Camera/CameraLensSettings.h"
 #include "Camera/DepthOfFieldSettings.h"
+#include "Render/PostProcess/DepthOfFieldViewSettings.h"
 
 class UWorld;
 
@@ -28,6 +29,8 @@ struct FEditorSettings
 	bool bDrawBatchLine = true;
 	bool bDrawCascadeBounds = false;
 	bool bEnableFXAA = false;
+	bool bEnableDepthOfField = true;
+	FDepthOfFieldViewSettings DepthOfField;
 	bool bDrawDecals = true;
 	bool bDecalCulling = true;
 	bool bDecalNarrowCulling = true;

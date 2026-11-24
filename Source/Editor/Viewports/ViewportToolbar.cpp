@@ -4,6 +4,7 @@
 #include "Editor/Viewports/ViewportToolbarWidgets.h"
 #include "Editor/Gizmo/Gizmo.h"
 #include "Editor/Settings/EditorSettings.h"
+#include "Editor/Details/DepthOfFieldWidgets.h"
 #include "Engine/World.h"
 #include "Camera/CameraActor.h"
 #include "GameFramework/Actor/StaticMeshActor.h"
@@ -313,9 +314,24 @@ void FViewportsPanel::DrawProjectionMenu(FEditorViewportClient& Client)
     ImGui::PushItemWidth(EditorStyle::Scale(220.0f));
     if (Client.IsPerspective())
     {
-        float Fov = Client.GetViewFOV();
-        if (ImGui::DragFloat("Field of View", &Fov, 0.1f, 1.0f, 179.0f, "%.1f") && std::isfinite(Fov))
-            Client.SetViewFOV(FMath::Clamp(Fov, 1.0f, 179.0f));
+        float VerticalFov = Client.GetViewFOV();
+        FCameraLensSettings Lens = Client.GetLensSettings();
+        FDepthOfFieldSettings DepthOfField = Client.GetDepthOfFieldSettings();
+        bool bOpticsChanged = DepthOfFieldWidgets::DrawLensSettings(Lens, VerticalFov, true);
+
+        if (ImGui::CollapsingHeader("Depth of Field"))
+            bOpticsChanged |= DepthOfFieldWidgets::DrawSettings(DepthOfField);
+
+        if (bOpticsChanged)
+        {
+            // 서로 연결된 광학 값을 함께 확정해 자유 카메라에 저장한다.
+            SanitizeDepthOfFieldSettings(DepthOfField);
+            ResolveCameraLens(Lens, VerticalFov);
+            FinalizeCameraOptics(Lens, DepthOfField, VerticalFov);
+            Client.SetViewFOV(VerticalFov);
+            Client.SetLensSettings(Lens);
+            Client.SetDepthOfFieldSettings(DepthOfField);
+        }
     }
     else
     {

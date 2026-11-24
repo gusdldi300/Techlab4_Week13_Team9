@@ -3,6 +3,7 @@
 #include "Editor/Viewports/ViewportsPanel.h"
 #include "Editor/Settings/EditorSettings.h"
 #include "Editor/Viewports/ViewportToolbarWidgets.h"
+#include "Editor/Details/DepthOfFieldWidgets.h"
 #include "Components/SkinnedMeshComponent.h"
 #include "Core/StatOverlay.h"
 
@@ -28,6 +29,7 @@ void FViewportsPanel::DrawShowMenu()
         Settings.bShowRootDebug = Defaults.bShowRootDebug;
         Settings.bShowVignette = Defaults.bShowVignette;
         Settings.bShowCameraOverlay = Defaults.bShowCameraOverlay;
+        Settings.bEnableDepthOfField = Defaults.bEnableDepthOfField;
     }
 
     // 뷰포트 통계: 콘솔의 stat 명령과 같은 상태를 켜고 끈다.
@@ -66,6 +68,7 @@ void FViewportsPanel::DrawShowMenu()
         if (IconMenuItem(Icon, Label, bValue, EIndicator::Check)) bValue = !bValue;
     };
     SectionHeader("Common Show Flags");
+    Flag(nullptr, "Depth of Field", Settings.bEnableDepthOfField);
     Flag("Bounds", "Bounding Boxes", Settings.bDrawBoundingBox);
     Flag("Decals", "Decals", Settings.bDrawDecals);
     Flag("Grid", "Grid", Settings.bDrawBatchLine);
@@ -118,6 +121,45 @@ void FViewportsPanel::DrawRenderMenu()
     ImGui::BeginDisabled(!Settings.bGammaCorrection);
     ImGui::SliderFloat("Display Gamma", &Settings.DisplayGamma, 1.0f, 3.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
     ImGui::EndDisabled();
+
+    ImGui::SeparatorText("Depth of Field");
+    auto& DepthOfField = Settings.DepthOfField;
+    ImGui::Checkbox("Override Camera DOF", &DepthOfField.bOverrideCamera);
+
+    if (DepthOfField.bOverrideCamera)
+    {
+        ImGui::TextDisabled("Replaces DOF settings in the rendered view.");
+        DepthOfFieldWidgets::DrawSettings(DepthOfField.OverrideSettings);
+    }
+
+    const char* DebugViews[] =
+    {
+        "Off",
+        "Signed CoC",
+        "Lens Radius",
+        "Additional Blur",
+        "Effective Radius"
+    };
+    static_assert(IM_ARRAYSIZE(DebugViews) == static_cast<int>(EDepthOfFieldDebugView::Count));
+
+    int DebugIndex = static_cast<int>(DepthOfField.DebugView);
+    if (ImGui::Combo("DOF Debug View", &DebugIndex, DebugViews, IM_ARRAYSIZE(DebugViews)))
+        DepthOfField.DebugView = static_cast<EDepthOfFieldDebugView>(DebugIndex);
+
+    ImGui::DragFloat("Debug Radius (full-res px)", &DepthOfField.DebugRadiusFullResolutionPixels, 0.5f, 0.5f, 256.0f, "%.1f", ImGuiSliderFlags_AlwaysClamp);
+    ImGui::TextDisabled("Signed CoC: Near blue / Focus green / Far red");
+    ImGui::TextDisabled("Radius: black to white / Additional blur: yellow");
+    ImGui::TextDisabled("Invalid depth or CoC: magenta");
+    ImGui::TextDisabled("Debug requires the DOF Show Flag.");
+
+    if (ImGui::Button("Reset DOF View Settings"))
+        DepthOfField = FDepthOfFieldViewSettings{};
+
+    ImGui::SameLine();
+    if (ImGui::Button("Save Settings"))
+        EditorSettings->SaveSettings();
+
+    SanitizeDepthOfFieldViewSettings(DepthOfField);
 
     ImGui::SeparatorText("Performance");
     const char* Decals[] = { "Off", "Linear AABB", "BVH" };

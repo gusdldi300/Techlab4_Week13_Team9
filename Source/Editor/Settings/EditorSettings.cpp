@@ -53,6 +53,7 @@ bool FEditorSettingsManager::SaveSettings() const
 	File << "DrawCascadeBounds=" << Settings.bDrawCascadeBounds << "\n";
 	File << "SceneDepthMaxRange=" << Settings.SceneDepthMaxRange << "\n";
 	File << "EnableFXAA=" << Settings.bEnableFXAA << "\n";
+	File << "EnableDepthOfField=" << Settings.bEnableDepthOfField << "\n";
 
 	File << "GammaCorrection=" << Settings.bGammaCorrection << "\n";
 	File << "DisplayGamma=" << Settings.DisplayGamma << "\n";
@@ -115,6 +116,21 @@ bool FEditorSettingsManager::SaveSettings() const
 	File << "PointShadowMapSizeLevel=" << Settings.PointShadowMapSizeLevel << '\n';
 	File << "SpotShadowMapSizeLevel=" << Settings.SpotShadowMapSizeLevel << '\n';
 
+    const FDepthOfFieldViewSettings& DepthOfField = Snapshot.DepthOfField;
+    const FDepthOfFieldSettings& Override = DepthOfField.OverrideSettings;
+
+    File << "\n[DepthOfField]\n";
+    File << "OverrideCamera=" << DepthOfField.bOverrideCamera << "\n";
+    File << "Enabled=" << Override.bEnabled << "\n";
+    File << "FStop=" << Override.FStop << "\n";
+    File << "MinFStop=" << Override.MinFStop << "\n";
+    File << "ApertureBladeCount=" << Override.ApertureBladeCount << "\n";
+    File << "FocalDistanceMeters=" << Override.FocalDistanceMeters << "\n";
+    File << "DepthBlurKmFor50Percent=" << Override.DepthBlurKmFor50Percent << "\n";
+    File << "DepthBlurRadiusFractionOfHeight=" << Override.DepthBlurRadiusFractionOfHeight << "\n";
+    File << "DebugView=" << static_cast<int32>(DepthOfField.DebugView) << "\n";
+    File << "DebugRadiusFullResolutionPixels=" << DepthOfField.DebugRadiusFullResolutionPixels << "\n";
+
     File.close();
 	return true;
 }
@@ -133,6 +149,8 @@ bool FEditorSettingsManager::LoadSettings()
 
 	uint8 LocationComponentMasks[4]{};
 	uint8 RotationComponentMasks[4]{};
+	Settings.bEnableDepthOfField = true;
+	Settings.DepthOfField = FDepthOfFieldViewSettings{};
 	for (int32 Index = 0; Index < 4; ++Index)
 	{
 		Settings.bViewLocationSaved[Index] = false;
@@ -306,6 +324,13 @@ bool FEditorSettingsManager::LoadSettings()
 	}
 
 	File.close();
+	FConfigFile DepthOfFieldConfig;
+	if (DepthOfFieldConfig.Load(FPaths::ToUtf8(FilePath)))
+	{
+		Settings.bEnableDepthOfField = DepthOfFieldConfig.GetBool("Rendering", "EnableDepthOfField", true);
+		Settings.DepthOfField = ReadDepthOfFieldViewSettings(DepthOfFieldConfig);
+	}
+
 	Settings.bLocationSnap = Settings.bLocationSnap && Settings.LocationSnapSize > 0.0f;
 	if (!Settings.bLocationSnap)
 		Settings.LocationSnapSize = 0.0f;

@@ -38,6 +38,11 @@ bool FDepthOfFieldRenderer::Init()
         Pipeline.DepthStencilState = EDepthStencilState::Disabled;
     }
 
+    // 진단 셰이더의 준비 상태는 일반 DOF 준비 상태와 분리한다.
+    DebugPipeline = Pipelines[static_cast<size_t>(EPass::CoC)];
+    DebugPipeline.Shader = FRenderResourceManager::FindShaderProgram("EngineResources/Shaders/DepthOfField/DebugCoC.hlsl");
+    DebugConstantBuffer = RenderCommand::CreateConstantBuffer(sizeof(FVector4));
+
     return IsReady();
 }
 
@@ -181,6 +186,72 @@ bool FDepthOfFieldRenderer::AddStage(FRenderGraphBuilder& Graph, EPass Stage, co
     };
 
     return Graph.AddRasterPass(std::move(Pass), std::move(ExecutePass));
+}
+
+bool FDepthOfFieldRenderer::AddDebugPasses(FRenderGraphBuilder& Graph, const FSceneView& View, FRenderGraphTextureRef SceneDepth, FRenderGraphTextureRef OutputColor, const FDepthOfFieldQualitySettings& Quality, const FDepthOfFieldViewSettings& Settings)
+{
+    if (!IsReady() || !View.bIsPerspective || View.bIsWireframe)
+        return false;
+
+    if (!DebugConstantBuffer || !DebugConstantBuffer->GetBuffer())
+        return false;
+
+    if (!DebugPipeline.Shader || !DebugPipeline.Shader->VertexShader || !DebugPipeline.Shader->PixelShader)
+        return false;
+
+    if (!DebugPipeline.Shader->VertexShader->IsValid() || !DebugPipeline.Shader->PixelShader->IsValid())
+        return false;
+
+    FDepthOfFieldViewSettings DebugSettings = Settings;
+    SanitizeDepthOfFieldViewSettings(DebugSettings);
+    if (DebugSettings.DebugView == EDepthOfFieldDebugView::None)
+        return false;
+
+    FRenderGraphTextureDesc DepthDesc{};
+    FRenderGraphTextureDesc OutputDesc{};
+    if (!Graph.GetTextureDesc(SceneDepth, DepthDesc) || !Graph.GetTextureDesc(OutputColor, OutputDesc))
+        return false;
+
+    if (DepthDesc.Width != OutputDesc.Width || DepthDesc.Height != OutputDesc.Height)
+        return false;
+
+    if (OutputDesc.Format != ETextureFormat::R8G8B8A8_UNorm)
+        return false;
+
+    const FRenderGraphTextureRef LinearDepth = Graph.CreateTexture({ DepthDesc.Width, DepthDesc.Height, ETextureFormat::R32_Float }, "DOF.Debug.LinearDepth");
+    const FRenderGraphTextureRef CoCAndDepthBlur = Graph.CreateTexture({ DepthDesc.Width, DepthDesc.Height, ETextureFormat::R16G16_Float }, "DOF.Debug.CoCAndDepthBlur");
+    if (!LinearDepth || !CoCAndDepthBlur)
+        return false;
+
+    const FDepthOfFieldData Data = BuildData(View, DepthDesc.Width, DepthDesc.Height, Quality);
+
+    // 디버그에는 CoC까지만 필요하며 보케 중간 자원은 만들지 않는다.
+    if (!AddStage(Graph, EPass::CoC, Data, { SceneDepth }, { LinearDepth, CoCAndDepthBlur }))
+        return false;
+
+    FRenderGraphRasterPassDesc Pass{};
+    Pass.Name = "DOF.Debug";
+    Pass.ReadTextures = { CoCAndDepthBlur, LinearDepth };
+    Pass.ColorAttachments = { { OutputColor, ERenderGraphLoadAction::Clear, { 0.0f, 0.0f, 0.0f, 1.0f } } };
+
+    const FPipelineState Pipeline = DebugPipeline;
+    const FVector4 DebugData = FVector4(static_cast<float>(DebugSettings.DebugView), DebugSettings.DebugRadiusFullResolutionPixels, 0.0f, 0.0f);
+    FConstantBuffer* Constants = ConstantBuffer.get();
+    FConstantBuffer* DebugConstants = DebugConstantBuffer.get();
+
+    auto ExecuteDebug = [Pipeline, Constants, DebugConstants, Data, DebugData]()
+    {
+        RenderCommand::BindPipelineState(Pipeline);
+        RenderCommand::BindVertexBuffer(nullptr);
+        RenderCommand::UpdateBufferData(Constants, &Data, sizeof(Data));
+        RenderCommand::UpdateBufferData(DebugConstants, &DebugData, sizeof(DebugData));
+        RenderCommand::BindConstantBuffer(0, Constants, EShaderBindFlagBits::Pixel);
+        RenderCommand::BindConstantBuffer(1, DebugConstants, EShaderBindFlagBits::Pixel);
+        RenderCommand::Draw(3);
+        RenderCommand::BindConstantBuffer(1, nullptr, EShaderBindFlagBits::Pixel);
+    };
+
+    return Graph.AddRasterPass(std::move(Pass), std::move(ExecuteDebug));
 }
 
 bool FDepthOfFieldRenderer::AddPasses(FRenderGraphBuilder& Graph, const FSceneView& View, FRenderGraphTextureRef SceneHDR, FRenderGraphTextureRef SceneDepth, bool bEnabled, const FDepthOfFieldQualitySettings& Quality, FRenderGraphTextureRef& OutColor)
