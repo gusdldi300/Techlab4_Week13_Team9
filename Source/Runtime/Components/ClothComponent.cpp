@@ -100,8 +100,22 @@ void UClothComponent::TickComponent(float DeltaTime)
 
 	// 다음 스텝에 쓸 로컬 공간 위치. 액터가 움직이면 이동량만큼 천이 끌려간다.
 	ClothInstance.SetWorldTransform(GetWorldLocation(), GetWorldRotation().Quaternion());
+	UpdateWind(DeltaTime);
 	// 직전 스텝 결과를 읽는다. 한 프레임 늦지만 눈에 띄지 않는다.
 	ClothInstance.GetLocalPositions(LocalPositions);
+}
+
+void UClothComponent::UpdateWind(float DeltaTime)
+{
+	WindTime += DeltaTime;
+
+	// 일정한 바람만 주면 천이 한쪽으로 젖혀진 채 멈춘다. 주기가 서로 맞지 않는 사인 두 개를 곱해
+	// 세기가 불규칙하게 오르내리게 해서 깃발처럼 계속 펄럭이게 한다.
+	const float Omega = 2.0f * 3.14159265f * std::max(WindGustFrequency, 0.0f);
+	const float Wave = std::sin(WindTime * Omega) * std::sin(WindTime * Omega * 0.37f + 1.3f);
+	const float Scale = 1.0f + std::clamp(WindGust, 0.0f, 1.0f) * Wave;
+
+	ClothInstance.SetWind(WindVelocity * Scale, DragCoefficient, LiftCoefficient);
 }
 
 void UClothComponent::PostEditChangeProperty(const FProperty& Property)

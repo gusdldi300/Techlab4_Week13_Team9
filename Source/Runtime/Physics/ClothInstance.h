@@ -56,6 +56,9 @@ public:
 	void SetWorldTransform(const FVector& Location, const FQuat& Rotation);
 	// 시뮬레이션된 입자 위치(로컬 공간)를 읽는다. 정점 순서는 Init에 넘긴 것과 같다.
 	void GetLocalPositions(TArray<FVector>& OutPositions) const;
+	// 바람(월드 기준 m/s)과 공기 계수. Drag·Lift가 0이면 바람이 있어도 천에 힘이 생기지 않는다.
+	// Drag는 바람 방향으로 미는 힘, Lift는 바람에 비스듬한 면을 옆으로 띄우는 힘이다(펄럭임을 만든다).
+	void SetWind(const FVector& Velocity, float DragCoefficient, float LiftCoefficient);
 
 private:
 	FClothHandle Handle;

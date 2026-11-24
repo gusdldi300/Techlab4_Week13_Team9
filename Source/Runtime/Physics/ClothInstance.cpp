@@ -124,6 +124,16 @@ void FClothInstance::SetWorldTransform(const FVector& Location, const FQuat& Rot
 	Handle.Cloth->setRotation(U2PQuat(Rotation).getNormalized());
 }
 
+void FClothInstance::SetWind(const FVector& Velocity, float DragCoefficient, float LiftCoefficient)
+{
+	if (!Handle.IsValid()) return;
+	// setWindVelocity는 월드 좌표 기준이라 천 로컬 공간으로 바꾸지 않고 그대로 넘긴다.
+	Handle.Cloth->setWindVelocity(U2PVector(Velocity));
+	// NvCloth는 계수가 [0, 1]을 벗어나면 assert를 낸다.
+	Handle.Cloth->setDragCoefficient(std::clamp(DragCoefficient, 0.0f, 1.0f));
+	Handle.Cloth->setLiftCoefficient(std::clamp(LiftCoefficient, 0.0f, 1.0f));
+}
+
 void FClothInstance::GetLocalPositions(TArray<FVector>& OutPositions) const
 {
 	if (!Handle.IsValid()) return;

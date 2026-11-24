@@ -51,6 +51,21 @@ public:
 	UPROPERTY(EditAnywhere)
 	float SolverFrequency = 120.0f;
 
+	UPROPERTY(EditAnywhere)
+	FVector WindVelocity = FVector(0.0f, 0.0f, 0.0f);   // 월드 기준 바람(m/s). 0이면 바람 없음
+
+	UPROPERTY(EditAnywhere)
+	float WindGust = 0.5f;           // 돌풍 세기. 0이면 일정한 바람, 1이면 0 ~ 2배 사이로 출렁인다
+
+	UPROPERTY(EditAnywhere)
+	float WindGustFrequency = 1.5f;  // 돌풍이 1초에 몇 번 오가는지
+
+	UPROPERTY(EditAnywhere)
+	float DragCoefficient = 0.5f;    // [0, 1] 바람 방향으로 미는 힘
+
+	UPROPERTY(EditAnywhere)
+	float LiftCoefficient = 0.6f;    // [0, 1] 비스듬한 면을 옆으로 띄우는 힘. 펄럭임을 만든다
+
 protected:
 	void OnRegister() override;
 	void OnUnregister() override;
@@ -61,6 +76,8 @@ private:
 	// 월드에 PhysicsScene이 있으면 천을 만들어 넣는다.
 	void CreateClothState();
 	void DestroyClothState();
+	// 이번 Tick의 바람(돌풍 포함)을 천에 넣는다.
+	void UpdateWind(float DeltaTime);
 
 	FClothInstance ClothInstance;
 
@@ -69,4 +86,6 @@ private:
 	TArray<uint32>  Indices;
 	// 그릴 위치(로컬). 시뮬레이션 중이면 매 Tick 갱신하고, 아니면 정지 위치다.
 	TArray<FVector> LocalPositions;
+	// 돌풍 계산용 누적 시간(초)
+	float WindTime = 0.0f;
 };
