@@ -16,4 +16,6 @@ struct FRagdollDebugStats
     int32 Joints = 0;
     double KinematicSyncMs = 0.0;
     double PhysicsPoseMs = 0.0;
+    float MaxJointSeparation = 0;
+    float MaxJointMassRatio = 1;
 };

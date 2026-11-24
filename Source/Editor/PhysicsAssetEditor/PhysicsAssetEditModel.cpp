@@ -3,6 +3,8 @@
 #include "Physics/PhysicsAsset.h"
 #include "Physics/PhysicsAssetFile.h"
 #include "Physics/BodySetup.h"
+#include "Physics/PhysicalMaterial.h"
+#include "Physics/PhysicsCore.h"
 #include "Render/SkeletalMesh.h"
 #include <algorithm>
 #include <cmath>
@@ -160,9 +162,38 @@ void FPhysicsAssetEditModel::Commit(bool bInteractionActive)
 bool FPhysicsAssetEditModel::Apply(const FString& Text)
 {
     UPhysicsAsset* Asset = Mesh.GetPhysicsAsset();
+    if (Text.empty())
+    {
+        if (Asset)
+        {
+            for (auto* Joint : Asset->PhysicsConstraint) if (Joint && Joint->GetOuter() == Asset) delete Joint;
+            for (auto* Body : Asset->BodySetups)
+                if (Body && Body->GetOuter() == Asset)
+                {
+                    if (Body->PhysMaterial && Body->PhysMaterial->GetOuter() == Body) delete Body->PhysMaterial;
+                    delete Body;
+                }
+            Mesh.SetPhysicsAsset(nullptr);
+            delete Asset;
+        }
+        CurrentText.clear(); CommittedText.clear(); Error.clear();
+        return true;
+    }
     if (!PhysicsAssetFile::ApplyText(Text, Mesh, Asset, Error)) return false;
     Mesh.SetPhysicsAsset(Asset);
     CurrentText = CommittedText = Text;
+    return true;
+}
+
+bool FPhysicsAssetEditModel::ReplaceWithGenerated(const UPhysicsAsset& Asset)
+{
+    FString Text;
+    if (!PhysicsAssetFile::ToText(MeshPath, Mesh, Asset, Text, Error)) return false;
+    Commit(false);
+    const FString Previous = CommittedText;
+    if (!Apply(Text)) return false;
+    if (Previous != Text) PushHistory(UndoStack, Previous);
+    RedoStack.Empty();
     return true;
 }
 
@@ -211,6 +242,65 @@ bool FPhysicsAssetEditModel::SetBodyProperties(int32 BoneIndex, EPhysicsType Typ
     Body->AggGeom = Geometry; Body->PhysicsType = Type;
     if (Capture()) return true;
     Body->AggGeom = OldGeometry; Body->PhysicsType = OldType;
+    return false;
+}
+
+bool FPhysicsAssetEditModel::GetBodyMaterial(int32 BoneIndex, float& Density, float& Friction, float& Restitution) const
+{
+    const UBodySetup* Body = GetBody(BoneIndex);
+    if (!Body) return false;
+    const UPhysicalMaterial* Material = Body->PhysMaterial;
+    // CalculateMass uses volume * density * 1000; an unassigned material has density 1.
+    Density = Material ? Material->GetDensity() : 1.0f;
+    Friction = Material ? Material->GetFriction() : FPhysicsCore::DefaultFriction;
+    Restitution = Material ? Material->GetRestitution() : FPhysicsCore::DefaultRestitution;
+    return true;
+}
+
+bool FPhysicsAssetEditModel::SetBodyMass(int32 BoneIndex, float MassKg)
+{
+    auto* Body = GetBody(BoneIndex);
+    if (!Body || !std::isfinite(MassKg) || MassKg < 0 || MassKg > 1e8f) return false;
+    const float Previous = Body->MassOverrideKg;
+    Body->MassOverrideKg = MassKg;
+    if (Capture()) return true;
+    Body->MassOverrideKg = Previous;
+    return false;
+}
+
+bool FPhysicsAssetEditModel::SetBodyMaterial(int32 BoneIndex, float Density, float Friction, float Restitution)
+{
+    Error.clear();
+    UBodySetup* Body = GetBody(BoneIndex);
+    if (!Body) return false;
+    if (!std::isfinite(Density) || Density < 0.001f || !std::isfinite(Friction) || Friction < 0 ||
+        !std::isfinite(Restitution) || Restitution < 0 || Restitution > 1)
+    {
+        Error = "Material requires density >= 0.001, friction >= 0 and restitution between 0 and 1.";
+        return false;
+    }
+    float OldDensity, OldFriction, OldRestitution;
+    GetBodyMaterial(BoneIndex, OldDensity, OldFriction, OldRestitution);
+    if (Density == OldDensity && Friction == OldFriction && Restitution == OldRestitution) return true;
+
+    UPhysicalMaterial* Previous = Body->PhysMaterial;
+    const bool bCreateOwned = !Previous || Previous->GetOuter() != Body;
+    if (bCreateOwned) Body->PhysMaterial = NewObject<UPhysicalMaterial>(Body);
+    Body->PhysMaterial->SetDensity(Density);
+    Body->PhysMaterial->SetFriction(Friction);
+    Body->PhysMaterial->SetRestitution(Restitution);
+    if (Capture()) return true;
+    if (bCreateOwned)
+    {
+        delete Body->PhysMaterial;
+        Body->PhysMaterial = Previous;
+    }
+    else
+    {
+        Previous->SetDensity(OldDensity);
+        Previous->SetFriction(OldFriction);
+        Previous->SetRestitution(OldRestitution);
+    }
     return false;
 }
 

@@ -18,6 +18,7 @@ UBodySetup::~UBodySetup()
 
 float UBodySetup::CalculateMass() const
 {
+	if (MassOverrideKg > 0) return MassOverrideKg;
 	if (PhysMaterial == nullptr) return AggGeom.GetVolume() * 1000.0f;
 
 	return AggGeom.GetVolume() * PhysMaterial->GetDensity() * 1000.0f;
@@ -28,7 +29,7 @@ namespace
 	// 파일 앞 4바이트. 다른 파일을 BodySetup으로 잘못 읽는 것을 막는다.
 	constexpr uint32 BodySetupMagic = 0x59444F42; // "BODY"
 	// 저장 형식을 바꾸면 올린다. 읽을 때 모르는 버전이면 실패로 처리한다.
-	constexpr uint32 BodySetupVersion = 1;
+	constexpr uint32 BodySetupVersion = 2;
 	// 깨진 파일이 거대한 개수를 읽어 메모리를 다 쓰지 않도록 둔 상한
 	constexpr int32 MaxElemsPerType = 4096;
 
@@ -93,7 +94,7 @@ void UBodySetup::Serialize(FArchive& Ar)
 	uint32 Magic = BodySetupMagic;
 	uint32 Version = BodySetupVersion;
 	Ar << Magic << Version;
-	if (Ar.IsLoading() && (Magic != BodySetupMagic || Version != BodySetupVersion))
+	if (Ar.IsLoading() && (Magic != BodySetupMagic || Version < 1 || Version > BodySetupVersion))
 	{
 		Ar.SetError();
 		return;
@@ -114,6 +115,9 @@ void UBodySetup::Serialize(FArchive& Ar)
 	SerializeElems(Ar, AggGeom.SphereElems);
 	SerializeElems(Ar, AggGeom.BoxElems);
 	SerializeElems(Ar, AggGeom.SphylElems);
+	if (Version >= 2) Ar << MassOverrideKg;
+	else if (Ar.IsLoading()) MassOverrideKg = 0;
+	if (!std::isfinite(MassOverrideKg) || MassOverrideKg < 0) Ar.SetError();
 }
 
 bool UBodySetup::LoadFromFile(const FString& Path)
@@ -140,6 +144,7 @@ bool UBodySetup::LoadFromFile(const FString& Path)
 	// 읽다가 실패하면 반쯤 채워진 모양이 남지 않도록 임시 객체에 먼저 읽는다.
 	FKAggregateGeom PrevGeom = AggGeom;
 	const EPhysicsType PrevType = PhysicsType;
+	const float PreviousMass = MassOverrideKg;
 
 	FMemoryReader Reader(Bytes, true);
 	Serialize(Reader);
@@ -147,6 +152,7 @@ bool UBodySetup::LoadFromFile(const FString& Path)
 	{
 		AggGeom = PrevGeom;
 		PhysicsType = PrevType;
+		MassOverrideKg = PreviousMass;
 		KRS_LOG(Warning, "[Physics] Invalid body setup file: {}", Path);
 		return false;
 	}

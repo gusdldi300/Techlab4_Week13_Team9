@@ -57,7 +57,7 @@ bool FPhysicsCore::InitPhysX()
     }
 
     // createMaterial(정지 마찰, 운동 마찰, 반발 계수)
-    gDefaultMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.1f);
+    gDefaultMaterial = gPhysics->createMaterial(DefaultFriction, DefaultFriction, DefaultRestitution);
     if (!gDefaultMaterial)
     {
         KRS_LOG(Error, "[Physics] createMaterial failed");

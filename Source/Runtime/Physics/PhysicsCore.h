@@ -22,6 +22,8 @@ class FPhysicsCore
 	friend class FEngineLoop;
 
 public:
+	static constexpr float DefaultFriction = 0.5f;
+	static constexpr float DefaultRestitution = 0.1f;
 	FPhysicsCore() = default;
 	~FPhysicsCore() = default;
 	FPhysicsCore(const FPhysicsCore&) = delete;

@@ -22,7 +22,7 @@ FPhysicsAssetEditor::FPhysicsAssetEditor(UEditorEngine& InEngine, FEditorManager
     Mesh = &InMesh;
 }
 
-FPhysicsAssetEditor::~FPhysicsAssetEditor() { StopSimulation(); }
+FPhysicsAssetEditor::~FPhysicsAssetEditor() { StopSimulation(); CancelGeneration(); }
 
 void FPhysicsAssetEditor::SetSimulationGravity(float Value)
 {
@@ -41,6 +41,7 @@ uint64 FPhysicsAssetEditor::GetSimulationStepCount() const
 
 bool FPhysicsAssetEditor::StartSimulation()
 {
+    if (GenerationPreview) return false;
     if (IsPreviewSimulating()) return true;
     SimulationError.clear();
     if (!MeshComponent || !GetPhysicsAsset() || GetPhysicsAsset()->BodySetups.IsEmpty())
@@ -121,6 +122,8 @@ void FPhysicsAssetEditor::AdvanceSimulation(float DeltaTime)
     SimulationScene->StartFrame(DeltaTime);
     SimulationScene->EndFrame();
     SimulationInstance->ApplyToMesh(*MeshComponent);
+    // Overlay validation and skinning must read the same completed physics pose.
+    MeshComponent->RefreshBoneTransformsNow();
 }
 
 void FPhysicsAssetEditor::StepSimulation()
@@ -163,24 +166,43 @@ bool FPhysicsAssetEditor::HasSavedAsset() const
 
 bool FPhysicsAssetEditor::CreateAsset()
 {
+    if (GetPhysicsAsset()) return false;
+    return PreviewGeneration() && ApplyGeneration();
+}
+
+bool FPhysicsAssetEditor::PreviewGeneration()
+{
+    if (!Mesh || IsPreviewSimulating()) return false;
+    CancelViewportInteraction();
+    EditGizmo.SetTarget(nullptr);
+    ShapeSelection = {};
+    CancelGeneration();
+    GenerationPreview = PhysicsAssetBuilder::CreateFromSkeleton(*Mesh, GenerationSettings, FileError);
+    return GenerationPreview != nullptr;
+}
+
+void FPhysicsAssetEditor::CancelGeneration()
+{
+    PhysicsAssetBuilder::DestroyGeneratedAsset(GenerationPreview);
+    GenerationPreview = nullptr;
+}
+
+bool FPhysicsAssetEditor::ApplyGeneration()
+{
+    if (!GenerationPreview || IsPreviewSimulating()) return false;
+    if (!EditModel.ReplaceWithGenerated(*GenerationPreview))
+    { FileError = EditModel.GetError(); return false; }
+    CancelGeneration();
+    ShapeSelection = {};
+    EditTarget = EPhysicsAssetEditTarget::Shape;
     FileError.clear();
-    if (!Mesh || GetPhysicsAsset()) return false;
-    UPhysicsAsset* Asset = NewObject<UPhysicsAsset>(Mesh);
-    if (!PhysicsAssetFile::Write(PhysicsAssetFile::GetDefaultPath(MeshAssetPath), MeshAssetPath,
-        *Mesh, *Asset, FileError, false))
-    {
-        delete Asset;
-        return false;
-    }
-    Mesh->SetPhysicsAsset(Asset);
-    EditModel.ResetHistory();
-    KRS_LOG(Info, "Created Physics Asset for {}", MeshAssetPath);
     return true;
 }
 
 bool FPhysicsAssetEditor::Save()
 {
     FileError.clear();
+    if (GenerationPreview) { FileError = "Apply or cancel the generation preview before saving."; return false; }
     if (!Mesh || !GetPhysicsAsset()) return false;
     EditModel.Commit(false);
     const bool Saved = PhysicsAssetFile::Write(PhysicsAssetFile::GetDefaultPath(MeshAssetPath),
@@ -195,6 +217,7 @@ bool FPhysicsAssetEditor::Save()
 
 bool FPhysicsAssetEditor::Reload()
 {
+    CancelGeneration();
     StopSimulation();
     FileError.clear();
     if (!Mesh) return false;
@@ -209,6 +232,7 @@ bool FPhysicsAssetEditor::Reload()
 
 bool FPhysicsAssetEditor::ConfirmClose()
 {
+    CancelGeneration();
     StopSimulation();
     EditModel.Commit(false);
     if (!IsDirty() || bCloseConfirmed) return true;
@@ -268,6 +292,7 @@ namespace
 
 void FPhysicsAssetEditor::ShutdownResources()
 {
+    CancelGeneration();
     StopSimulation();
     EditGizmo.EndDrag();
     EditGizmo.SetTarget(nullptr);
@@ -390,7 +415,7 @@ bool FPhysicsAssetEditor::ApplyEditFrame(const FTransform& Local)
 TArray<FPhysicsConstraintScreenHandle> FPhysicsAssetEditor::GetConstraintHandles()
 {
     TArray<FPhysicsConstraintScreenHandle> Handles;
-    if (!bShowConstraints || !GetPhysicsAsset() || !ViewportClient || !ViewportWidth || !ViewportHeight ||
+    if (GenerationPreview || !bShowConstraints || !GetPhysicsAsset() || !ViewportClient || !ViewportWidth || !ViewportHeight ||
         ViewportClient->GetWidth() != ViewportWidth || ViewportClient->GetHeight() != ViewportHeight) return Handles;
     const FMatrix VP = ViewportClient->GetViewProjectionMatrix();
     for (const auto* Joint : GetPhysicsAsset()->PhysicsConstraint)
@@ -434,6 +459,7 @@ void FPhysicsAssetEditor::OnBoneSelected()
 
 void FPhysicsAssetEditor::SyncEditGizmo()
 {
+    if (GenerationPreview) { EditGizmo.SetTarget(nullptr); return; }
     if (IsPreviewSimulating()) { EditGizmo.SetTarget(nullptr); return; }
     if (EditGizmo.IsUsing()) return;
     FTransform Local, Bone;
@@ -505,6 +531,7 @@ bool FPhysicsAssetEditor::UpdateEditGizmo()
 
 void FPhysicsAssetEditor::TickAfterWorld(float DeltaTime)
 {
+    if (GenerationPreview) { EditGizmo.SetTarget(nullptr); return; }
     if (IsPreviewSimulating() && !bSimulationPaused) AdvanceSimulation(DeltaTime);
     SyncEditGizmo();
     if (!EditGizmo.IsUsing() && CanProcessViewportInput() && PointerInput.bHovered && PointerInput.bMousePressed &&
@@ -540,8 +567,9 @@ void FPhysicsAssetEditor::TickAfterWorld(float DeltaTime)
 TArray<FPhysicsPreviewShape> FPhysicsAssetEditor::GatherPreviewShapes()
 {
     TArray<FPhysicsPreviewShape> Shapes;
-    if (!MeshComponent || !GetPhysicsAsset()) return Shapes;
-    for (const UBodySetup* Body : GetPhysicsAsset()->BodySetups)
+    const auto* Asset = GenerationPreview ? GenerationPreview : GetPhysicsAsset();
+    if (!MeshComponent || !Asset) return Shapes;
+    for (const UBodySetup* Body : Asset->BodySetups)
     {
         if (!Body) continue;
         const int Bone = Mesh->FindBoneIndex(Body->BoneName.ToString());
@@ -590,7 +618,7 @@ void FPhysicsAssetEditor::OnRenderLine(FLineBatcher& Lines)
         const FVector Center(0,0,-SimulationFloorHalfExtent.Z);
         Lines.AddBox(FBox{Center-SimulationFloorHalfExtent,Center+SimulationFloorHalfExtent},FVector4(0.5f,0.5f,0.55f,1));
     }
-    if (!MeshComponent || !GetPhysicsAsset()) return;
+    if (!MeshComponent || !GetPhysicsAsset() || GenerationPreview) return;
     if (bShowBodies && EditTarget == EPhysicsAssetEditTarget::Shape)
     {
         FTransform Transform;

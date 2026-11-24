@@ -7,6 +7,7 @@
 #include "Asset/AssetManager.h"
 #include "Asset/AssetUtils.h"
 #include "Asset/FbxImporter/FbxMeshBake.h"
+#include "Editor/Asset/FbxImporter/FbxImporter.h"
 #include "Render/Mesh.h"
 #include "Render/SkeletalMesh.h"
 #include "Editor/AnimSequenceEditor/AnimSequenceEditor.h"
@@ -21,6 +22,7 @@
 #include "Particles/ParticleSystemFile.h"
 
 #include <filesystem>
+#include <cwctype>
 #include <commdlg.h>
 
 namespace
@@ -40,7 +42,7 @@ namespace
 		{ "Blend Space Editor...", L"Open Blend Space Editor", L"Blend Space (*.blendspace)\0*.blendspace\0" },
 		{ "UI Editor...", L"Open UI Editor", L"Widget (*.widget)\0*.widget\0" },
 		{ "Particle System Editor...", L"Open Particle System Editor", L"Particle System (*.particle)\0*.particle\0" },
-		{ "Physics Asset Editor...", L"Open Physics Asset Editor", L"Physics Asset or Skeletal Mesh (*.physicsasset;*.fbx.bin)\0*.physicsasset;*.fbx.bin\0" },
+		{ "Physics Asset Editor...", L"Open Physics Asset Editor", L"Physics Asset or Skeletal Mesh (*.physicsasset;*.fbx;*.fbx.bin)\0*.physicsasset;*.fbx;*.fbx.bin\0" },
 	};
 }
 
@@ -495,6 +497,38 @@ void FEditorManager::OpenPhysicsAssetEditor(const FString& MeshPath)
 void FEditorManager::CreatePhysicsAssetEditor(const FString& AssetOrMeshPath)
 {
     FString MeshPath = AssetOrMeshPath;
+    auto Extension = FPaths::FromUtf8(AssetOrMeshPath).extension().wstring();
+    for (auto& C : Extension) C = static_cast<wchar_t>(std::towlower(C));
+    if (Extension == L".fbx")
+    {
+        // Use the normal import pipeline so preview, persistence and game loading
+        // all refer to the same baked skeletal mesh.
+        FFbxImportResult Result;
+        FString Error;
+        if (!FFbxImporter::ImportToAssets(FAssetUtils::ResolveAssetFilePath(AssetOrMeshPath),
+            EFbxImportMode::Skeletal, Result, Error))
+        {
+            KRS_LOG(Warning, "Cannot import Physics Asset preview mesh: {} ({})", AssetOrMeshPath, Error);
+            MessageBoxW(GetActiveWindow(), FPaths::FromUtf8(Error).c_str(), L"Open Physics Asset Editor", MB_OK | MB_ICONERROR);
+            return;
+        }
+        MeshPath.clear();
+        for (const auto& Path : Result.Paths)
+        {
+            FFbxBakedMesh Data;
+            if (FFbxMeshBake::Read(Path, Data, Error) && Data.Kind == EFbxMeshKind::Skeletal)
+            {
+                MeshPath = Path;
+                break;
+            }
+        }
+        if (MeshPath.empty())
+        {
+            KRS_LOG(Warning, "FBX import produced no skeletal mesh: {}", AssetOrMeshPath);
+            return;
+        }
+        MeshPath = FAssetUtils::GetAssetKey(MeshPath);
+    }
     if (PhysicsAssetFile::IsPhysicsAssetPath(AssetOrMeshPath))
     {
         FString Error;

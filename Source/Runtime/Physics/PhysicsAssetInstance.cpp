@@ -178,6 +178,14 @@ bool FPhysicsAssetInstance::Build(USkeletalMeshComponent& Mesh, FPhysicsScene* S
                 Joint->setTwistLimit(PxJointAngularLimitPair(-Angle,Angle));
             }
             Joint->setConstraintFlag(PxConstraintFlag::eCOLLISION_ENABLED,Asset->IsCollisionEnabled(Child,Parent));
+            if (Definition->XMotion == EConstraintMotion::Locked && Definition->YMotion == EConstraintMotion::Locked &&
+                Definition->ZMotion == EConstraintMotion::Locked)
+            {
+                // Contact and joint constraints may not converge in a finite
+                // iteration budget. Bound visible separation for rigid anchors.
+                Joint->setProjectionLinearTolerance(std::max(0.1f * Poses[Parent].Scale.X,0.00001f));
+                Joint->setConstraintFlag(PxConstraintFlag::ePROJECTION,true);
+            }
         }
     }
     if (!Success) { Clear(); return false; }
@@ -318,6 +326,19 @@ FRagdollDebugStats FPhysicsAssetInstance::GetDebugStats() const
     Stats.Bodies = Bodies.Num(); Stats.Joints = Joints.Num();
     Stats.KinematicSyncMs = LastKinematicSyncMs;
     Stats.PhysicsPoseMs = LastPhysicsPoseMs;
+    PxSceneReadLock Lock(*Bodies[0]->GetActorHandle().Actor->getScene());
+    for (const auto* Joint : Joints)
+    {
+        PxRigidActor* Child; PxRigidActor* Parent;
+        Joint->getActors(Child,Parent);
+        const PxTransform A = Child->getGlobalPose()*Joint->getLocalPose(PxJointActorIndex::eACTOR0);
+        const PxTransform B = Parent->getGlobalPose()*Joint->getLocalPose(PxJointActorIndex::eACTOR1);
+        Stats.MaxJointSeparation = std::max(Stats.MaxJointSeparation,(A.p-B.p).magnitude());
+        const auto* C = Child->is<PxRigidDynamic>();
+        const auto* P = Parent->is<PxRigidDynamic>();
+        if (C && P && std::min(C->getMass(),P->getMass()) > 0)
+            Stats.MaxJointMassRatio = std::max(Stats.MaxJointMassRatio,std::max(C->getMass(),P->getMass())/std::min(C->getMass(),P->getMass()));
+    }
     return Stats;
 }
 

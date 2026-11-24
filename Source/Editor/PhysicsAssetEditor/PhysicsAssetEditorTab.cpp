@@ -65,7 +65,9 @@ namespace
         {
             if (!PhysicsEditor.IsPreviewSimulating())
             {
+                ImGui::BeginDisabled(PhysicsEditor.GetGenerationPreview() != nullptr);
                 if (ImGui::Button("Simulate")) PhysicsEditor.StartSimulation();
+                ImGui::EndDisabled();
             }
             else
             {
@@ -81,6 +83,7 @@ namespace
                 ImGui::SameLine();
                 ImGui::Text("Bodies: %d  Joints: %d  Steps: %llu",Stats.Bodies,Stats.Joints,
                     static_cast<unsigned long long>(PhysicsEditor.GetSimulationStepCount()));
+                ImGui::Text("Joint gap: %.3f  Max mass ratio: %.2f", Stats.MaxJointSeparation, Stats.MaxJointMassRatio);
             }
             ImGui::BeginDisabled(PhysicsEditor.IsPreviewSimulating());
             bool Floor = PhysicsEditor.IsSimulationFloorEnabled();
@@ -179,6 +182,25 @@ namespace
             auto Geometry = Body.AggGeom;
             int Type = static_cast<int>(Body.PhysicsType);
             bool Changed = ImGui::Combo("Physics Type", &Type, "Default\0Kinematic\0Simulated\0");
+            if (ImGui::CollapsingHeader("Physical Material", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                float Density, Friction, Restitution;
+                auto& Model = Editor.GetEditModel();
+                float MassKg = Body.MassOverrideKg;
+                if (ImGui::DragFloat("Mass Override (kg)", &MassKg, 0.05f, 0, 1e8f, "%.3f", ImGuiSliderFlags_AlwaysClamp))
+                    Model.SetBodyMass(BoneIndex, MassKg);
+                if (ImGui::IsItemHovered()) ImGui::SetTooltip("Zero uses density and volume. Positive mass is independent of shape size, at unit bone scale.");
+                ImGui::Text("Mass at unit scale: %.3f kg", Body.CalculateMass());
+                if (Model.GetBodyMaterial(BoneIndex, Density, Friction, Restitution))
+                {
+                    if (!Body.PhysMaterial) ImGui::TextDisabled("Using runtime defaults; editing creates a body material.");
+                    bool MaterialChanged = ImGui::DragFloat("Density", &Density, 0.01f, 0.001f, 1e8f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Density determines mass only when Mass Override is zero.");
+                    MaterialChanged |= ImGui::DragFloat("Friction", &Friction, 0.01f, 0.0f, 1e8f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+                    MaterialChanged |= ImGui::SliderFloat("Restitution", &Restitution, 0.0f, 1.0f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+                    if (MaterialChanged) Model.SetBodyMaterial(BoneIndex, Density, Friction, Restitution);
+                }
+            }
             ECollisionShape RemoveType = ECollisionShape::Unknown;
             int32 RemoveIndex = -1;
             const auto Common = [&](auto& Shape) {
@@ -361,14 +383,57 @@ namespace
             }
             UPhysicsAsset* Asset = Editor.GetPhysicsAsset();
             ImGui::Separator();
+            if (ImGui::CollapsingHeader("Automatic Generation", ImGuiTreeNodeFlags_DefaultOpen))
+            {
+                auto& Settings = Editor.GetGenerationSettings();
+                int Mode = Settings.bHumanoid ? 0 : 1;
+                if (ImGui::Combo("Mode", &Mode, "Humanoid\0Skeleton\0")) Settings.bHumanoid = Mode == 0;
+                if (Settings.bHumanoid)
+                {
+                    ImGui::TextWrapped("Main body bones only. Root, clothing, hair and fingers are excluded. Unrecognized rigs can use Skeleton mode.");
+                    ImGui::SliderFloat("Vertex Weight", &Settings.MinVertexWeight, 0.1f, 1.0f, "%.2f");
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Fit from vertices whose strongest bone influence meets this threshold. Extreme samples are trimmed.");
+                    ImGui::DragFloat("Total Mass (kg)", &Settings.TotalMassKg, 0.5f, 0.1f, 10000.0f, "%.1f", ImGuiSliderFlags_AlwaysClamp);
+                    ImGui::TextWrapped("Mass is distributed by body part. Unsupported spine bodies are skipped; nearby bodies ignore mutual collision.");
+                }
+                else
+                {
+                    float MinimumPercent = Settings.MinBoneLengthRatio * 100;
+                    if (ImGui::SliderFloat("Minimum Bone Length (%)", &MinimumPercent, 0, 100, "%.1f%%"))
+                        Settings.MinBoneLengthRatio = MinimumPercent / 100;
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Skip segments shorter than this percentage of the longest bone segment.");
+                    float RadiusPercent = Settings.RadiusRatio * 100;
+                    if (ImGui::SliderFloat("Capsule Radius (%)", &RadiusPercent, 1, 49, "%.1f%%"))
+                        Settings.RadiusRatio = RadiusPercent / 100;
+                    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Capsule radius as a percentage of its bone segment length.");
+                }
+                ImGui::TextWrapped("Generation stays in memory. Use Ctrl+S to save to disk.");
+                if (!Asset && !Editor.GetGenerationPreview())
+                {
+                    if (ImGui::Button("Create Physics Asset")) { Editor.CreateAsset(); return; }
+                    if (Editor.HasSavedAsset())
+                    {
+                        ImGui::SameLine();
+                        if (ImGui::Button("Load Saved Asset")) { Editor.RequestReload(); return; }
+                    }
+                }
+                if (ImGui::Button(Asset ? "Preview Regeneration" : "Preview Generation")) Editor.PreviewGeneration();
+            }
+            if (auto* Preview = Editor.GetGenerationPreview())
+            {
+                ImGui::Text("Preview: %d bodies, %d constraints", Preview->BodySetups.Num(), Preview->PhysicsConstraint.Num());
+                if (ImGui::BeginChild("GenerationBones", ImVec2(0,120), true))
+                    for (auto* Body : Preview->BodySetups) ImGui::TextUnformatted(Body->BoneName.ToString().c_str());
+                ImGui::EndChild();
+                ImGui::TextWrapped("Apply replaces current bodies and constraints. You can undo it. The saved file is unchanged until Ctrl+S.");
+                if (ImGui::Button("Apply Generated Asset")) { Editor.ApplyGeneration(); return; }
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel Preview")) Editor.CancelGeneration();
+                return;
+            }
             if (!Asset)
             {
                 ImGui::TextWrapped("No Physics Asset is assigned to this skeletal mesh.");
-                if (Editor.HasSavedAsset())
-                {
-                    if (ImGui::Button("Load Physics Asset")) Editor.RequestReload();
-                }
-                else if (ImGui::Button("Create Physics Asset")) Editor.CreateAsset();
                 return;
             }
 
@@ -469,8 +534,8 @@ void FPhysicsAssetEditorTab::DrawEditMenu()
     auto& Model = PhysicsEditor.GetEditModel();
     if (ImGui::BeginMenu("Edit"))
     {
-        if (ImGui::MenuItem("Undo", "Ctrl+Z", false, !PhysicsEditor.IsPreviewSimulating() && Model.CanUndo())) Model.Undo();
-        if (ImGui::MenuItem("Redo", "Ctrl+Y", false, !PhysicsEditor.IsPreviewSimulating() && Model.CanRedo())) Model.Redo();
+        if (ImGui::MenuItem("Undo", "Ctrl+Z", false, !PhysicsEditor.IsPreviewSimulating() && !PhysicsEditor.GetGenerationPreview() && Model.CanUndo())) Model.Undo();
+        if (ImGui::MenuItem("Redo", "Ctrl+Y", false, !PhysicsEditor.IsPreviewSimulating() && !PhysicsEditor.GetGenerationPreview() && Model.CanRedo())) Model.Redo();
         ImGui::EndMenu();
     }
 }
@@ -486,11 +551,11 @@ void FPhysicsAssetEditorTab::OnRender(bool bActive)
     if (bActive && Focused && !PhysicsEditor.IsGizmoDragging() && !IO.WantTextInput && IO.KeyCtrl)
     {
         if (ImGui::IsKeyPressed(ImGuiKey_S, false)) PhysicsEditor.Save();
-        else if (!PhysicsEditor.IsPreviewSimulating() && ImGui::IsKeyPressed(ImGuiKey_Z, false))
+        else if (!PhysicsEditor.IsPreviewSimulating() && !PhysicsEditor.GetGenerationPreview() && ImGui::IsKeyPressed(ImGuiKey_Z, false))
         {
             if (IO.KeyShift) Model.Redo(); else Model.Undo();
         }
-        else if (!PhysicsEditor.IsPreviewSimulating() && ImGui::IsKeyPressed(ImGuiKey_Y, false)) Model.Redo();
+        else if (!PhysicsEditor.IsPreviewSimulating() && !PhysicsEditor.GetGenerationPreview() && ImGui::IsKeyPressed(ImGuiKey_Y, false)) Model.Redo();
     }
     const FString PopupName = "Unsaved Physics Asset Changes###PhysicsAssetClose:" + PhysicsEditor.GetAssetPath();
     if (PhysicsEditor.HasPendingAction() && !ImGui::IsPopupOpen(PopupName.c_str())) ImGui::OpenPopup(PopupName.c_str());

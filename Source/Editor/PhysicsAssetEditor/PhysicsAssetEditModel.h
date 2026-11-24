@@ -7,6 +7,7 @@
 #include "Physics/PhysicsConstraintTemplate.h"
 
 class USkeletalMesh;
+class UPhysicsAsset;
 class UBodySetup;
 struct FKAggregateGeom;
 enum class ECollisionShape : uint8;
@@ -37,7 +38,11 @@ public:
         : Mesh(InMesh), MeshPath(InMeshPath) {}
 
     void ResetHistory();
+    bool ReplaceWithGenerated(const UPhysicsAsset& Asset);
     UBodySetup* GetBody(int32 BoneIndex) const;
+    bool GetBodyMaterial(int32 BoneIndex, float& Density, float& Friction, float& Restitution) const;
+    bool SetBodyMaterial(int32 BoneIndex, float Density, float Friction, float Restitution);
+    bool SetBodyMass(int32 BoneIndex, float MassKg);
     bool AddShape(int32 BoneIndex, ECollisionShape Type);
     bool RemoveBody(int32 BoneIndex);
     bool RemoveShape(int32 BoneIndex, ECollisionShape Type, int32 ShapeIndex);

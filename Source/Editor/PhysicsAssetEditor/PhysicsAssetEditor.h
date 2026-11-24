@@ -5,6 +5,7 @@
 #include "PhysicsAssetPreview.h"
 #include "Editor/Gizmo/Gizmo.h"
 #include "Physics/PhysicsAssetInstance.h"
+#include "Physics/PhysicsAssetBuilder.h"
 
 class UPhysicsAsset;
 
@@ -34,6 +35,11 @@ public:
     UPhysicsAsset* GetPhysicsAsset() const;
     const FString& GetMeshAssetPath() const { return MeshAssetPath; }
     bool CreateAsset();
+    bool PreviewGeneration();
+    bool ApplyGeneration();
+    void CancelGeneration();
+    UPhysicsAsset* GetGenerationPreview() const { return GenerationPreview; }
+    PhysicsAssetBuilder::FAutoGenerateSettings& GetGenerationSettings() { return GenerationSettings; }
     bool Save();
     bool Reload();
     bool HasSavedAsset() const;
@@ -95,6 +101,8 @@ private:
     enum class EAction { None, Close, Reload };
     FString MeshAssetPath;
     FString FileError;
+    PhysicsAssetBuilder::FAutoGenerateSettings GenerationSettings;
+    UPhysicsAsset* GenerationPreview = nullptr;
     FPhysicsAssetEditModel EditModel;
     EAction PendingAction = EAction::None;
     bool bCloseConfirmed = false;
