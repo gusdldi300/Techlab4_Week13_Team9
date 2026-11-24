@@ -2,6 +2,7 @@
 #include <memory>
 #include "Core/Types.h"
 #include "Physics/PhysicsHandles.h"
+#include "Math/Vector.h"
 
 // stat physics가 표시하는 물리 세계의 개수 통계. 엔진 타입만 써서 에디터가 PhysX를 몰라도 읽을 수 있다.
 // 시뮬레이션 도중에 읽으면 값이 섞이므로, 구현이 한 스텝을 끝낸 직후(fetchResults 직후)에 채운다.
@@ -35,6 +36,8 @@ public:
 	FPhysicsScene& operator=(const FPhysicsScene&) = delete;
 
 	virtual void CreatePhysicsScene()  = 0;
+	// Changes only this scene, between simulation steps. False if the scene/gravity is invalid.
+	virtual bool SetGravity(const FVector& Gravity) = 0;
 
 	//이번 프레임의 물리 계산을 시작시킨다
 	virtual void StartFrame(float DeltaTime) = 0;

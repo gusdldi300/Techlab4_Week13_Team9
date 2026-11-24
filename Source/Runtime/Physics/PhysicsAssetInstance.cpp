@@ -56,13 +56,13 @@ bool FPhysicsAssetInstance::Matches(const USkeletalMeshComponent& Mesh) const
         Mesh.GetBones().Num() == BodyForBone.Num();
 }
 
-bool FPhysicsAssetInstance::Build(USkeletalMeshComponent& Mesh)
+bool FPhysicsAssetInstance::Build(USkeletalMeshComponent& Mesh, FPhysicsScene* SceneOverride)
 {
     Clear();
     USkeletalMesh* SkeletalMesh = Mesh.GetSkeletalMesh();
     UPhysicsAsset* Asset = SkeletalMesh ? SkeletalMesh->GetPhysicsAsset() : nullptr;
     UWorld* World = Mesh.GetWorld();
-    FPhysicsScene* Scene = World ? World->GetPhysicsScene() : nullptr;
+    FPhysicsScene* Scene = SceneOverride ? SceneOverride : (World ? World->GetPhysicsScene() : nullptr);
     PxPhysics* Physics = FPhysicsCore::Get().GetPhysics();
     if (!Asset || !Scene || !Physics || Asset->BodySetups.IsEmpty()) return false;
     // Use the same validation as editor save/load, including orthogonal frames and valid limits.
