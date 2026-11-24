@@ -18,22 +18,28 @@ namespace physx
 
 class FPhysicsCore
 {
+	// 생성과 해제는 엔진 루프만 한다. 다른 곳에서 ShutdownPhysX를 부르면 살아 있는 Scene이 해제된 Physics를 쓰게 된다.
+	friend class FEngineLoop;
+
 public:
 	FPhysicsCore() = default;
 	~FPhysicsCore() = default;
 	FPhysicsCore(const FPhysicsCore&) = delete;
 	FPhysicsCore& operator=(const FPhysicsCore&) = delete;
 
-
-	static bool InitPhysX();
-
-	static void ShutdownPhysX();
-
 	static FPhysicsCore& Get() { static FPhysicsCore Instance; return Instance; }
+
+	// 꺼낸 객체는 빌려 쓰기만 한다. release하거나 값을 바꾸지 않는다(기본 재질은 모든 바디가 공유한다).
 	physx::PxPhysics* GetPhysics() { return gPhysics; };
 	// PxDefaultCpuDispatcher → PxCpuDispatcher 변환은 상속 관계가 보여야 하므로 정의는 .cpp에 둔다.
 	physx::PxCpuDispatcher* GetDispatcher();
 	physx::PxMaterial* GetDefaultMaterial() { return gDefaultMaterial; }
+
+private:
+	static bool InitPhysX();
+	static void ShutdownPhysX();
+
+	// 아래 객체는 밖에서 대입할 수 없도록 private으로 둔다. 접근은 위의 getter로만 한다.
 
 	// PhysX의 최하위 기반 객체. 프로세스에 하나만 만든다.
 	// 내부 메모리 할당과 에러 보고를 생성 시 넘긴 Allocator, ErrorCallback으로 전달한다.

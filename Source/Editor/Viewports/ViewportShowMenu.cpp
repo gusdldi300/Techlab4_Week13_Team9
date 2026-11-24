@@ -44,6 +44,7 @@ void FViewportsPanel::DrawShowMenu()
             { "Skinning", "stat skinning", EStatFlags::Skinning },
             { "Particle", "stat particle", EStatFlags::Particle },
             { "Ragdoll", "stat ragdoll", EStatFlags::Ragdoll },
+            { "Physics", "stat physics", EStatFlags::Physics },
         };
         FString Message;
         if (IconMenuItem(nullptr, "Hide All", false, EIndicator::None))

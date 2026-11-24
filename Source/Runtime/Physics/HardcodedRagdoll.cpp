@@ -186,10 +186,15 @@ bool FHardcodedRagdoll::Build(USkeletalMeshComponent& Mesh)
         FBodyInstanceInitParams Params;
         Params.WorldLocation = (Starts[I] + Ends[I]) * 0.5f;
         Params.WorldRotation = P2UQuat(PxShortestRotation(PxVec3(1, 0, 0), Delta / Length));
-        Params.BoxHalfExtent = HalfExtents[I];
-        Params.BoxCenterOffset = FVector::ZeroVector;
+        FKBoxElem Box;
+        Box.X = HalfExtents[I].X * 2.0f;
+        Box.Y = HalfExtents[I].Y * 2.0f;
+        Box.Z = HalfExtents[I].Z * 2.0f;
+        Box.Center = FVector::ZeroVector;
+        Params.FallbackGeom.BoxElems.Add(Box);
         Params.bSimulatePhysics = true;
-        Bodies[I].InitBody(Params, nullptr, Scene);
+
+        Bodies[I].InitBody(nullptr, Params, nullptr, Scene);
         if (!Bodies[I].IsValidBodyInstance())
         {
             Clear();
@@ -212,10 +217,17 @@ bool FHardcodedRagdoll::Build(USkeletalMeshComponent& Mesh)
     FBodyInstanceInitParams FloorParams;
     FloorParams.WorldLocation = FVector(Starts[0].X, Starts[0].Y, MinBottom - Height * 0.3f - FloorHalfExtent.Z);
     FloorParams.WorldRotation = FQuat::Identity();
-    FloorParams.BoxHalfExtent = FloorHalfExtent;
-    FloorParams.BoxCenterOffset = FVector::ZeroVector;
     FloorParams.bSimulatePhysics = false;
-    TestFloor.InitBody(FloorParams, nullptr, Scene);
+
+
+    FKBoxElem FloorBox;
+    FloorBox.X = FloorHalfExtent.X * 2.0f;
+    FloorBox.Y = FloorHalfExtent.Y * 2.0f;
+    FloorBox.Z = FloorHalfExtent.Z * 2.0f;
+    FloorBox.Center = FVector::ZeroVector;
+    FloorParams.FallbackGeom.BoxElems.Add(FloorBox);
+
+    TestFloor.InitBody(nullptr, FloorParams, nullptr, Scene);
     if (!TestFloor.IsValidBodyInstance())
     {
         Clear();
