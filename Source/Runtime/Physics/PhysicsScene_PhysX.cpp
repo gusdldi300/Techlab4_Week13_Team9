@@ -4,6 +4,7 @@
 #include "PhysicsCore.h"
 #include "BodyInstance.h"
 #include "Physics/PhysicsStats.h"
+#include "PhysicsFilterShader.h"
 using namespace physx;
 
 std::unique_ptr<FPhysicsScene> MakePhysicsScene()
@@ -35,7 +36,7 @@ void FPhysicsScene_PhysX::CreatePhysicsScene()
     PxSceneDesc Desc(Physics->getTolerancesScale());          
     Desc.gravity = PxVec3(0.0f, 0.0f, -9.81f);           
     Desc.cpuDispatcher = FPhysicsCore::Get().GetDispatcher();  
-    Desc.filterShader = PxDefaultSimulationFilterShader;
+    Desc.filterShader = SimulationFilterShader;
 
     Desc.flags |= PxSceneFlag::eENABLE_ACTIVE_ACTORS;
 
