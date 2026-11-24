@@ -19,6 +19,7 @@ public:
 	void StartFrame(float DeltaTime) override;
 	void EndFrame() override;
 	void AddActor(const FPhysicsActorHandle& Handle) override;
+	void DrawDebugBodies(FLineBatcher* Lines) const override;
 
 
 private:

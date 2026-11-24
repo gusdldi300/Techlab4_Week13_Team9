@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Physics/PhysicsDebugDraw.h"
 
 #include "Editor/KurisuEd/EditorEngine.h"
 #include "Editor/KurisuEd/Editor.h"
@@ -2126,9 +2127,14 @@ void UEditorEngine::DrawPIEDebug(UWorld* World, const FMatrix& ViewProjection)
 		DrawSkeletalRootDebug(World, LineBatcher);
 	}
 
-	if (Settings.bShowRagdollBodies)
+	if (Settings.bShowPhysicsBodies)
 	{
-		DrawHardcodedRagdolls(World, LineBatcher);
+		FPhysicsDebugDraw::DrawWorldBodies(World, LineBatcher);
+	}
+
+	if (Settings.bShowPhysicsConstraints)
+	{
+		DrawHardcodedRagdollConstraints(World, LineBatcher);
 	}
 
 	// 모은 선들을 한 번에 그린다.

@@ -391,23 +391,12 @@ void FHardcodedRagdoll::ApplyToMesh(USkeletalMeshComponent& Mesh)
     LastPhysicsPoseMs = FPlatformTime::ToMilliseconds64(Timer.Finish());
 }
 
-void FHardcodedRagdoll::DrawDebug(FLineBatcher& Lines) const
+void FHardcodedRagdoll::DrawConstraints(FLineBatcher& Lines) const
 {
     if (!bBuilt) return;
     PxScene* Scene = Bodies[0].GetActorHandle().Actor->getScene();
     if (!Scene) return;
     PxSceneReadLock Lock(*Scene);
-    const auto DrawBody = [&Lines](const FBodyInstance& Body, const FVector& Extent, const FVector4& Color)
-    {
-        const FMatrix World = BodyPoseToMatrix(Body.GetActorHandle().Actor->getGlobalPose());
-        Lines.AddOrientedBox(FBox{ Extent * -1.0f, Extent }, World, Color);
-    };
-    for (int32 I = 0; I < BodyCount; ++I)
-    {
-        const FVector4 Color = I < 3 ? FVector4(0.9f, 0.2f, 0.9f, 1.0f) : (I < 9 ? FVector4(1.0f, 0.5f, 0.1f, 1.0f) : FVector4(0.1f, 0.8f, 1.0f, 1.0f));
-        DrawBody(Bodies[I], HalfExtents[I], Color);
-    }
-    DrawBody(TestFloor, FloorHalfExtent, FVector4(0.4f, 1.0f, 0.4f, 1.0f));
     for (int32 I = 1; I < BodyCount; ++I)
     {
         const PxTransform ParentAnchor = Bodies[Definitions[I].ParentBody].GetActorHandle().Actor->getGlobalPose() * Joints[I - 1]->getLocalPose(PxJointActorIndex::eACTOR0);

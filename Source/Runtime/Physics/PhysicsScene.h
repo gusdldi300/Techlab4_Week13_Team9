@@ -22,6 +22,8 @@ struct FPhysicsSceneStats
 };
 
 
+class FLineBatcher;
+
 //서로다른 물리엔진에서 시뮬레이션 시키는 공간을 추상화한 클래스 physX는 PxScene, havok hknpWorld라는 이름으로 불리므로
 //물리 엔진을 교체하더라도 유연하게 대응하기 위해 이 클래스를 만들었다.
 class FPhysicsScene
@@ -42,6 +44,9 @@ public:
 	//바디를 이 물리 세계에 넣는다. 넣은 뒤부터 매 시뮬레이션의 계산 대상이 된다
 	//해제는 바디 쪽에서 액터를 release하면 Scene에서도 자동으로 빠진다
 	virtual void AddActor(const FPhysicsActorHandle& Handle) = 0;
+
+	// Debug rendering reads the completed simulation, including aggregate actors.
+	virtual void DrawDebugBodies(FLineBatcher* Lines) const = 0;
 
 	//stat physics용 통계. 마지막으로 끝난 스텝 기준의 값이다
 	const FPhysicsSceneStats& GetStats() const { return Stats; }

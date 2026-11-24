@@ -23,7 +23,7 @@ struct FEditorSettings
 	bool bShowUUID = false;
 	// Debug Draw (UE show 플래그): PIE에서만 적용된다
 	bool bShowRootDebug = false;  // root 본 구체 + 액터→root 선
-	bool bShowRagdollBodies = false; // Ragdoll
+	bool bShowPhysicsConstraints = false; // Joint anchors and links (currently ragdolls)
 	bool bDrawBatchLine = true;
 	bool bDrawCascadeBounds = false;
 	bool bEnableFXAA = false;

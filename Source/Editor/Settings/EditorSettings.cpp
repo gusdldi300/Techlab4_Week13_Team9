@@ -40,7 +40,7 @@ bool FEditorSettingsManager::SaveSettings() const
 	File << "DrawBoundingBox=" << Settings.bDrawBoundingBox << "\n";
 	File << "ShowUUID=" << Settings.bShowUUID << "\n";
 	File << "ShowRootDebug=" << Settings.bShowRootDebug << "\n";
-	File << "ShowRagdollBodies=" << Settings.bShowRagdollBodies << "\n";
+	File << "ShowPhysicsConstraints=" << Settings.bShowPhysicsConstraints << "\n";
 	File << "DrawDecals=" << Settings.bDrawDecals << "\n";
 	File << "DecalCulling=" << Settings.bDecalCulling << "\n";
 	File << "DecalNarrowCulling=" << Settings.bDecalNarrowCulling << "\n";
@@ -122,6 +122,8 @@ bool FEditorSettingsManager::LoadSettings()
 		Settings.bViewRotationSaved[Index] = false;
 	}
 
+	bool bHasBodies = false, bHasConstraints = false;
+	bool bHasLegacyRagdoll = false, bLegacyRagdoll = false;
 	std::string Line;
 	while (std::getline(File, Line))
 	{
@@ -199,7 +201,16 @@ bool FEditorSettingsManager::LoadSettings()
 				else if (Key == "DrawBoundingBox") Settings.bDrawBoundingBox = std::stoi(ValueStr);
 				else if (Key == "ShowUUID") Settings.bShowUUID = std::stoi(ValueStr);
 				else if (Key == "ShowRootDebug") Settings.bShowRootDebug = std::stoi(ValueStr);
-				else if (Key == "ShowRagdollBodies") Settings.bShowRagdollBodies = std::stoi(ValueStr);
+				else if (Key == "ShowPhysicsConstraints")
+				{
+					Settings.bShowPhysicsConstraints = std::stoi(ValueStr);
+					bHasConstraints = true;
+				}
+				else if (Key == "ShowRagdollBodies")
+				{
+					bLegacyRagdoll = std::stoi(ValueStr) != 0;
+					bHasLegacyRagdoll = true;
+				}
 				else if (Key == "DrawDecals") Settings.bDrawDecals = std::stoi(ValueStr);
 				else if (Key == "DecalCulling") Settings.bDecalCulling = std::stoi(ValueStr);
 				else if (Key == "DecalNarrowCulling") Settings.bDecalNarrowCulling = std::stoi(ValueStr);
@@ -216,7 +227,11 @@ bool FEditorSettingsManager::LoadSettings()
 				else if (Key == "ShowCameraOverlay") Settings.bShowCameraOverlay = std::stoi(ValueStr);
 				else if (Key == "ShowSkeletalMesh")  Settings.bShowSkeletalMesh = std::stoi(ValueStr);
 				else if (Key == "ShowParticles")     Settings.bShowParticles = std::stoi(ValueStr);
-				else if (Key == "ShowPhysicsBodies") Settings.bShowPhysicsBodies = std::stoi(ValueStr);
+				else if (Key == "ShowPhysicsBodies")
+				{
+					Settings.bShowPhysicsBodies = std::stoi(ValueStr);
+					bHasBodies = true;
+				}
 
 				else if (Key == "LightCullingMode")
 				{
@@ -300,6 +315,11 @@ bool FEditorSettingsManager::LoadSettings()
 	Settings.PointShadowMapSizeLevel = FMath::Clamp(Settings.PointShadowMapSizeLevel, 0, 4);
 	Settings.SpotShadowMapSizeLevel = FMath::Clamp(Settings.SpotShadowMapSizeLevel, 0, 4);
 	ApplyViewportSettings();
+	if (bHasLegacyRagdoll)
+	{
+		if (!bHasBodies) Settings.bShowPhysicsBodies = bLegacyRagdoll;
+		if (!bHasConstraints) Settings.bShowPhysicsConstraints = bLegacyRagdoll;
+	}
 	return true;
 }
 

@@ -643,15 +643,15 @@ void USkeletalMeshComponent::OnUnregister()
 	Super::OnUnregister();
 }
 
-void USkeletalMeshComponent::DrawHardcodedRagdollDebug(FLineBatcher* Lines) const
+void USkeletalMeshComponent::DrawHardcodedRagdollConstraints(FLineBatcher* Lines) const
 {
 	if (Lines && HardcodedRagdoll)
 	{
-		HardcodedRagdoll->DrawDebug(*Lines);
+		HardcodedRagdoll->DrawConstraints(*Lines);
 	}
 }
 
-void DrawHardcodedRagdolls(UWorld* World, FLineBatcher* LineBatcher)
+void DrawHardcodedRagdollConstraints(UWorld* World, FLineBatcher* LineBatcher)
 {
 	if (!World || !LineBatcher)
 	{
@@ -664,7 +664,7 @@ void DrawHardcodedRagdolls(UWorld* World, FLineBatcher* LineBatcher)
 
 		if (Mesh &&	Mesh->GetWorld() == World && Mesh->IsRegistered())
 		{
-			Mesh->DrawHardcodedRagdollDebug(LineBatcher);
+			Mesh->DrawHardcodedRagdollConstraints(LineBatcher);
 		}
 	}
 }

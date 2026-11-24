@@ -2,6 +2,7 @@
 #include "PhysicsScene_PhysX.h"
 #include <PxPhysicsAPI.h>
 #include "PhysicsCore.h"
+#include "PhysicsDebugDraw.h"
 #include "BodyInstance.h"
 #include "Physics/PhysicsStats.h"
 using namespace physx;
@@ -170,4 +171,25 @@ void FPhysicsScene_PhysX::AddActor(const FPhysicsActorHandle& Handle)
 
     PxSceneWriteLock WriteLock(*PhysXScene);
     PhysXScene->addActor(*Handle.Actor);
+}
+
+void FPhysicsScene_PhysX::DrawDebugBodies(FLineBatcher* Lines) const
+{
+    if (!Lines || !PhysXScene || bSimulating) return;
+    PxSceneReadLock Lock(*PhysXScene);
+    const PxActorTypeFlags Types = PxActorTypeFlag::eRIGID_STATIC | PxActorTypeFlag::eRIGID_DYNAMIC;
+    PxActor* Actors[64];
+    const PxU32 Count = PhysXScene->getNbActors(Types);
+    for (PxU32 Offset = 0; Offset < Count;)
+    {
+        const PxU32 Read = PhysXScene->getActors(Types, Actors, 64, Offset);
+        if (!Read) break;
+        for (PxU32 I = 0; I < Read; ++I)
+        {
+            FPhysicsActorHandle Handle;
+            Handle.Actor = Actors[I]->is<PxRigidActor>();
+            FPhysicsDebugDraw::DrawActorShapes(Lines, Handle, FVector4(0.3f, 0.9f, 1.0f, 1.0f));
+        }
+        Offset += Read;
+    }
 }

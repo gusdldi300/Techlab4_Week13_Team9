@@ -27,7 +27,7 @@ void FViewportsPanel::DrawShowMenu()
         Settings.bShowUUID = Defaults.bShowUUID;
         Settings.bDrawCascadeBounds = Defaults.bDrawCascadeBounds;
         Settings.bShowRootDebug = Defaults.bShowRootDebug;
-        Settings.bShowRagdollBodies = Defaults.bShowRagdollBodies;
+        Settings.bShowPhysicsConstraints = Defaults.bShowPhysicsConstraints;
         Settings.bShowVignette = Defaults.bShowVignette;
         Settings.bShowCameraOverlay = Defaults.bShowCameraOverlay;
     }
@@ -75,6 +75,7 @@ void FViewportsPanel::DrawShowMenu()
     Flag("Grid", "Grid", Settings.bDrawBatchLine);
     Flag("Particles", "Particles", Settings.bShowParticles);
     Flag("Collision", "Physics Bodies", Settings.bShowPhysicsBodies);
+    Flag("Collision", "Physics Constraints", Settings.bShowPhysicsConstraints);
     Flag("SkeletalMesh", "Skeletal Meshes", Settings.bShowSkeletalMesh);
     Flag("StaticMesh", "Static Meshes", Settings.bDrawPrimitives);
     SectionHeader("Developer");
@@ -82,7 +83,6 @@ void FViewportsPanel::DrawShowMenu()
     Flag("Pivot", "Object UUID", Settings.bShowUUID);
     SectionHeader("PIE");
     Flag("SkeletalMesh", "Root Bone", Settings.bShowRootDebug);
-    Flag("SkeletalMesh", "Ragdoll Bodies", Settings.bShowRagdollBodies);
     Flag("Lighting", "Vignette", Settings.bShowVignette);
     Flag("Camera", "Camera Fade / Letterbox", Settings.bShowCameraOverlay);
     ImGui::Spacing();

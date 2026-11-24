@@ -21,7 +21,7 @@ public:
 
     bool Build(USkeletalMeshComponent& Mesh);
     void Clear();
-    void DrawDebug(FLineBatcher& Lines) const;
+    void DrawConstraints(FLineBatcher& Lines) const;
     void ApplyToMesh(USkeletalMeshComponent& Mesh);
 
     bool IsSimulating() const { return bBuilt && bSimulating; }

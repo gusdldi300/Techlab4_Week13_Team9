@@ -18,7 +18,7 @@ extern bool GShowSkeletalRootDebug;
 class UAnimationAsset;
 class UAnimSingleNodeInstance;
 class UAnimGraphInstance;
-void DrawHardcodedRagdolls(UWorld* World, FLineBatcher* LineBatcher);
+void DrawHardcodedRagdollConstraints(UWorld* World, FLineBatcher* LineBatcher);
 
 UCLASS()
 class USkeletalMeshComponent : public USkinnedMeshComponent
@@ -83,7 +83,7 @@ public:
 
 	void EndPlay() override;
 
-	void DrawHardcodedRagdollDebug(FLineBatcher* Lines) const;
+	void DrawHardcodedRagdollConstraints(FLineBatcher* Lines) const;
 
 	FRagdollDebugStats GetRagdollDebugStats() const;
 
