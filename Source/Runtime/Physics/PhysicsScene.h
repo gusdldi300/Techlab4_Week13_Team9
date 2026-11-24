@@ -45,6 +45,10 @@ public:
 	//해제는 바디 쪽에서 액터를 release하면 Scene에서도 자동으로 빠진다
 	virtual void AddActor(const FPhysicsActorHandle& Handle) = 0;
 
+	// 이 물리 세계의 차량 관리자. 차량을 지원하지 않는 구현은 nullptr을 돌려준다.
+	// 차량 컴포넌트가 자기를 등록할 때 쓴다. 소유권은 Scene에 있다.
+	virtual class FPhysXVehicleManager* GetVehicleManager() { return nullptr; }
+
 	// Debug rendering reads the completed simulation, including aggregate actors.
 	virtual void DrawDebugBodies(FLineBatcher* Lines) const = 0;
 

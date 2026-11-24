@@ -59,6 +59,8 @@ FPhysicsScene_PhysX::~FPhysicsScene_PhysX()
             PhysXScene->fetchResults(true);
             bSimulating = false;
         }
+        // 관리자가 가진 배치 쿼리는 이 Scene이 만든 객체이므로 Scene보다 먼저 release한다.
+        VehicleManager.reset();
         PhysXScene->release();
         PhysXScene = nullptr;
     }
@@ -93,6 +95,11 @@ void FPhysicsScene_PhysX::CreatePhysicsScene()
         Pvd->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
         //Raycast·Sweep·Overlap의 광선·도형과 맞은 결과
         Pvd->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
+    }
+
+    if (FPhysicsCore::Get().IsVehicleSDKInitialized())
+    {
+        VehicleManager = std::make_unique<FPhysXVehicleManager>(PhysXScene);
     }
 
     KRS_LOG(Info, "[Physics] Scene created");
@@ -140,6 +147,12 @@ void FPhysicsScene_PhysX::BeginStep()
         // Scene을 바꾸는 호출은 쓰기 잠금 안에서 한다. 쓰기는 혼자만 할 수 있다.
         SCOPE_CYCLE_COUNTER(PhysicsStats::STAT_PhysicsSimulate);
         PxSceneWriteLock WriteLock(*PhysXScene);
+        // 차량은 이번 스텝에 차체가 받을 속도 변화를 simulate 전에 계산해야 한다.
+        // simulate 뒤로 미루면 서스펜션 힘이 한 스텝 늦게 들어가 스프링을 엇박자로 밀게 되고, 차가 점점 크게 출렁이다 튄다.
+        if (VehicleManager)
+        {
+            VehicleManager->Update(FixedStep);
+        }
         PhysXScene->simulate(FixedStep);
     }
     bSimulating = true;
