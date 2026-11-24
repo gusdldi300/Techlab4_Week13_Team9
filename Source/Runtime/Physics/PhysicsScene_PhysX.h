@@ -1,5 +1,6 @@
 #pragma once
 #include "Physics/PhysicsScene.h"
+#include "Physics/PhysXVehicleManager.h"
 
 namespace physx
 {
@@ -19,6 +20,7 @@ public:
 	void StartFrame(float DeltaTime) override;
 	void EndFrame() override;
 	void AddActor(const FPhysicsActorHandle& Handle) override;
+	FPhysXVehicleManager* GetVehicleManager() override { return VehicleManager.get(); }
 
 
 private:
@@ -28,6 +30,9 @@ private:
 	void FinishStep();
 
 	physx::PxScene* PhysXScene = nullptr;
+
+	// 이 Scene의 차량 관리자. 배치 쿼리가 PhysXScene에 묶이므로 PhysXScene보다 먼저 해제한다.
+	std::unique_ptr<FPhysXVehicleManager> VehicleManager;
 
 	// 아직 시뮬레이션하지 않은 누적 시간
 	float Accumulator = 0.0f;
