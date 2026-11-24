@@ -8,6 +8,7 @@
 #include "Collision/HitResult.h"
 #include "Core/Delegate/Delegate.h"
 #include "Physics/BodyInstance.h"
+#include "Physics/CollisionChannel.h"
 #include "PrimitiveComponent.generated.h"
 
 class FPrimitiveSceneProxy;
@@ -101,6 +102,11 @@ public:
 	bool bGenerateOverlapEvents = true;
 	UPROPERTY(EditAnywhere)
 	bool bBlockComponent = false;
+
+	UPROPERTY(EditAnywhere)
+	ECollisionChannel ObjectType = ECollisionChannel::WorldStatic;	// 내 타입
+
+	FCollisionResponseContainer CollisionResponses;					// 채널마다 어떻게 설정?
 
 	// ---- 물리 바디 (담당: A) ----
 	// true면 PhysX가 움직이는 Dynamic 바디를 만든다.

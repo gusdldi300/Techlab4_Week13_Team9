@@ -3,6 +3,7 @@
 #include "Physics/PhysicsCore.h"
 #include "Physics/PhysicsScene.h"
 #include "Physics/PhysXConversions.h"
+#include "Physics/PhysicsFiltering.h"
 #include <algorithm>
 #include <cmath>
 #include "Components/PrimitiveComponent.h"
@@ -30,7 +31,8 @@ namespace
 	}
 
 	// 도형 하나를 액터에 붙인다. 위치(Center)는 스케일을 곱해 옮기고, 회전은 그대로 쓴다.
-	bool AttachShape(PxRigidActor& Actor, const PxGeometry& Geometry, PxMaterial& Material, const FVector& LocalCenter, const PxQuat& LocalRotation)
+	bool AttachShape(PxRigidActor& Actor, const PxGeometry& Geometry, PxMaterial& Material, const FVector& LocalCenter, 
+		const PxQuat& LocalRotation, const PxFilterData & SimFilter, const PxFilterData& QueryFilter)
 	{
 		PxShape* Shape = PxRigidActorExt::createExclusiveShape(Actor, Geometry, Material);
 		if (!Shape)
@@ -38,12 +40,15 @@ namespace
 			return false;
 		}
 		Shape->setLocalPose(PxTransform(U2PVector(LocalCenter), LocalRotation.getNormalized()));
+		Shape->setSimulationFilterData(SimFilter);
+		Shape->setQueryFilterData(QueryFilter);
 		return true;
 	}
 
 	// AggregateGeom의 도형을 모두 PhysX Shape로 만들어 붙이고, 붙인 개수를 돌려준다.
 	// 반 크기 변환과 캡슐 축 변환은 엔진 데이터와 PhysX 규약이 다른 부분이라 이 함수 한 곳에서만 한다.
-	int32 CreateShapes(PxRigidActor& Actor, const FKAggregateGeom& Geom, PxMaterial& Material, const FVector& Scale3D)
+	int32 CreateShapes(PxRigidActor& Actor, const FKAggregateGeom& Geom, PxMaterial& Material, const FVector& Scale3D, 
+		const PxFilterData& SimFilter, const PxFilterData& QueryFilter)
 	{
 		const FVector Scale = AbsVector(Scale3D);
 		int32 NumCreated = 0;
@@ -53,7 +58,7 @@ namespace
 		for (const FKSphereElem& Elem : Geom.SphereElems)
 		{
 			const PxSphereGeometry Sphere(std::max(Elem.Radius * SphereScale, MinExtent));
-			NumCreated += AttachShape(Actor, Sphere, Material, MulVector(Elem.Center, Scale3D), PxQuat(PxIdentity)) ? 1 : 0;
+			NumCreated += AttachShape(Actor, Sphere, Material, MulVector(Elem.Center, Scale3D), PxQuat(PxIdentity), SimFilter, QueryFilter) ? 1 : 0;
 		}
 
 		for (const FKBoxElem& Elem : Geom.BoxElems)
@@ -63,7 +68,7 @@ namespace
 				std::max(Elem.X * Scale.X * 0.5f, MinExtent),
 				std::max(Elem.Y * Scale.Y * 0.5f, MinExtent),
 				std::max(Elem.Z * Scale.Z * 0.5f, MinExtent));
-			NumCreated += AttachShape(Actor, Box, Material, MulVector(Elem.Center, Scale3D), U2PQuat(Elem.Rotation.Quaternion())) ? 1 : 0;
+			NumCreated += AttachShape(Actor, Box, Material, MulVector(Elem.Center, Scale3D), U2PQuat(Elem.Rotation.Quaternion()), SimFilter, QueryFilter) ? 1 : 0;
 		}
 
 		// 엔진 캡슐(FKSphylElem)은 Z축으로 서 있고, PhysX 캡슐은 X축으로 누워 있다.
@@ -77,7 +82,7 @@ namespace
 				std::max(Elem.Radius * CapsuleRadiusScale, MinExtent),
 				std::max(Elem.Length * Scale.Z * 0.5f, MinExtent));
 			const PxQuat Rotation = U2PQuat(Elem.Rotation.Quaternion()) * CapsuleXToZ;
-			NumCreated += AttachShape(Actor, Capsule, Material, MulVector(Elem.Center, Scale3D), Rotation) ? 1 : 0;
+			NumCreated += AttachShape(Actor, Capsule, Material, MulVector(Elem.Center, Scale3D), Rotation, SimFilter, QueryFilter) ? 1 : 0;
 		}
 
 		return NumCreated;
@@ -148,7 +153,11 @@ void FBodyInstance::InitBody(const UBodySetup* Setup, const FBodyInstanceInitPar
 		return;
 	}
 
-	const int32 NumShapes = CreateShapes(*Actor, Geom, *Material, Params.Scale3D);
+	FCollisionFilterData SimData, QueryData;
+	if (InOwnerComponent) CreateShapeFilterData(InOwnerComponent->ObjectType, InOwnerComponent->CollisionResponses, 
+												InOwnerComponent->GetUUID(), 0, true, SimData, QueryData);
+
+	const int32 NumShapes = CreateShapes(*Actor, Geom, *Material, Params.Scale3D, U2PFilterData(SimData), U2PFilterData(QueryData));
 	if (bOwnsMaterial)
 	{
 		Material->release();

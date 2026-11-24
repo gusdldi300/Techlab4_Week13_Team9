@@ -1,7 +1,10 @@
 #pragma once
 
 #include "Core/Types.h"
+#include "UObject/Class.h"
+#include "CollisionChannel.generated.h"
 
+UENUM()
 enum class ECollisionChannel : uint8{
 	WorldStatic, WorldDynamic, Pawn, PhysicsBody, Vehicle, Visibility, Camera, Max
 };
