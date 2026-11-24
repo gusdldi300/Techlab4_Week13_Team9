@@ -405,6 +405,7 @@ void DrawPreviewViewToolbar(FSkeletalPreviewEditor& Editor, FPreviewViewportTool
 void FSkeletalPreviewViewportPanel::DrawContent()
 {
     DrawPreviewViewToolbar(Editor, ToolbarState);
+    DrawViewportTools();
 
     FEditorViewportClient* Client = Editor.GetViewportClient();
     const ImVec2 Size = ImGui::GetContentRegionAvail();
@@ -432,6 +433,7 @@ void FSkeletalPreviewViewportPanel::DrawContent()
     }
 
     const bool bFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+    HandleViewportShortcuts(bHovered, bFocused);
     if (bFocused && bHovered && ImGui::IsKeyPressed(ImGuiKey_F, false))
     {
         Editor.FocusMesh();

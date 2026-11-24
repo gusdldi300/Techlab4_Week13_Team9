@@ -17,40 +17,10 @@
 #include "Engine/Level.h"
 #include "GameFramework/Actor.h"
 #include "Asset/AssetManager.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Physics/PhysicsDebugDraw.h"
 
 FLevelEditorViewportClient* GCurrentLevelEditingViewportClient = nullptr;
-
-static void DrawPhysicsBodies(UWorld* World, FLineBatcher* LineBatcher, const AActor* Selected)
-{
-	if (!World || !LineBatcher) return;
-
-	static FKAggregateGeom TestGeom;
-	if (TestGeom.GetElementCount() == 0)
-	{
-		FKSphereElem Sphere;
-		Sphere.Center = FVector(0.0f, -1.5f, 0.0f);
-		Sphere.Radius = 0.5f;
-		TestGeom.SphereElems.Add(Sphere);
-
-		FKBoxElem Box;
-		Box.Center = FVector(0.0f, 0.0f, 0.0f);
-		Box.Rotation = FRotator(0.0f, 30.0f, 0.0f);
-		Box.X = Box.Y = Box.Z = 1.0f;
-		TestGeom.BoxElems.Add(Box);
-
-		FKSphylElem Sphyl;
-		Sphyl.Center = FVector(0.0f, 1.5f, 0.0f);
-		Sphyl.Rotation = FRotator(0.0f, 0.0f, 0.0f);
-		Sphyl.Radius = 0.4f;
-		Sphyl.Length = 1.2f;
-		TestGeom.SphylElems.Add(Sphyl);
-	}
-
-	const FTransform WorldTransform = Selected ? Selected->GetActorTransform() : FTransform();
-	FPhysicsDebugDraw::DrawAggregateGeom(LineBatcher, TestGeom, WorldTransform,
-		FVector4(0.3f, 0.9f, 1.0f, 1.0f));
-}
 
 FLevelEditorViewportClient::FLevelEditorViewportClient()
 {
@@ -214,10 +184,13 @@ void FLevelEditorViewportClient::Draw(const FSceneView* View, FScenePassCallback
 
 				LineBatcher->OnRender(SceneView.ViewProjectionMatrix);
 
-				if (Settings.bShowPhysicsBodies)
+				if (Settings.bShowPhysicsBodies || Settings.bShowPhysicsConstraints)
 				{
 					LineBatcher->BeginFrame();
-					DrawPhysicsBodies(GetWorld(), LineBatcher, SelectedActor);
+					if (Settings.bShowPhysicsBodies)
+						FPhysicsDebugDraw::DrawWorldBodies(GetWorld(), LineBatcher);
+					if (Settings.bShowPhysicsConstraints)
+						DrawPhysicsAssetConstraints(GetWorld(), LineBatcher);
 					LineBatcher->SetDepthTest(false);
 					LineBatcher->OnRender(SceneView.ViewProjectionMatrix);
 					LineBatcher->SetDepthTest(true);

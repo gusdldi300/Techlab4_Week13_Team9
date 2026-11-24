@@ -2,6 +2,7 @@
 #include <memory>
 #include "Core/Types.h"
 #include "Physics/PhysicsHandles.h"
+#include "Math/Vector.h"
 
 // stat physics가 표시하는 물리 세계의 개수 통계. 엔진 타입만 써서 에디터가 PhysX를 몰라도 읽을 수 있다.
 // 시뮬레이션 도중에 읽으면 값이 섞이므로, 구현이 한 스텝을 끝낸 직후(fetchResults 직후)에 채운다.
@@ -22,6 +23,8 @@ struct FPhysicsSceneStats
 };
 
 
+class FLineBatcher;
+
 //서로다른 물리엔진에서 시뮬레이션 시키는 공간을 추상화한 클래스 physX는 PxScene, havok hknpWorld라는 이름으로 불리므로
 //물리 엔진을 교체하더라도 유연하게 대응하기 위해 이 클래스를 만들었다.
 class FPhysicsScene
@@ -33,6 +36,8 @@ public:
 	FPhysicsScene& operator=(const FPhysicsScene&) = delete;
 
 	virtual void CreatePhysicsScene()  = 0;
+	// Changes only this scene, between simulation steps. False if the scene/gravity is invalid.
+	virtual bool SetGravity(const FVector& Gravity) = 0;
 
 	//이번 프레임의 물리 계산을 시작시킨다
 	virtual void StartFrame(float DeltaTime) = 0;
@@ -42,6 +47,13 @@ public:
 	//바디를 이 물리 세계에 넣는다. 넣은 뒤부터 매 시뮬레이션의 계산 대상이 된다
 	//해제는 바디 쪽에서 액터를 release하면 Scene에서도 자동으로 빠진다
 	virtual void AddActor(const FPhysicsActorHandle& Handle) = 0;
+
+	// 이 물리 세계의 차량 관리자. 차량을 지원하지 않는 구현은 nullptr을 돌려준다.
+	// 차량 컴포넌트가 자기를 등록할 때 쓴다. 소유권은 Scene에 있다.
+	virtual class FPhysXVehicleManager* GetVehicleManager() { return nullptr; }
+
+	// Debug rendering reads the completed simulation, including aggregate actors.
+	virtual void DrawDebugBodies(FLineBatcher* Lines) const = 0;
 
 	//stat physics용 통계. 마지막으로 끝난 스텝 기준의 값이다
 	const FPhysicsSceneStats& GetStats() const { return Stats; }

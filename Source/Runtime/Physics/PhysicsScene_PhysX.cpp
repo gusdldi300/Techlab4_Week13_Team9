@@ -2,10 +2,47 @@
 #include "PhysicsScene_PhysX.h"
 #include <PxPhysicsAPI.h>
 #include "PhysicsCore.h"
+#include "PhysicsDebugDraw.h"
 #include "BodyInstance.h"
 #include "Physics/PhysicsStats.h"
 #include "PhysicsFilterShader.h"
 using namespace physx;
+
+namespace
+{
+    PxFilterFlags AssetFilterShader(PxFilterObjectAttributes A, PxFilterData FA,
+        PxFilterObjectAttributes B, PxFilterData FB, PxPairFlags& Pairs, const void* Constants, PxU32 Size)
+    {
+        const bool TaggedA = FA.word3 == FBodyInstance::AssetCollisionFilterTag;
+        const bool TaggedB = FB.word3 == FBodyInstance::AssetCollisionFilterTag;
+        if (!TaggedA && !TaggedB) return SimulationFilterShader(A,FA,B,FB,Pairs,Constants,Size);
+        if (PxFilterObjectIsTrigger(A) || PxFilterObjectIsTrigger(B))
+        {
+            Pairs = PxPairFlag::eTRIGGER_DEFAULT;
+            return PxFilterFlag::eDEFAULT;
+        }
+        Pairs = PxPairFlag::eCONTACT_DEFAULT;
+        return TaggedA && TaggedB && FA.word0 == FB.word0 ? PxFilterFlag::eCALLBACK : PxFilterFlag::eDEFAULT;
+    }
+
+    // The callback can read engine objects; the PhysX filter shader cannot dereference external data.
+    class FAssetCollisionFilter final : public PxSimulationFilterCallback
+    {
+    public:
+        PxFilterFlags pairFound(PxU32, PxFilterObjectAttributes, PxFilterData,
+            const PxActor* A, const PxShape*, PxFilterObjectAttributes, PxFilterData,
+            const PxActor* B, const PxShape*, PxPairFlags&) override
+        {
+            const auto* BodyA = static_cast<const FBodyInstance*>(A->userData);
+            const auto* BodyB = static_cast<const FBodyInstance*>(B->userData);
+            return BodyA && BodyB && BodyA->IsCollisionDisabledWith(BodyB)
+                ? PxFilterFlag::eSUPPRESS : PxFilterFlag::eDEFAULT;
+        }
+        void pairLost(PxU32, PxFilterObjectAttributes, PxFilterData, PxFilterObjectAttributes, PxFilterData, bool) override {}
+        bool statusChange(PxU32&, PxPairFlags&, PxFilterFlags&) override { return false; }
+    };
+    FAssetCollisionFilter AssetCollisionFilter;
+}
 
 std::unique_ptr<FPhysicsScene> MakePhysicsScene()
 {
@@ -23,6 +60,8 @@ FPhysicsScene_PhysX::~FPhysicsScene_PhysX()
             PhysXScene->fetchResults(true);
             bSimulating = false;
         }
+        // 관리자가 가진 배치 쿼리는 이 Scene이 만든 객체이므로 Scene보다 먼저 release한다.
+        VehicleManager.reset();
         PhysXScene->release();
         PhysXScene = nullptr;
     }
@@ -36,7 +75,8 @@ void FPhysicsScene_PhysX::CreatePhysicsScene()
     PxSceneDesc Desc(Physics->getTolerancesScale());          
     Desc.gravity = PxVec3(0.0f, 0.0f, -9.81f);           
     Desc.cpuDispatcher = FPhysicsCore::Get().GetDispatcher();  
-    Desc.filterShader = SimulationFilterShader;
+    Desc.filterShader = AssetFilterShader;
+    Desc.filterCallback = &AssetCollisionFilter;
 
     Desc.flags |= PxSceneFlag::eENABLE_ACTIVE_ACTORS;
 
@@ -56,6 +96,11 @@ void FPhysicsScene_PhysX::CreatePhysicsScene()
         Pvd->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_CONTACTS, true);
         //Raycast·Sweep·Overlap의 광선·도형과 맞은 결과
         Pvd->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
+    }
+
+    if (FPhysicsCore::Get().IsVehicleSDKInitialized())
+    {
+        VehicleManager = std::make_unique<FPhysXVehicleManager>(PhysXScene);
     }
 
     KRS_LOG(Info, "[Physics] Scene created");
@@ -89,6 +134,15 @@ void FPhysicsScene_PhysX::StartFrame(float DeltaTime)
     BeginStep();
 }
 
+bool FPhysicsScene_PhysX::SetGravity(const FVector& Gravity)
+{
+    const PxVec3 Value(Gravity.X,Gravity.Y,Gravity.Z);
+    if (!PhysXScene || bSimulating || !Value.isFinite()) return false;
+    PxSceneWriteLock Lock(*PhysXScene);
+    PhysXScene->setGravity(Value);
+    return true;
+}
+
 void FPhysicsScene_PhysX::EndFrame()
 {
     if (!bSimulating) return;
@@ -103,6 +157,12 @@ void FPhysicsScene_PhysX::BeginStep()
         // Scene을 바꾸는 호출은 쓰기 잠금 안에서 한다. 쓰기는 혼자만 할 수 있다.
         SCOPE_CYCLE_COUNTER(PhysicsStats::STAT_PhysicsSimulate);
         PxSceneWriteLock WriteLock(*PhysXScene);
+        // 차량은 이번 스텝에 차체가 받을 속도 변화를 simulate 전에 계산해야 한다.
+        // simulate 뒤로 미루면 서스펜션 힘이 한 스텝 늦게 들어가 스프링을 엇박자로 밀게 되고, 차가 점점 크게 출렁이다 튄다.
+        if (VehicleManager)
+        {
+            VehicleManager->Update(FixedStep);
+        }
         PhysXScene->simulate(FixedStep);
     }
     bSimulating = true;
@@ -146,6 +206,7 @@ void FPhysicsScene_PhysX::FinishStep()
     {
         if (FBodyInstance* Body = static_cast<FBodyInstance*>(Actors[i]->userData))
         {
+            if (!Body->GetOwnerComponent()) continue; // Bone actors are applied as a skeletal pose, not a component transform.
             Body->SyncComponentToBody();
             ++NumSynced;
         }
@@ -171,4 +232,25 @@ void FPhysicsScene_PhysX::AddActor(const FPhysicsActorHandle& Handle)
 
     PxSceneWriteLock WriteLock(*PhysXScene);
     PhysXScene->addActor(*Handle.Actor);
+}
+
+void FPhysicsScene_PhysX::DrawDebugBodies(FLineBatcher* Lines) const
+{
+    if (!Lines || !PhysXScene || bSimulating) return;
+    PxSceneReadLock Lock(*PhysXScene);
+    const PxActorTypeFlags Types = PxActorTypeFlag::eRIGID_STATIC | PxActorTypeFlag::eRIGID_DYNAMIC;
+    PxActor* Actors[64];
+    const PxU32 Count = PhysXScene->getNbActors(Types);
+    for (PxU32 Offset = 0; Offset < Count;)
+    {
+        const PxU32 Read = PhysXScene->getActors(Types, Actors, 64, Offset);
+        if (!Read) break;
+        for (PxU32 I = 0; I < Read; ++I)
+        {
+            FPhysicsActorHandle Handle;
+            Handle.Actor = Actors[I]->is<PxRigidActor>();
+            FPhysicsDebugDraw::DrawActorShapes(Lines, Handle, FVector4(0.3f, 0.9f, 1.0f, 1.0f));
+        }
+        Offset += Read;
+    }
 }

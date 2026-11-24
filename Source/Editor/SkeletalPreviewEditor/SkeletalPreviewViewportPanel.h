@@ -21,6 +21,8 @@ public:
 
 protected:
     void DrawContent() override;
+    virtual void DrawViewportTools() {}
+    virtual void HandleViewportShortcuts(bool bHovered, bool bFocused) {}
     bool IsViewportPanel() const override { return true; }
 
 private:

@@ -19,6 +19,9 @@
 #include "Animation/BlendSpaceFile.h"
 #include "Asset/AssetManager.h"
 
+#include "Engine/World.h"
+#include "Render/SkeletalMesh.h"
+
 void USkeletalMeshComponent::SetAnimInstance(UAnimInstance* InInstance)
 {
 	if (AnimInstance == InInstance)
@@ -66,16 +69,22 @@ void USkeletalMeshComponent::BeginPlay()
 			}
 		}
 	}
+
+	if (bEnablePhysicsAsset && GetSkeletalMesh() && GetSkeletalMesh()->GetPhysicsAsset()) RecreatePhysicsAsset();
+
 }
 
 void USkeletalMeshComponent::TickComponent(float DeltaTime)
 {
+    if (PhysicsAssetInstance && !PhysicsAssetInstance->IsValidFor(*this)) bPhysicsAssetRebuildRequested = true;
+    if (bPhysicsAssetRebuildRequested && GetWorld() && GetWorld()->HasBegunPlay()) RecreatePhysicsAsset();
     if (bBlueprintReloadRequested)
     {
         bBlueprintReloadRequested = false;
         ReloadAnimBlueprint();
     }
 
+	// 부분 래그돌에서도 애니메이션을 평가하고, 물리 몸체가 있는 본의 결과만 덮어쓴다.
 	if (AnimInstance && GetSkeletalMesh())
 	{
         bUpdatingAnimation = true;
@@ -92,7 +101,7 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
 
 		// 루트 모션: AnimInstance에 모인 delta를 월드 공간으로 바꿔 CharacterMovement가 가져갈 때까지 쌓아 둔다
 		const FRootMotionMovementParams RootMotion = AnimInstance->ConsumeExtractedRootMotion();
-		if (RootMotion.bHasRootMotion)
+		if (RootMotion.bHasRootMotion && !IsRagdollSimulating())
 		{
 			const FTransform WorldDelta = ConvertRootMotionToWorld(RootMotion.GetRootMotionTransform());
 			PendingRootMotion.Location = (bHasPendingRootMotion ? PendingRootMotion.Location : FVector::ZeroVector) + WorldDelta.Location;
@@ -101,7 +110,15 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
 		}
         bUpdatingAnimation = false;
 	}
+
 	Super::TickComponent(DeltaTime);
+    if (PhysicsAssetInstance)
+    {
+        // Kinematic bodies follow animation even while other bodies simulate.
+        PhysicsAssetInstance->SyncFromAnimation(*this);
+        PhysicsAssetInstance->ApplyToMesh(*this);
+    }
+
 }
 
 const TArray<FBoneInfo>& USkeletalMeshComponent::GetBones() const
@@ -277,6 +294,8 @@ void USkeletalMeshComponent::SerializeSingleAnimation(FStructuredArchive::FRecor
 
 void USkeletalMeshComponent::OnSkeletalMeshChanged()
 {
+    PhysicsAssetInstance.reset();
+    bPhysicsAssetRebuildRequested = true;
     bBlueprintReloadRequested = !AnimBlueprintPath.empty();
 	BoneSpaceTransforms.Reset();
 	for (const FBoneInfo& Bone : GetBones())
@@ -578,4 +597,89 @@ UAnimGraphInstance* USkeletalMeshComponent::CreateAnimGraph()
     SetAnimInstance(Instance.get());
     ManagedAnimGraph = std::move(Instance);
     return ManagedAnimGraph.get();
+}
+
+
+bool USkeletalMeshComponent::RecreatePhysicsAsset()
+{
+    bPhysicsAssetRebuildRequested = false;
+    PhysicsAssetInstance.reset();
+    if (!bEnablePhysicsAsset || !GetSkeletalMesh() || !GetSkeletalMesh()->GetPhysicsAsset())
+    {
+        CreatePhysicsState();
+        return false;
+    }
+    DestroyPhysicsState();
+    auto Instance = MakeUnique<FPhysicsAssetInstance>();
+    if (!Instance->Build(*this))
+    {
+        CreatePhysicsState();
+        return false;
+    }
+    PhysicsAssetInstance = std::move(Instance);
+    bPhysicsAssetRebuildRequested = false;
+    if (bSimulatePhysics) return SetRagdollSimulating(true);
+    return true;
+}
+
+bool USkeletalMeshComponent::SetRagdollSimulating(bool bEnable)
+{
+    if ((!PhysicsAssetInstance || !PhysicsAssetInstance->IsValidFor(*this)) && (!bEnable || !RecreatePhysicsAsset())) return false;
+    if (!PhysicsAssetInstance->SetSimulating(*this,bEnable)) return false;
+    bSimulatePhysics = bEnable;
+    if (bEnable) { PendingRootMotion = FTransform(); bHasPendingRootMotion = false; }
+    return true;
+}
+
+bool USkeletalMeshComponent::IsRagdollSimulating() const
+{
+    return PhysicsAssetInstance && PhysicsAssetInstance->IsSimulating();
+}
+
+bool USkeletalMeshComponent::ShouldCreatePhysicsState() const
+{
+    return !PhysicsAssetInstance && Super::ShouldCreatePhysicsState();
+}
+
+void USkeletalMeshComponent::EndPlay()
+{
+	PhysicsAssetInstance.reset();
+	Super::EndPlay();
+}
+
+void USkeletalMeshComponent::OnUnregister()
+{
+	PhysicsAssetInstance.reset();
+	Super::OnUnregister();
+}
+
+void USkeletalMeshComponent::DrawPhysicsAssetConstraints(FLineBatcher* Lines) const
+{
+	if (Lines && PhysicsAssetInstance)
+	{
+		PhysicsAssetInstance->DrawConstraints(*Lines);
+	}
+}
+
+void DrawPhysicsAssetConstraints(UWorld* World, FLineBatcher* LineBatcher)
+{
+	if (!World || !LineBatcher)
+	{
+		return;
+	}
+
+	for (TObjectIterator<USkeletalMeshComponent> It; It; ++It)
+	{
+		USkeletalMeshComponent* Mesh = *It;
+
+		if (Mesh &&	Mesh->GetWorld() == World && Mesh->IsRegistered())
+		{
+			Mesh->DrawPhysicsAssetConstraints(LineBatcher);
+		}
+	}
+}
+
+FRagdollDebugStats USkeletalMeshComponent::GetRagdollDebugStats() const
+{
+	return PhysicsAssetInstance ? PhysicsAssetInstance->GetDebugStats() : FRagdollDebugStats{};
 }

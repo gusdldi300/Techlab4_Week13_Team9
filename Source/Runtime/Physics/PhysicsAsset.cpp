@@ -1,6 +1,15 @@
 #include "EnginePCH.h"
 #include "PhysicsAsset.h"
 #include "BodySetup.h"
+#include "Render/SkeletalMesh.h"
+
+UPhysicsAsset::~UPhysicsAsset()
+{
+	if (USkeletalMesh* Mesh = Cast<USkeletalMesh>(GetOuter()))
+	{
+		if (Mesh->GetPhysicsAsset() == this) Mesh->SetPhysicsAsset(nullptr);
+	}
+}
 
 
 int32 UPhysicsAsset::FindBodyIndex(FName BoneName) const

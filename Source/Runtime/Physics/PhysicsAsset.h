@@ -16,6 +16,7 @@ class UPhysicsAsset : public UObject{
 	GENERATED_BODY()
 
 public:
+	~UPhysicsAsset() override;
 	int32 FindBodyIndex(FName BoneName) const;
 	void UpdateBodySetupIndexMap();
 	void DisableCollision(int32 BodyA, int32 BodyB);
