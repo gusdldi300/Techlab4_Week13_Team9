@@ -82,6 +82,44 @@ bool FPhysicsAssetEditModel::SetShapeTransform(int32 BoneIndex, ECollisionShape 
     return SetBodyProperties(BoneIndex, Body.PhysicsType, G);
 }
 
+bool FPhysicsAssetEditModel::GetShapeSize(int32 BoneIndex, ECollisionShape Type, int32 Index, FVector& Out) const
+{
+    FTransform Pose;
+    if (!GetShapeTransform(BoneIndex,Type,Index,Pose)) return false;
+    const auto& G = GetBody(BoneIndex)->AggGeom;
+    if (Type == ECollisionShape::Sphere) Out = FVector(G.SphereElems[Index].Radius);
+    else if (Type == ECollisionShape::Box) { const auto& E=G.BoxElems[Index]; Out=FVector(E.X,E.Y,E.Z); }
+    else { const auto& E=G.SphylElems[Index]; Out=FVector(E.Radius,E.Radius,E.Length); }
+    return true;
+}
+
+bool FPhysicsAssetEditModel::ScaleShape(int32 BoneIndex, ECollisionShape Type, int32 Index,
+    const FVector& StartSize, const FVector& Factor)
+{
+    FVector Current;
+    if (!GetShapeSize(BoneIndex,Type,Index,Current)) return false;
+    for (int I=0; I<3; ++I)
+        if (!std::isfinite(Factor[I]) || Factor[I]<=0 || !std::isfinite(StartSize[I])) return false;
+    auto& Body = *GetBody(BoneIndex);
+    auto G = Body.AggGeom;
+    // The most changed axis also works for shrinking and the uniform center handle.
+    const auto RadiusFactor = [&](int Count) {
+        float Value=Factor.X;
+        for (int I=1; I<Count; ++I) if (std::abs(Factor[I]-1)>std::abs(Value-1)) Value=Factor[I];
+        return Value;
+    };
+    if (Type == ECollisionShape::Sphere) G.SphereElems[Index].Radius=StartSize.X*RadiusFactor(3);
+    else if (Type == ECollisionShape::Box)
+    {
+        auto& E=G.BoxElems[Index]; E.X=StartSize.X*Factor.X; E.Y=StartSize.Y*Factor.Y; E.Z=StartSize.Z*Factor.Z;
+    }
+    else
+    {
+        auto& E=G.SphylElems[Index]; E.Radius=StartSize.X*RadiusFactor(2); E.Length=StartSize.Z*Factor.Z;
+    }
+    return SetBodyProperties(BoneIndex,Body.PhysicsType,G);
+}
+
 bool FPhysicsAssetEditModel::Capture()
 {
     FString Text;
@@ -468,6 +506,18 @@ bool FPhysicsAssetEditModel::SetConstraintSettings(int32 ChildBone, const FPhysi
     const FVector PreviousPrimary2 = Joint.PriAxis2, PreviousSecondary2 = Joint.SecAxis2;
     const auto PreviousPairs = Asset.CollisionDisableTable;
     WriteConstraintSettings(Joint, Settings);
+    const auto SameRotation = [](const FQuat& A, const FQuat& B) {
+        return A.X == B.X && A.Y == B.Y && A.Z == B.Z && A.W == B.W;
+    };
+    // Editing one frame must not round-trip the untouched frame's raw axes through a quaternion.
+    if (SameRotation(Settings.ChildFrame.Rotation,Previous.ChildFrame.Rotation))
+    {
+        Joint.PriAxis1 = PreviousPrimary1; Joint.SecAxis1 = PreviousSecondary1;
+    }
+    if (SameRotation(Settings.ParentFrame.Rotation,Previous.ParentFrame.Rotation))
+    {
+        Joint.PriAxis2 = PreviousPrimary2; Joint.SecAxis2 = PreviousSecondary2;
+    }
     SetPairCollision(Asset, ChildBone, GetConstraintParent(ChildBone), Mesh, Settings.bDisableCollision);
     if (Capture()) return true;
     WriteConstraintSettings(Joint, Previous);

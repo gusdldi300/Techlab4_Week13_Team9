@@ -16,6 +16,7 @@ public:
 	FPhysicsScene_PhysX& operator=(const FPhysicsScene_PhysX&) = delete;
 
 	void CreatePhysicsScene() override;
+	bool SetGravity(const FVector& Gravity) override;
 	void StartFrame(float DeltaTime) override;
 	void EndFrame() override;
 	void AddActor(const FPhysicsActorHandle& Handle) override;

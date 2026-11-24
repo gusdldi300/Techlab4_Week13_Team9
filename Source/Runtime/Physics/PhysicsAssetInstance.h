@@ -18,7 +18,8 @@ public:
     FPhysicsAssetInstance(const FPhysicsAssetInstance&) = delete;
     FPhysicsAssetInstance& operator=(const FPhysicsAssetInstance&) = delete;
     ~FPhysicsAssetInstance();
-    bool Build(USkeletalMeshComponent& Mesh);
+    // An explicit scene lets asset editors use the same instance in an isolated preview simulation.
+    bool Build(USkeletalMeshComponent& Mesh, FPhysicsScene* SceneOverride = nullptr);
     void Clear();
     bool IsSimulating() const { return bBuilt && bSimulating; }
     bool IsValidFor(const USkeletalMeshComponent& Mesh) const { return Matches(Mesh); }

@@ -126,6 +126,15 @@ void FPhysicsScene_PhysX::StartFrame(float DeltaTime)
     BeginStep();
 }
 
+bool FPhysicsScene_PhysX::SetGravity(const FVector& Gravity)
+{
+    const PxVec3 Value(Gravity.X,Gravity.Y,Gravity.Z);
+    if (!PhysXScene || bSimulating || !Value.isFinite()) return false;
+    PxSceneWriteLock Lock(*PhysXScene);
+    PhysXScene->setGravity(Value);
+    return true;
+}
+
 void FPhysicsScene_PhysX::EndFrame()
 {
     if (!bSimulating) return;

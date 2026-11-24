@@ -8,7 +8,10 @@
 #include "Physics/PhysicsDebugDraw.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Render/LineBatcher.h"
+#include "Physics/PhysicsScene.h"
+#include "Animation/BonePose.h"
 #include <cmath>
+#include <algorithm>
 
 FPhysicsAssetEditor::FPhysicsAssetEditor(UEditorEngine& InEngine, FEditorManager& InManager,
     const FString& InMeshPath, USkeletalMesh& InMesh)
@@ -17,6 +20,112 @@ FPhysicsAssetEditor::FPhysicsAssetEditor(UEditorEngine& InEngine, FEditorManager
     , EditModel(InMesh, InMeshPath)
 {
     Mesh = &InMesh;
+}
+
+FPhysicsAssetEditor::~FPhysicsAssetEditor() { StopSimulation(); }
+
+void FPhysicsAssetEditor::SetSimulationGravity(float Value)
+{
+    if (!IsPreviewSimulating() && std::isfinite(Value)) SimulationGravity = FMath::Clamp(Value,-100000.0f,100000.0f);
+}
+
+FRagdollDebugStats FPhysicsAssetEditor::GetSimulationStats() const
+{
+    return SimulationInstance ? SimulationInstance->GetDebugStats() : FRagdollDebugStats{};
+}
+
+uint64 FPhysicsAssetEditor::GetSimulationStepCount() const
+{
+    return SimulationScene ? SimulationScene->GetStats().NumSteps : 0;
+}
+
+bool FPhysicsAssetEditor::StartSimulation()
+{
+    if (IsPreviewSimulating()) return true;
+    SimulationError.clear();
+    if (!MeshComponent || !GetPhysicsAsset() || GetPhysicsAsset()->BodySetups.IsEmpty())
+    {
+        SimulationError = "Add at least one physics body before simulating.";
+        return false;
+    }
+    CancelViewportInteraction();
+    EditModel.Commit(false);
+    MeshComponent->RefreshBoneTransformsNow();
+    PreSimulationPose = MeshComponent->GetBoneSpaceTransforms();
+    SimulationScene = MakePhysicsScene();
+    SimulationScene->CreatePhysicsScene();
+    if (!SimulationScene->SetGravity(FVector(0,0,SimulationGravity)))
+    {
+        SimulationError = "Could not initialize the preview physics scene.";
+        StopSimulation();
+        return false;
+    }
+    if (bSimulationFloor)
+    {
+        const FBox Bounds = MeshComponent->CalcBounds();
+        const FVector Size = Bounds.Max-Bounds.Min;
+        const float Extent = std::max(Size.Size()*3.0f,1.0f);
+        SimulationFloorHalfExtent = FVector(Extent,Extent,std::max(Extent*0.002f,0.01f));
+        FBodyInstanceInitParams Params;
+        Params.WorldLocation = FVector(0,0,-SimulationFloorHalfExtent.Z);
+        Params.WorldRotation = FQuat::Identity();
+        FKBoxElem Floor;
+        Floor.X = Floor.Y = Extent*2;
+        Floor.Z = SimulationFloorHalfExtent.Z*2;
+        Params.FallbackGeom.BoxElems.Add(Floor);
+        SimulationFloor.InitBody(nullptr,Params,nullptr,SimulationScene.get());
+        if (!SimulationFloor.IsValidBodyInstance())
+        {
+            SimulationError = "Could not create the preview floor.";
+            StopSimulation();
+            return false;
+        }
+    }
+    SimulationInstance = MakeUnique<FPhysicsAssetInstance>();
+    if (!SimulationInstance->Build(*MeshComponent,SimulationScene.get()) ||
+        !SimulationInstance->SetSimulating(*MeshComponent,true))
+    {
+        SimulationError = "Could not start simulation. Check the asset and uniform scale; at least one body must not be Kinematic.";
+        StopSimulation();
+        return false;
+    }
+    bSimulationPaused = false;
+    EditGizmo.SetTarget(nullptr);
+    return true;
+}
+
+void FPhysicsAssetEditor::StopSimulation()
+{
+    // No step remains in flight: AdvanceSimulation always pairs StartFrame with EndFrame.
+    SimulationInstance.reset();
+    SimulationFloor.TermBody();
+    SimulationScene.reset();
+    bSimulationPaused = false;
+    if (MeshComponent && PreSimulationPose.Num() == MeshComponent->GetBones().Num() && !PreSimulationPose.IsEmpty())
+    {
+        FCompactPose Restored;
+        Restored.SetNumBones(PreSimulationPose.Num());
+        for (int I=0; I<PreSimulationPose.Num(); ++I) Restored[I] = PreSimulationPose[I];
+        MeshComponent->SetBoneSpaceTransforms(Restored);
+        MeshComponent->RefreshBoneTransformsNow();
+    }
+    PreSimulationPose.Empty();
+    SyncEditGizmo();
+}
+
+void FPhysicsAssetEditor::AdvanceSimulation(float DeltaTime)
+{
+    if (!SimulationInstance || !SimulationScene || !MeshComponent) return;
+    if (!SimulationInstance->IsValidFor(*MeshComponent)) { StopSimulation(); return; }
+    SimulationInstance->SyncFromAnimation(*MeshComponent);
+    SimulationScene->StartFrame(DeltaTime);
+    SimulationScene->EndFrame();
+    SimulationInstance->ApplyToMesh(*MeshComponent);
+}
+
+void FPhysicsAssetEditor::StepSimulation()
+{
+    if (IsPreviewSimulating() && bSimulationPaused) AdvanceSimulation(1.0f/60.0f);
 }
 
 FString FPhysicsAssetEditor::MakeDocumentKey(const FString& MeshPath)
@@ -37,9 +146,9 @@ TUniquePtr<IEditorTab> FPhysicsAssetEditor::CreateTab()
 bool FPhysicsAssetEditor::InitializeResources()
 {
     if (!InitializePreview()) return false;
-    ShapeGizmoTarget = Cast<USceneComponent>(PreviewScene.AddComponent(USceneComponent::StaticClass()));
-    if (!ShapeGizmoTarget) return false;
-    ShapeGizmoTarget->DetachFromParent();
+    EditGizmoTarget = Cast<USceneComponent>(PreviewScene.AddComponent(USceneComponent::StaticClass()));
+    if (!EditGizmoTarget) return false;
+    EditGizmoTarget->DetachFromParent();
     SetBoneDrawMode(EBoneDrawMode::SelectedOnly);
     if (!GetPhysicsAsset() && HasSavedAsset()) Reload();
     EditModel.ResetHistory();
@@ -86,6 +195,7 @@ bool FPhysicsAssetEditor::Save()
 
 bool FPhysicsAssetEditor::Reload()
 {
+    StopSimulation();
     FileError.clear();
     if (!Mesh) return false;
     UPhysicsAsset* Asset = GetPhysicsAsset();
@@ -99,6 +209,7 @@ bool FPhysicsAssetEditor::Reload()
 
 bool FPhysicsAssetEditor::ConfirmClose()
 {
+    StopSimulation();
     EditModel.Commit(false);
     if (!IsDirty() || bCloseConfirmed) return true;
     PendingAction = EAction::Close;
@@ -108,6 +219,7 @@ bool FPhysicsAssetEditor::ConfirmClose()
 
 void FPhysicsAssetEditor::RequestReload()
 {
+    StopSimulation();
     EditModel.Commit(false);
     if (IsDirty()) PendingAction = EAction::Reload;
     else Reload();
@@ -156,45 +268,55 @@ namespace
 
 void FPhysicsAssetEditor::ShutdownResources()
 {
-    ShapeGizmo.EndDrag();
-    ShapeGizmo.SetTarget(nullptr);
-    ShapeGizmoTarget = nullptr;
+    StopSimulation();
+    EditGizmo.EndDrag();
+    EditGizmo.SetTarget(nullptr);
+    EditGizmoTarget = nullptr;
     FSkeletalPreviewEditor::ShutdownResources();
 }
 
 void FPhysicsAssetEditor::CancelViewportInteraction()
 {
-    if (ShapeGizmo.IsUsing()) EditModel.CancelInteraction();
-    ShapeGizmo.EndDrag();
+    if (EditGizmo.IsUsing()) EditModel.CancelInteraction();
+    EditGizmo.EndDrag();
 }
 
 void FPhysicsAssetEditor::SetBodiesVisible(bool bVisible)
 {
     CancelViewportInteraction();
     bShowBodies = bVisible;
-    SyncShapeGizmo();
+    SyncEditGizmo();
+}
+
+void FPhysicsAssetEditor::SetConstraintsVisible(bool bVisible)
+{
+    CancelViewportInteraction();
+    bShowConstraints = bVisible;
+    SyncEditGizmo();
 }
 
 void FPhysicsAssetEditor::SetGizmoMode(EGizmoMode Mode)
 {
-    if (Mode != EGizmoMode::Location && Mode != EGizmoMode::Rotation) return;
-    if (Mode == ShapeGizmo.GetMode()) return;
+    if (Mode != EGizmoMode::Location && Mode != EGizmoMode::Rotation && Mode != EGizmoMode::Scale) return;
+    if (Mode == EGizmoMode::Scale && EditTarget != EPhysicsAssetEditTarget::Shape) return;
+    if (Mode == EditGizmo.GetMode()) return;
     CancelViewportInteraction();
-    ShapeGizmo.SetMode(Mode);
-    SyncShapeGizmo();
+    EditGizmo.SetMode(Mode);
+    SyncEditGizmo();
 }
 
 void FPhysicsAssetEditor::SetGizmoSpace(EGizmoSpace Space)
 {
-    if (Space == ShapeGizmo.GetSpace()) return;
+    if (Space == EditGizmo.GetSpace()) return;
     CancelViewportInteraction();
-    ShapeGizmo.SetSpace(Space);
-    SyncShapeGizmo();
+    EditGizmo.SetSpace(Space);
+    SyncEditGizmo();
 }
 
 bool FPhysicsAssetEditor::IsShapeSelected(ECollisionShape Type, int32 Index) const
 {
-    return ShapeSelection == FPhysicsShapeSelection{GetSelectedBoneIndex(), Type, Index};
+    return EditTarget == EPhysicsAssetEditTarget::Shape &&
+        ShapeSelection == FPhysicsShapeSelection{GetSelectedBoneIndex(), Type, Index};
 }
 
 void FPhysicsAssetEditor::SelectShape(ECollisionShape Type, int32 Index)
@@ -204,13 +326,102 @@ void FPhysicsAssetEditor::SelectShape(ECollisionShape Type, int32 Index)
     if (!EditModel.GetShapeTransform(GetSelectedBoneIndex(),Type,Index,Pose)) return;
     EditModel.Commit(false);
     ShapeSelection = {GetSelectedBoneIndex(),Type,Index};
-    SyncShapeGizmo();
+    EditTarget = EPhysicsAssetEditTarget::Shape;
+    SyncEditGizmo();
+}
+
+bool FPhysicsAssetEditor::IsConstraintFrameSelected(int32 ChildBone, bool bParentFrame) const
+{
+    return GetSelectedBoneIndex() == ChildBone && EditTarget == (bParentFrame
+        ? EPhysicsAssetEditTarget::ParentFrame : EPhysicsAssetEditTarget::ChildFrame);
+}
+
+bool FPhysicsAssetEditor::SelectConstraintFrame(int32 ChildBone, bool bParentFrame)
+{
+    FPhysicsConstraintSettings Settings;
+    if (!EditModel.GetConstraintSettings(ChildBone,Settings)) return false;
+    SelectBone(ChildBone); // The selected tree bone always identifies the constraint's child.
+    EditModel.Commit(false);
+    EditTarget = bParentFrame ? EPhysicsAssetEditTarget::ParentFrame : EPhysicsAssetEditTarget::ChildFrame;
+    if (EditGizmo.GetMode() == EGizmoMode::Scale) EditGizmo.SetMode(EGizmoMode::Location);
+    SyncEditGizmo();
+    return true;
+}
+
+bool FPhysicsAssetEditor::SelectEditTarget(EPhysicsAssetEditTarget Target)
+{
+    if (Target != EPhysicsAssetEditTarget::Shape)
+        return SelectConstraintFrame(GetSelectedBoneIndex(),Target == EPhysicsAssetEditTarget::ParentFrame);
+    FTransform Local;
+    if (!EditModel.GetShapeTransform(ShapeSelection.Bone,ShapeSelection.Type,ShapeSelection.Index,Local)) return false;
+    SelectShape(ShapeSelection.Type,ShapeSelection.Index);
+    return true;
+}
+
+bool FPhysicsAssetEditor::GetEditFrame(FTransform& Local, int32& Bone) const
+{
+    Bone = GetSelectedBoneIndex();
+    if (EditTarget == EPhysicsAssetEditTarget::Shape)
+        return bShowBodies && ShapeSelection.Bone == Bone &&
+            EditModel.GetShapeTransform(Bone,ShapeSelection.Type,ShapeSelection.Index,Local);
+    if (!bShowConstraints) return false;
+    FPhysicsConstraintSettings Settings;
+    if (!EditModel.GetConstraintSettings(Bone,Settings)) return false;
+    if (EditTarget == EPhysicsAssetEditTarget::ParentFrame)
+    {
+        Bone = EditModel.GetConstraintParent(Bone);
+        Local = Settings.ParentFrame;
+    }
+    else Local = Settings.ChildFrame;
+    return Bone >= 0;
+}
+
+bool FPhysicsAssetEditor::ApplyEditFrame(const FTransform& Local)
+{
+    if (EditTarget == EPhysicsAssetEditTarget::Shape)
+        return EditModel.SetShapeTransform(ShapeSelection.Bone,ShapeSelection.Type,ShapeSelection.Index,Local);
+    FPhysicsConstraintSettings Settings;
+    if (!EditModel.GetConstraintSettings(GetSelectedBoneIndex(),Settings)) return false;
+    if (EditTarget == EPhysicsAssetEditTarget::ParentFrame) Settings.ParentFrame = Local;
+    else Settings.ChildFrame = Local;
+    return EditModel.SetConstraintSettings(GetSelectedBoneIndex(),Settings);
+}
+
+TArray<FPhysicsConstraintScreenHandle> FPhysicsAssetEditor::GetConstraintHandles()
+{
+    TArray<FPhysicsConstraintScreenHandle> Handles;
+    if (!bShowConstraints || !GetPhysicsAsset() || !ViewportClient || !ViewportWidth || !ViewportHeight ||
+        ViewportClient->GetWidth() != ViewportWidth || ViewportClient->GetHeight() != ViewportHeight) return Handles;
+    const FMatrix VP = ViewportClient->GetViewProjectionMatrix();
+    for (const auto* Joint : GetPhysicsAsset()->PhysicsConstraint)
+    {
+        if (!Joint) continue;
+        const int Child = Mesh->FindBoneIndex(Joint->ConstraintBone1.ToString());
+        FPhysicsConstraintSettings Settings;
+        if (!EditModel.GetConstraintSettings(Child,Settings)) continue;
+        for (bool Parent : {false,true})
+        {
+            FTransform Bone;
+            const int Index = Parent ? EditModel.GetConstraintParent(Child) : Child;
+            if (!GetBodyWorldTransform(Index,Bone)) continue;
+            const auto& Frame = Parent ? Settings.ParentFrame : Settings.ChildFrame;
+            const FVector World = Bone.GetLocalMatrix().TransformPosition(Frame.Location);
+            const FVector4 Clip = FVector4(World,1)*VP;
+            if (Clip.W <= 0.0001f || Clip.Z < 0 || Clip.Z > Clip.W) continue;
+            const FVector2 Anchor((Clip.X/Clip.W*0.5f+0.5f)*ViewportWidth,(0.5f-Clip.Y/Clip.W*0.5f)*ViewportHeight);
+            // Offset screen handles keep coincident child/parent anchors individually selectable.
+            Handles.Add({Child,Parent,Anchor,Anchor+FVector2(Parent ? 13.0f : -13.0f,-14.0f),Clip.Z/Clip.W});
+        }
+    }
+    std::stable_sort(Handles.begin(),Handles.end(),[](const auto& A,const auto& B){ return A.Depth > B.Depth; });
+    return Handles;
 }
 
 void FPhysicsAssetEditor::OnBoneSelected()
 {
     CancelViewportInteraction();
     ShapeSelection = {};
+    EditTarget = EPhysicsAssetEditTarget::Shape;
     if (const auto* Body = EditModel.GetBody(GetSelectedBoneIndex()))
     {
         const auto& G = Body->AggGeom;
@@ -218,74 +429,98 @@ void FPhysicsAssetEditor::OnBoneSelected()
         else if (!G.BoxElems.IsEmpty()) ShapeSelection = {GetSelectedBoneIndex(),ECollisionShape::Box,0};
         else if (!G.SphylElems.IsEmpty()) ShapeSelection = {GetSelectedBoneIndex(),ECollisionShape::Sphyl,0};
     }
-    SyncShapeGizmo();
+    SyncEditGizmo();
 }
 
-void FPhysicsAssetEditor::SyncShapeGizmo()
+void FPhysicsAssetEditor::SyncEditGizmo()
 {
-    if (ShapeGizmo.IsUsing()) return;
+    if (IsPreviewSimulating()) { EditGizmo.SetTarget(nullptr); return; }
+    if (EditGizmo.IsUsing()) return;
     FTransform Local, Bone;
-    if (!ShapeGizmoTarget || !bShowBodies || ShapeSelection.Bone != GetSelectedBoneIndex() ||
-        !EditModel.GetShapeTransform(ShapeSelection.Bone,ShapeSelection.Type,ShapeSelection.Index,Local) ||
-        !GetBodyWorldTransform(ShapeSelection.Bone,Bone) || std::abs(Bone.GetLocalMatrix().Determinant()) < 1e-12f ||
-        (ShapeSelection.Type == ECollisionShape::Sphere && ShapeGizmo.GetMode() == EGizmoMode::Rotation))
+    int32 BoneIndex;
+    if (!EditGizmoTarget || !GetEditFrame(Local,BoneIndex) ||
+        !GetBodyWorldTransform(BoneIndex,Bone) || std::abs(Bone.GetLocalMatrix().Determinant()) < 1e-12f ||
+        (EditTarget == EPhysicsAssetEditTarget::Shape && ShapeSelection.Type == ECollisionShape::Sphere && EditGizmo.GetMode() == EGizmoMode::Rotation))
     {
-        ShapeGizmo.SetTarget(nullptr);
+        EditGizmo.SetTarget(nullptr);
         return;
     }
-    ShapeGizmoTarget->SetTransform(FTransform((Bone.Rotation * Local.Rotation).Normalized(),
+    EditGizmoTarget->SetTransform(FTransform((Bone.Rotation * Local.Rotation).Normalized(),
         Bone.GetLocalMatrix().TransformPosition(Local.Location)));
-    ShapeGizmo.SetTarget(ShapeGizmoTarget);
+    EditGizmo.SetTarget(EditGizmoTarget);
 }
 
-bool FPhysicsAssetEditor::UpdateShapeGizmo()
+bool FPhysicsAssetEditor::UpdateEditGizmo()
 {
-    const bool WasUsing = ShapeGizmo.IsUsing();
+    if (IsPreviewSimulating()) return false;
+    const bool WasUsing = EditGizmo.IsUsing();
     if (PointerInput.bCancel || !CanProcessViewportInput())
     {
         CancelViewportInteraction();
         return WasUsing;
     }
-    if (!ShapeGizmo.GetTarget() || (!PointerInput.bHovered && !WasUsing) || CameraInput.bCaptured) return false;
+    if (!EditGizmo.GetTarget() || (!PointerInput.bHovered && !WasUsing) || CameraInput.bCaptured) return false;
     const FVector2 Mouse(PointerInput.MouseUV.X*ViewportWidth,PointerInput.MouseUV.Y*ViewportHeight);
     const FRay Ray = ViewportClient->DeprojectScreenToWorld(Mouse);
     // Start only on a fresh press; preserve the final release position.
-    ShapeGizmo.Update(Ray,Mouse,ViewportClient->GetViewProjectionMatrix(),ViewportWidth,ViewportHeight,
+    EditGizmo.Update(Ray,Mouse,ViewportClient->GetViewProjectionMatrix(),ViewportWidth,ViewportHeight,
         WasUsing || (PointerInput.bMousePressed && PointerInput.bMouseDown),ViewportClient->GetViewLocation(),
         !ViewportClient->IsPerspective(),PointerInput.bMousePressed);
-    if (!WasUsing && ShapeGizmo.IsUsing())
+    if (!WasUsing && EditGizmo.IsUsing())
     {
         FTransform Bone;
-        if (!GetBodyWorldTransform(ShapeSelection.Bone,Bone) || std::abs(Bone.GetLocalMatrix().Determinant()) < 1e-12f ||
-            !EditModel.GetShapeTransform(ShapeSelection.Bone,ShapeSelection.Type,ShapeSelection.Index,DragStartPose))
+        int32 BoneIndex;
+        if (!GetEditFrame(DragStartPose,BoneIndex) || !GetBodyWorldTransform(BoneIndex,Bone) ||
+            std::abs(Bone.GetLocalMatrix().Determinant()) < 1e-12f)
         {
-            ShapeGizmo.EndDrag();
+            EditGizmo.EndDrag();
             return true;
         }
         EditModel.Commit(false);
         DragBoneInverse = Bone.GetLocalMatrix().Inverse();
         DragBoneRotation = Bone.Rotation;
+        if (EditGizmo.GetMode() == EGizmoMode::Scale &&
+            !EditModel.GetShapeSize(ShapeSelection.Bone,ShapeSelection.Type,ShapeSelection.Index,DragStartSize))
+        { EditGizmo.EndDrag(); return true; }
     }
-    if (ShapeGizmo.IsUsing())
+    if (EditGizmo.IsUsing())
     {
         FTransform Local = DragStartPose;
-        if (ShapeGizmo.GetMode() == EGizmoMode::Location)
-            Local.Location = DragBoneInverse.TransformPosition(ShapeGizmoTarget->GetWorldLocation());
-        else Local.Rotation = (DragBoneRotation.Inverse() * ShapeGizmoTarget->GetRelativeRotation().Quaternion()).Normalized();
-        EditModel.SetShapeTransform(ShapeSelection.Bone,ShapeSelection.Type,ShapeSelection.Index,Local);
+        if (EditGizmo.GetMode() == EGizmoMode::Location)
+            Local.Location = DragBoneInverse.TransformPosition(EditGizmoTarget->GetWorldLocation());
+        else if (EditGizmo.GetMode() == EGizmoMode::Rotation)
+            Local.Rotation = (DragBoneRotation.Inverse() * EditGizmoTarget->GetRelativeRotation().Quaternion()).Normalized();
+        if (EditGizmo.GetMode() == EGizmoMode::Scale)
+            EditModel.ScaleShape(ShapeSelection.Bone,ShapeSelection.Type,ShapeSelection.Index,DragStartSize,
+                EditGizmoTarget->GetRelativeScale3D());
+        else ApplyEditFrame(Local);
         if (!PointerInput.bMouseDown)
         {
-            ShapeGizmo.EndDrag();
+            EditGizmo.EndDrag();
             EditModel.Commit(false);
         }
     }
-    return WasUsing || ShapeGizmo.IsUsing() || ShapeGizmo.GetHoveredAxis() >= 0;
+    return WasUsing || EditGizmo.IsUsing() || EditGizmo.GetHoveredAxis() >= 0;
 }
 
 void FPhysicsAssetEditor::TickAfterWorld(float DeltaTime)
 {
-    SyncShapeGizmo();
-    if (!UpdateShapeGizmo() && CanProcessViewportInput() && PointerInput.bHovered && PointerInput.bMousePressed &&
+    if (IsPreviewSimulating() && !bSimulationPaused) AdvanceSimulation(DeltaTime);
+    SyncEditGizmo();
+    if (!EditGizmo.IsUsing() && CanProcessViewportInput() && PointerInput.bHovered && PointerInput.bMousePressed &&
+        !PointerInput.bCancel && !CameraInput.bCaptured)
+    {
+        const FVector2 Mouse(PointerInput.MouseUV.X*ViewportWidth,PointerInput.MouseUV.Y*ViewportHeight);
+        FPhysicsConstraintScreenHandle Hit;
+        float Depth = FLT_MAX;
+        for (const auto& Handle : GetConstraintHandles())
+        {
+            const FVector2 Delta = Mouse-Handle.Position;
+            if (Delta.X*Delta.X+Delta.Y*Delta.Y <= 81 && Handle.Depth < Depth) { Hit = Handle; Depth = Handle.Depth; }
+        }
+        if (Hit.ChildBone >= 0) { SelectConstraintFrame(Hit.ChildBone,Hit.bParentFrame); return; }
+    }
+    if (!UpdateEditGizmo() && CanProcessViewportInput() && PointerInput.bHovered && PointerInput.bMousePressed &&
         !PointerInput.bCancel && !CameraInput.bCaptured)
     {
         const FVector2 Mouse(PointerInput.MouseUV.X*ViewportWidth,PointerInput.MouseUV.Y*ViewportHeight);
@@ -299,7 +534,7 @@ void FPhysicsAssetEditor::TickAfterWorld(float DeltaTime)
         else if (IsBoneVisualizerVisible()) UpdateBonePicking();
         else SelectBone(-1);
     }
-    SyncShapeGizmo();
+    SyncEditGizmo();
 }
 
 TArray<FPhysicsPreviewShape> FPhysicsAssetEditor::GatherPreviewShapes()
@@ -350,8 +585,13 @@ bool FPhysicsAssetEditor::GetBodyWorldTransform(int32 Bone, FTransform& Transfor
 void FPhysicsAssetEditor::OnRenderLine(FLineBatcher& Lines)
 {
     FSkeletalPreviewEditor::OnRenderLine(Lines);
+    if (IsPreviewSimulating() && bSimulationFloor)
+    {
+        const FVector Center(0,0,-SimulationFloorHalfExtent.Z);
+        Lines.AddBox(FBox{Center-SimulationFloorHalfExtent,Center+SimulationFloorHalfExtent},FVector4(0.5f,0.5f,0.55f,1));
+    }
     if (!MeshComponent || !GetPhysicsAsset()) return;
-    if (bShowBodies)
+    if (bShowBodies && EditTarget == EPhysicsAssetEditTarget::Shape)
     {
         FTransform Transform;
         FTransform Local;

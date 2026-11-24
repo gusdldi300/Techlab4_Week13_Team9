@@ -44,6 +44,8 @@ public:
     bool SetBodyProperties(int32 BoneIndex, EPhysicsType Type, const FKAggregateGeom& Geometry);
     bool GetShapeTransform(int32 BoneIndex, ECollisionShape Type, int32 Index, FTransform& Out) const;
     bool SetShapeTransform(int32 BoneIndex, ECollisionShape Type, int32 Index, const FTransform& Pose);
+    bool GetShapeSize(int32 BoneIndex, ECollisionShape Type, int32 Index, FVector& Out) const;
+    bool ScaleShape(int32 BoneIndex, ECollisionShape Type, int32 Index, const FVector& StartSize, const FVector& Factor);
     bool CancelInteraction() { return Apply(CommittedText); }
     bool CanConnect(int32 ChildBone, int32 ParentBone) const;
     int32 FindConstraint(int32 ChildBone) const;

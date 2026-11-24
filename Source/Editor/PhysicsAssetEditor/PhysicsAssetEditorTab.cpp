@@ -20,17 +20,118 @@ namespace
             : FSkeletalPreviewViewportPanel(InEditor), PhysicsEditor(InEditor) {}
     private:
         FPhysicsAssetEditor& PhysicsEditor;
+        void DrawContent() override
+        {
+            FSkeletalPreviewViewportPanel::DrawContent();
+            const auto* Client = PhysicsEditor.GetViewportClient();
+            const ImVec2 Size = ImGui::GetItemRectSize();
+            if (!Client || Size.x < 1 || Size.y < 1 || static_cast<uint32>(Size.x) != Client->GetWidth() ||
+                static_cast<uint32>(Size.y) != Client->GetHeight()) return;
+            const ImVec2 Origin = ImGui::GetItemRectMin();
+            const bool Hovered = ImGui::IsItemHovered();
+            auto* Draw = ImGui::GetWindowDrawList();
+            Draw->PushClipRect(Origin,ImVec2(Origin.x+Size.x,Origin.y+Size.y),true);
+            for (const auto& Handle : PhysicsEditor.GetConstraintHandles())
+            {
+                const ImVec2 P(Origin.x+Handle.Position.X,Origin.y+Handle.Position.Y);
+                const ImVec2 A(Origin.x+Handle.Anchor.X,Origin.y+Handle.Anchor.Y);
+                const ImU32 Color = Handle.bParentFrame ? IM_COL32(30,235,255,255) : IM_COL32(255,225,35,255);
+                const bool Selected = PhysicsEditor.IsConstraintFrameSelected(Handle.ChildBone,Handle.bParentFrame);
+                Draw->AddLine(A,P,Color);
+                Draw->AddCircleFilled(A,2,Color);
+                if (Handle.bParentFrame)
+                {
+                    const ImVec2 Top(P.x,P.y-6), Right(P.x+6,P.y), Bottom(P.x,P.y+6), Left(P.x-6,P.y);
+                    Draw->AddQuadFilled(Top,Right,Bottom,Left,Color);
+                    Draw->AddQuad(Top,Right,Bottom,Left,Selected ? IM_COL32_WHITE : IM_COL32(0,0,0,255),Selected ? 2.0f : 1.0f);
+                }
+                else
+                {
+                    Draw->AddCircleFilled(P,6,Color);
+                    Draw->AddCircle(P,6,Selected ? IM_COL32_WHITE : IM_COL32(0,0,0,255),0,Selected ? 2.0f : 1.0f);
+                }
+                const ImVec2 Mouse = ImGui::GetIO().MousePos;
+                const float DX = Mouse.x-P.x, DY = Mouse.y-P.y;
+                if (Hovered && !PhysicsEditor.IsGizmoDragging() && DX*DX+DY*DY <= 81)
+                {
+                    const int Owner = Handle.bParentFrame ? PhysicsEditor.GetEditModel().GetConstraintParent(Handle.ChildBone) : Handle.ChildBone;
+                    ImGui::SetTooltip("%s Frame\nLocal to: %s",Handle.bParentFrame ? "Parent" : "Child",
+                        PhysicsEditor.GetMesh()->GetRefSkeleton()[Owner].Name.c_str());
+                }
+            }
+            Draw->PopClipRect();
+        }
         void DrawViewportTools() override
         {
+            if (!PhysicsEditor.IsPreviewSimulating())
+            {
+                if (ImGui::Button("Simulate")) PhysicsEditor.StartSimulation();
+            }
+            else
+            {
+                if (ImGui::Button("Stop")) { PhysicsEditor.StopSimulation(); return; }
+                ImGui::SameLine();
+                const bool Paused = PhysicsEditor.IsSimulationPaused();
+                if (ImGui::Button(Paused ? "Resume" : "Pause")) PhysicsEditor.SetSimulationPaused(!Paused);
+                ImGui::SameLine();
+                ImGui::BeginDisabled(!PhysicsEditor.IsSimulationPaused());
+                if (ImGui::Button("Step")) PhysicsEditor.StepSimulation();
+                ImGui::EndDisabled();
+                const auto Stats = PhysicsEditor.GetSimulationStats();
+                ImGui::SameLine();
+                ImGui::Text("Bodies: %d  Joints: %d  Steps: %llu",Stats.Bodies,Stats.Joints,
+                    static_cast<unsigned long long>(PhysicsEditor.GetSimulationStepCount()));
+            }
+            ImGui::BeginDisabled(PhysicsEditor.IsPreviewSimulating());
+            bool Floor = PhysicsEditor.IsSimulationFloorEnabled();
+            if (ImGui::Checkbox("Floor (Z=0)",&Floor)) PhysicsEditor.SetSimulationFloorEnabled(Floor);
+            ImGui::SameLine();
+            float Gravity = PhysicsEditor.GetSimulationGravity();
+            ImGui::SetNextItemWidth(EditorStyle::Scale(95));
+            if (ImGui::DragFloat("Gravity Z",&Gravity,1.0f,-100000,100000,"%.1f",ImGuiSliderFlags_AlwaysClamp))
+                PhysicsEditor.SetSimulationGravity(Gravity);
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Preview units/s^2. -980 for centimeter meshes, -9.81 for meter meshes.");
+            ImGui::EndDisabled();
+            if (!PhysicsEditor.GetSimulationError().empty()) ImGui::TextWrapped("%s",PhysicsEditor.GetSimulationError().c_str());
+            ImGui::BeginDisabled(PhysicsEditor.IsPreviewSimulating());
             if (ImGui::RadioButton("Move (W)", PhysicsEditor.GetGizmoMode() == EGizmoMode::Location))
                 PhysicsEditor.SetGizmoMode(EGizmoMode::Location);
             ImGui::SameLine();
             if (ImGui::RadioButton("Rotate (E)", PhysicsEditor.GetGizmoMode() == EGizmoMode::Rotation))
                 PhysicsEditor.SetGizmoMode(EGizmoMode::Rotation);
             ImGui::SameLine();
+            ImGui::BeginDisabled(PhysicsEditor.GetEditTarget() != EPhysicsAssetEditTarget::Shape);
+            if (ImGui::RadioButton("Scale (R)", PhysicsEditor.GetGizmoMode() == EGizmoMode::Scale))
+                PhysicsEditor.SetGizmoMode(EGizmoMode::Scale);
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Shape-local axes. Capsule: X/Y radius, Z cylinder length. Center: uniform size.");
+            ImGui::EndDisabled();
+            ImGui::SameLine();
             int Space = static_cast<int>(PhysicsEditor.GetGizmoSpace());
             ImGui::SetNextItemWidth(EditorStyle::Scale(90));
-            if (ImGui::Combo("##ShapeSpace", &Space, "Local\0World\0")) PhysicsEditor.SetGizmoSpace(static_cast<EGizmoSpace>(Space));
+            if (PhysicsEditor.GetGizmoMode() == EGizmoMode::Scale)
+            {
+                int ShapeSpace=0;
+                ImGui::BeginDisabled();
+                ImGui::Combo("##ShapeSpace",&ShapeSpace,"Local\0");
+                ImGui::EndDisabled();
+            }
+            else if (ImGui::Combo("##ShapeSpace", &Space, "Local\0World\0")) PhysicsEditor.SetGizmoSpace(static_cast<EGizmoSpace>(Space));
+            ImGui::SameLine();
+            const char* Targets[] = { "Shape", "Child Frame", "Parent Frame" };
+            const auto Target = PhysicsEditor.GetEditTarget();
+            ImGui::SetNextItemWidth(EditorStyle::Scale(140));
+            if (ImGui::BeginCombo("Edit",Targets[static_cast<int>(Target)]))
+            {
+                if (ImGui::Selectable(Targets[0],Target == EPhysicsAssetEditTarget::Shape))
+                    PhysicsEditor.SelectEditTarget(EPhysicsAssetEditTarget::Shape);
+                ImGui::BeginDisabled(PhysicsEditor.GetEditModel().FindConstraint(PhysicsEditor.GetSelectedBoneIndex()) < 0);
+                for (int I=1; I<3; ++I)
+                    if (ImGui::Selectable(Targets[I],static_cast<int>(Target) == I))
+                        PhysicsEditor.SelectEditTarget(static_cast<EPhysicsAssetEditTarget>(I));
+                ImGui::EndDisabled();
+                ImGui::EndCombo();
+            }
+            ImGui::EndDisabled();
             bool Visible = PhysicsEditor.AreBodiesVisible();
             if (ImGui::Checkbox("Bodies", &Visible)) PhysicsEditor.SetBodiesVisible(Visible);
             ImGui::SameLine();
@@ -42,9 +143,10 @@ namespace
         {
             const ImGuiIO& IO = ImGui::GetIO();
             if (!Hovered || !Focused || IO.WantTextInput || IO.AppFocusLost || IO.KeyCtrl || IO.KeyAlt ||
-                ImGui::IsMouseDown(ImGuiMouseButton_Right) || PhysicsEditor.IsGizmoDragging()) return;
+                ImGui::IsMouseDown(ImGuiMouseButton_Right) || PhysicsEditor.IsGizmoDragging() || PhysicsEditor.IsPreviewSimulating()) return;
             if (ImGui::IsKeyPressed(ImGuiKey_W,false)) PhysicsEditor.SetGizmoMode(EGizmoMode::Location);
             if (ImGui::IsKeyPressed(ImGuiKey_E,false)) PhysicsEditor.SetGizmoMode(EGizmoMode::Rotation);
+            if (ImGui::IsKeyPressed(ImGuiKey_R,false)) PhysicsEditor.SetGizmoMode(EGizmoMode::Scale);
         }
     };
 
@@ -182,6 +284,8 @@ namespace
                 FrameBone = BoneIndex;
                 ChildRotationCache = {}; ParentRotationCache = {};
             }
+            if (ImGui::Selectable("Edit Child Frame in viewport",Editor.IsConstraintFrameSelected(BoneIndex,false)))
+                Editor.SelectConstraintFrame(BoneIndex,false);
             bool Changed = FPropertyEditor::DrawVector3("Child Anchor", S.ChildFrame.Location.V, 0);
             FRotator ChildRotation = ChildRotationCache.QuatToRotator(S.ChildFrame.Rotation);
             if (FPropertyEditor::DrawRotator("Child Rotation", ChildRotation))
@@ -189,6 +293,8 @@ namespace
                 S.ChildFrame.Rotation = ChildRotationCache.RotatorToQuat(ChildRotation);
                 Changed = true;
             }
+            if (ImGui::Selectable("Edit Parent Frame in viewport",Editor.IsConstraintFrameSelected(BoneIndex,true)))
+                Editor.SelectConstraintFrame(BoneIndex,true);
             Changed |= FPropertyEditor::DrawVector3("Parent Anchor", S.ParentFrame.Location.V, 0);
             FRotator ParentRotation = ParentRotationCache.QuatToRotator(S.ParentFrame.Rotation);
             if (FPropertyEditor::DrawRotator("Parent Rotation", ParentRotation))
@@ -239,6 +345,13 @@ namespace
 
     protected:
         void DrawContent() override
+        {
+            ImGui::BeginDisabled(Editor.IsPreviewSimulating());
+            DrawDetails();
+            ImGui::EndDisabled();
+        }
+
+        void DrawDetails()
         {
             ImGui::TextDisabled("Skeletal Mesh");
             ImGui::TextWrapped("%s", Editor.GetMeshAssetPath().c_str());
@@ -356,8 +469,8 @@ void FPhysicsAssetEditorTab::DrawEditMenu()
     auto& Model = PhysicsEditor.GetEditModel();
     if (ImGui::BeginMenu("Edit"))
     {
-        if (ImGui::MenuItem("Undo", "Ctrl+Z", false, Model.CanUndo())) Model.Undo();
-        if (ImGui::MenuItem("Redo", "Ctrl+Y", false, Model.CanRedo())) Model.Redo();
+        if (ImGui::MenuItem("Undo", "Ctrl+Z", false, !PhysicsEditor.IsPreviewSimulating() && Model.CanUndo())) Model.Undo();
+        if (ImGui::MenuItem("Redo", "Ctrl+Y", false, !PhysicsEditor.IsPreviewSimulating() && Model.CanRedo())) Model.Redo();
         ImGui::EndMenu();
     }
 }
@@ -373,11 +486,11 @@ void FPhysicsAssetEditorTab::OnRender(bool bActive)
     if (bActive && Focused && !PhysicsEditor.IsGizmoDragging() && !IO.WantTextInput && IO.KeyCtrl)
     {
         if (ImGui::IsKeyPressed(ImGuiKey_S, false)) PhysicsEditor.Save();
-        else if (ImGui::IsKeyPressed(ImGuiKey_Z, false))
+        else if (!PhysicsEditor.IsPreviewSimulating() && ImGui::IsKeyPressed(ImGuiKey_Z, false))
         {
             if (IO.KeyShift) Model.Redo(); else Model.Undo();
         }
-        else if (ImGui::IsKeyPressed(ImGuiKey_Y, false)) Model.Redo();
+        else if (!PhysicsEditor.IsPreviewSimulating() && ImGui::IsKeyPressed(ImGuiKey_Y, false)) Model.Redo();
     }
     const FString PopupName = "Unsaved Physics Asset Changes###PhysicsAssetClose:" + PhysicsEditor.GetAssetPath();
     if (PhysicsEditor.HasPendingAction() && !ImGui::IsPopupOpen(PopupName.c_str())) ImGui::OpenPopup(PopupName.c_str());
