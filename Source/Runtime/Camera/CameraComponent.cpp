@@ -6,6 +6,9 @@
 #include "Camera/CameraOptics.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/World.h"
+#include "Engine/Level.h"
 #include "UObject/Property.h"
 
 void UCameraComponent::PostEditChangeProperty(const FProperty& Property)
@@ -229,4 +232,62 @@ void UCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& OutPOV) 
     OutPOV.DepthOfFieldSettings = DepthOfFieldSettings;
     SanitizeDepthOfFieldSettings(OutPOV.DepthOfFieldSettings);
     ResolveCameraLens(OutPOV.LensSettings, OutPOV.FOV);
+
+    // 위치만 전달하고 초점 깊이는 CameraManager의 최종 시점에서 계산한다.
+    OutPOV.AutoFocus = FCameraAutoFocusViewInfo{};
+    if (bAutoFocusEnabled && GetWorld() && GetWorld()->IsGameWorld())
+    {
+        OutPOV.AutoFocus.bEnabled = true;
+        OutPOV.AutoFocus.CameraUUID = GetUUID();
+        OutPOV.AutoFocus.InterpSpeed = AutoFocusInterpSpeed;
+        OutPOV.AutoFocus.bHasTarget = ResolveAutoFocusTarget(OutPOV.AutoFocus.TargetLocation);
+    }
+}
+
+bool UCameraComponent::ResolveAutoFocusTarget(FVector& OutLocation) const
+{
+    UWorld* World = GetWorld();
+    if (!World || AutoFocusTargetActorName.empty())
+        return false;
+
+    const FName TargetActorName(AutoFocusTargetActorName);
+
+    // 포인터를 보관하지 않아 대상 파괴·레벨 재로드에도 이전 월드를 참조하지 않는다.
+    for (ULevel* Level : World->GetLevels())
+    {
+        if (!Level)
+            continue;
+
+        for (AActor* Target : Level->GetActors())
+        {
+            if (!Target || Target->GetFName() != TargetActorName
+                || World->IsPendingDestroy(Target))
+                continue;
+
+            FVector TargetLocation = Target->GetActorLocation() + AutoFocusFallbackOffset;
+            if (!AutoFocusTargetBoneName.empty())
+            {
+                for (UActorComponent* Component : Target->GetComponents())
+                {
+                    const auto* SkeletalMesh = Cast<USkeletalMeshComponent>(Component);
+                    if (!SkeletalMesh || !SkeletalMesh->IsRegistered())
+                        continue;
+
+                    const int32 BoneIndex = SkeletalMesh->FindBoneIndex(AutoFocusTargetBoneName);
+                    if (BoneIndex < 0
+                        || BoneIndex >= SkeletalMesh->GetComponentSpaceTransform().Num())
+                        continue;
+
+                    TargetLocation = SkeletalMesh->GetBoneWorldMatrix(BoneIndex)
+                        .TransformPosition(FVector::ZeroVector);
+                    break;
+                }
+            }
+
+            OutLocation = TargetLocation + AutoFocusTargetOffset;
+            return std::isfinite(OutLocation.X) && std::isfinite(OutLocation.Y)
+                && std::isfinite(OutLocation.Z);
+        }
+    }
+    return false;
 }

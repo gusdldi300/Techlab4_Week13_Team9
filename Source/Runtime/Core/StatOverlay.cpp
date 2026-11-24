@@ -2,6 +2,7 @@
 #include "StatOverlay.h"
 
 #include "EngineStatics.h"
+#include "Render/PostProcess/DepthOfFieldStats.h"
 
 #include <cctype>
 #include <format>
@@ -70,7 +71,7 @@ bool FStatOverlay::ExecCommand(const FString& CommandLine, FString& OutMessage)
 
 	if (Tokens.Num() < 2)
 	{
-		OutMessage = "Usage: stat <fps|memory|profile|all|none>";
+		OutMessage = "Usage: stat <fps|memory|profile|light|decal|skinning|particle|dof|all|none>";
 		return true;
 	}
 
@@ -85,7 +86,8 @@ bool FStatOverlay::ExecCommand(const FString& CommandLine, FString& OutMessage)
 
 	if (EqualsIgnoreCase(Arg, "all"))
 	{
-		Flags = EStatFlags::FPS | EStatFlags::Memory | EStatFlags::Profile | EStatFlags::Light | EStatFlags::Decal;
+		Flags = EStatFlags::FPS | EStatFlags::Memory | EStatFlags::Profile
+			| EStatFlags::Light | EStatFlags::Decal | EStatFlags::DepthOfField;
 		OutMessage = "stat all: all overlays enabled";
 		return true;
 	}
@@ -105,11 +107,13 @@ bool FStatOverlay::ExecCommand(const FString& CommandLine, FString& OutMessage)
 		Target = EStatFlags::Skinning;
 	else if (EqualsIgnoreCase(Arg, "particle"))
 		Target = EStatFlags::Particle;
+	else if (EqualsIgnoreCase(Arg, "dof"))
+		Target = EStatFlags::DepthOfField;
 
 
 	if (Target == EStatFlags::None)
 	{
-		OutMessage = std::format("stat: unknown stat '{}'. Available: fps, memory, profile, light, decal, skinning, particle, all, none", Arg);
+		OutMessage = std::format("stat: unknown stat '{}'. Available: fps, memory, profile, light, decal, skinning, particle, dof, all, none", Arg);
 		return true;
 	}
 
@@ -122,6 +126,48 @@ bool FStatOverlay::ExecCommand(const FString& CommandLine, FString& OutMessage)
 
 	OutMessage = std::format("stat {}: {}", Arg, bEnable ? "on" : "off");
 	return true;
+}
+
+TArray<FString> FStatOverlay::GetDepthOfFieldLines(const FDepthOfFieldStats& Stats)
+{
+	TArray<FString> Lines;
+	Lines.Add(std::format("  State          {}", Stats.State));
+	if (!Stats.bHasData)
+		return Lines;
+
+	const FDepthOfFieldSettings& Settings = Stats.Settings;
+	Lines.Add(std::format("  Settings       {}", Stats.bOverrideCamera ? "Override" : "Camera"));
+	Lines.Add(std::format("  F-Stop         f/{:.2f}", Settings.FStop));
+	Lines.Add(std::format("  Max Aperture   f/{:.2f}", Settings.MinFStop));
+	Lines.Add(std::format("  Focus          {:.3f} m", Settings.FocalDistanceMeters));
+	Lines.Add(std::format("  Focal Length   {:.2f} mm", Stats.Lens.FocalLengthMm));
+	Lines.Add(std::format("  Sensor Height  {:.2f} mm", Stats.Lens.SensorHeightMm));
+	Lines.Add(std::format("  Aperture       {} blades", Settings.ApertureBladeCount));
+	if (Settings.DepthBlurKmFor50Percent > 0.0f
+		&& Settings.DepthBlurRadiusFractionOfHeight > 0.0f)
+	{
+		Lines.Add(std::format("  Depth Blur     {:.3f} km at 50%", Settings.DepthBlurKmFor50Percent));
+		Lines.Add(std::format("  Blur Radius    {:.2f}% of height",
+			Settings.DepthBlurRadiusFractionOfHeight * 100.0f));
+	}
+	else
+	{
+		Lines.Add("  Depth Blur     OFF");
+	}
+	Lines.Add(std::format("  Radius Limit   {:.0f} px", Stats.MaximumRadiusFullResolutionPixels));
+
+	const char* DebugView = "None";
+	switch (Stats.DebugView)
+	{
+	case EDepthOfFieldDebugView::SignedCoC: DebugView = "Depth of Field Layers"; break;
+	case EDepthOfFieldDebugView::LensRadius: DebugView = "Lens Radius"; break;
+	case EDepthOfFieldDebugView::AdditionalBlur: DebugView = "Additional Blur"; break;
+	case EDepthOfFieldDebugView::EffectiveRadius: DebugView = "Effective Radius"; break;
+	default: break;
+	}
+	Lines.Add(std::format("  Debug View     {}", DebugView));
+	Lines.Add(std::format("  Focus Plane    {}", Stats.bFocusPlaneDrawn ? "ON" : "OFF"));
+	return Lines;
 }
 
 uint64 FStatOverlay::GetObjectAllocationBytes()

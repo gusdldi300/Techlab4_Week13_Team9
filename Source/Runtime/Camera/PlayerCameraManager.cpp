@@ -67,6 +67,7 @@ void FMinimalViewInfo::BlendViewInfo(const FMinimalViewInfo& Other, float Alpha)
 	{
 		bIsOrthogonal = Other.bIsOrthogonal;
 		LensSettings.bUseFocalLength = Other.LensSettings.bUseFocalLength;
+		AutoFocus = Other.AutoFocus;
 	}
 	BlendDepthOfFieldSettings(DepthOfFieldSettings, Other.DepthOfFieldSettings, Alpha);
 }
@@ -172,6 +173,7 @@ void APlayerCameraManager::UpdateCamera(float DeltaTime)
 	// FOV 효과까지 적용한 사본으로 렌더용 광학 값을 확정한다.
 	SanitizeDepthOfFieldSettings(NewPOV.DepthOfFieldSettings);
 	FinalizeCameraOptics(NewPOV.LensSettings, NewPOV.DepthOfFieldSettings, NewPOV.FOV);
+	UpdateAutoFocus(DeltaTime, NewPOV);
 	
 	//Fade
 	if (bEnableFading && bAutoAnimateFade) UpdateFade(DeltaTime);
@@ -180,6 +182,57 @@ void APlayerCameraManager::UpdateCamera(float DeltaTime)
 	//결과저장
 	CameraCachePOV = NewPOV;
 	bCameraCacheValid = true;
+}
+
+void APlayerCameraManager::UpdateAutoFocus(float DeltaTime, FMinimalViewInfo& InOutPOV)
+{
+	const FCameraAutoFocusViewInfo& Settings = InOutPOV.AutoFocus;
+	if (!Settings.bEnabled || !InOutPOV.DepthOfFieldSettings.bEnabled || InOutPOV.bIsOrthogonal)
+	{
+		bAutoFocusHasDistance = false;
+		AutoFocusCameraUUID = 0;
+		return;
+	}
+
+	if (AutoFocusCameraUUID != Settings.CameraUUID)
+	{
+		AutoFocusCameraUUID = Settings.CameraUUID;
+		bAutoFocusHasDistance = false;
+	}
+
+	const float MinimumDistance = InOutPOV.LensSettings.FocalLengthMm * 0.001f + 0.001f;
+	if (Settings.bHasTarget)
+	{
+		// 얼굴까지의 직선 거리가 아니라 최종 카메라 전방 축에 투영한 깊이를 사용한다.
+		const FVector Forward = InOutPOV.Rotation.Quaternion().GetForwardVector();
+		const float TargetDepth = FVector::Dot(Settings.TargetLocation - InOutPOV.Location, Forward);
+		if (std::isfinite(TargetDepth) && TargetDepth > 0.0f)
+		{
+			const float TargetDistance = std::clamp(TargetDepth, MinimumDistance, 1000000.0f);
+			const float InterpSpeed = std::isfinite(Settings.InterpSpeed)
+				? std::clamp(Settings.InterpSpeed, 0.0f, 1000.0f) : 8.0f;
+			if (!bAutoFocusHasDistance || InterpSpeed == 0.0f)
+			{
+				// 첫 유효 프레임에는 즉시 맞춰 시작할 때 흐린 화면이 나타나지 않게 한다.
+				AutoFocusDistanceMeters = TargetDistance;
+				bAutoFocusHasDistance = true;
+			}
+			else if (std::isfinite(DeltaTime) && DeltaTime > 0.0f)
+			{
+				// 프레임률에 독립적인 지수 보간. 0초 갱신에서는 기존 초점을 유지한다.
+				const float Alpha = 1.0f - std::exp(-InterpSpeed * DeltaTime);
+				AutoFocusDistanceMeters = FMath::Lerp(AutoFocusDistanceMeters, TargetDistance, Alpha);
+			}
+		}
+	}
+
+	// 대상이 없어지거나 카메라 뒤로 이동하면 마지막 유효 초점을 유지한다.
+	// 아직 유효한 대상을 본 적이 없으면 씬에 저장한 수동 초점이 사용된다.
+	if (bAutoFocusHasDistance)
+	{
+		AutoFocusDistanceMeters = std::clamp(AutoFocusDistanceMeters, MinimumDistance, 1000000.0f);
+		InOutPOV.DepthOfFieldSettings.FocalDistanceMeters = AutoFocusDistanceMeters;
+	}
 }
 
 void APlayerCameraManager::AddCameraModifier(UCameraModifier* Modifier)

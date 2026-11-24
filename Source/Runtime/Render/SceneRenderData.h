@@ -13,6 +13,7 @@
 #include <iterator>
 #include <vector>
 #include "Math/QuadTree.h"
+#include "Render/PostProcess/DepthOfFieldStats.h"
 
 struct FRenderStats
 {
@@ -73,6 +74,7 @@ struct FSceneRenderData
 
 	FRenderQueue RenderQueue;
 	FRenderStats RenderStats;
+	FDepthOfFieldStats DepthOfFieldStats;
 	TArray<FPrimitiveSceneProxy*> VisibleProxies;
 	TArray<FGatherChunk> GatherChunks;
 
@@ -148,6 +150,7 @@ struct FSceneRenderData
 	{
 		RenderQueue.Reset();
 		RenderStats.Reset();
+		DepthOfFieldStats = {};
 		VisibleProxies.Reset();
 		ObjectConstants.Reset();
 		AmbientLight = {};

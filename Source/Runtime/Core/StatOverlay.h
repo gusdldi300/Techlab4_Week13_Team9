@@ -2,6 +2,9 @@
 
 #include "Types.h"
 #include "EngineString.h"
+#include "Containers/Array.h"
+
+struct FDepthOfFieldStats;
 
 // Overlay로 표시할 Stat 항목. 여러 항목을 동시에 켤 수 있어 비트 플래그로 둔다.
 enum class EStatFlags : uint32
@@ -14,6 +17,7 @@ enum class EStatFlags : uint32
 	Decal	= 1 << 4,
 	Skinning= 1 << 5,
 	Particle= 1 << 6,
+	DepthOfField = 1 << 7,
 };
 DEFINE_ENUM_OPERATORS(EStatFlags)
 
@@ -32,6 +36,9 @@ public:
 	static EStatFlags GetFlags() { return Flags; }
 	static bool IsEnabled(EStatFlags Flag) { return HasFlag(Flags, Flag); }
 	static bool IsAnyEnabled() { return Flags != EStatFlags::None; }
+
+	// 에디터와 PIE가 같은 진단 내용을 각 뷰의 값으로 표시한다.
+	static TArray<FString> GetDepthOfFieldLines(const FDepthOfFieldStats& Stats);
 
 	// 샘플 구간 평균 FPS와 프레임 시간(ms). 매 프레임 값은 흔들려서 평균만 노출한다.
 	static float GetFPS() { return DisplayFPS; }

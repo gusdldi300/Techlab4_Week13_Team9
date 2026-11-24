@@ -21,6 +21,8 @@
 #include "Text/TextRenderer.h"
 #include "UObject/UObjectIterator.h"
 #include "Render/GPUStats.h"
+#include "Render/LineBatcher.h"
+#include "Camera/CameraOptics.h"
 
 #include <cmath>
 #include <algorithm>
@@ -36,6 +38,40 @@ DECLARE_CYCLE_STAT("Decal Draw", STAT_DecalDraw);
 
 namespace
 {
+	bool BuildFocusPlaneCorners(const FSceneView& SourceView, float FinalFocusDistanceMeters, FVector4 (&OutWorldCorners)[4])
+	{
+		if (!SourceView.bIsPerspective || !std::isfinite(FinalFocusDistanceMeters) || FinalFocusDistanceMeters <= 0.0f)
+			return false;
+
+		const float MetersPerWorldUnit = 0.01f * WorldToCm;
+		const float FocusDistanceWorld = FinalFocusDistanceMeters / MetersPerWorldUnit;
+		const FMatrix InverseProjection = SourceView.ProjectionMatrix.Inverse();
+		const FMatrix InverseView = SourceView.ViewMatrix.Inverse();
+
+		for (int32 Index = 0; Index < 4; ++Index)
+		{
+			// 좌상 → 우상 → 우하 → 좌하 순서다.
+			const float NdcX = Index == 1 || Index == 2 ? 1.0f : -1.0f;
+			const float NdcY = Index < 2 ? 1.0f : -1.0f;
+			const FVector4 ViewPoint = InverseProjection.TransformFVector4(FVector4(NdcX, NdcY, 0.5f, 1.0f));
+
+			if (!std::isfinite(ViewPoint.X) || !std::isfinite(ViewPoint.W) || ViewPoint.X <= 0.0f || ViewPoint.W <= 0.0f)
+				return false;
+
+			// 전방 깊이가 초점 거리와 같아지는 광선 위의 점이다.
+			const float RayScale = FocusDistanceWorld / ViewPoint.X;
+			const FVector4 ViewCorner = FVector4(FocusDistanceWorld, ViewPoint.Y * RayScale, ViewPoint.Z * RayScale, 1.0f);
+			const FVector4 WorldCorner = InverseView.TransformFVector4(ViewCorner);
+
+			if (!std::isfinite(WorldCorner.X) || !std::isfinite(WorldCorner.Y) || !std::isfinite(WorldCorner.Z) || !std::isfinite(WorldCorner.W) || WorldCorner.W <= 0.0f)
+				return false;
+
+			OutWorldCorners[Index] = WorldCorner / WorldCorner.W;
+		}
+
+		return true;
+	}
+
 	bool ShouldVisualizeDepthOfField(const FSceneView& View, const FSceneRenderOptions& Options)
 	{
 		const uint32 DebugIndex = static_cast<uint32>(Options.DepthOfField.DebugView);
@@ -789,6 +825,46 @@ bool FSceneRenderer::AddViewportPasses(FRenderGraphBuilder& Graph, FRenderer* Re
 	const FScenePassCallbacks& Callbacks) // 뷰포트에 그려져야 되는 패스들을 옵션에 따라 정해진 순서로 Graph에 등록
 {
 	const bool bDepthOfFieldDebug = ShouldVisualizeDepthOfField(View, Options);
+
+	// BuildData와 같은 보정 순서로 최종 광학 값을 기록한다.
+	// 전역 렌더러의 마지막 뷰가 아니라 이 뷰가 소유한 스냅샷이다.
+	FDepthOfFieldStats& DepthOfFieldStats = RenderData.DepthOfFieldStats;
+	DepthOfFieldStats = {};
+	DepthOfFieldStats.bHasData = true;
+	DepthOfFieldStats.bOverrideCamera = Options.DepthOfField.bOverrideCamera;
+	DepthOfFieldStats.Settings = Options.DepthOfField.bOverrideCamera
+		? Options.DepthOfField.OverrideSettings : View.DepthOfFieldSettings;
+	DepthOfFieldStats.Lens = View.LensSettings;
+	float FinalFov = View.FieldOfView;
+	SanitizeDepthOfFieldSettings(DepthOfFieldStats.Settings);
+	FinalizeCameraOptics(DepthOfFieldStats.Lens, DepthOfFieldStats.Settings, FinalFov);
+	FDepthOfFieldViewSettings DebugSettings = Options.DepthOfField;
+	SanitizeDepthOfFieldViewSettings(DebugSettings);
+	DepthOfFieldStats.DebugView = DebugSettings.DebugView;
+	DepthOfFieldStats.MaximumRadiusFullResolutionPixels =
+		FDepthOfFieldQualitySettings{}.MaxBlurRadiusFullResolutionPixels;
+
+	if (!Options.bEnableDepthOfField)
+		DepthOfFieldStats.State = "Bypassed - Show flag disabled";
+	else if (!Options.bDrawPrimitives)
+		DepthOfFieldStats.State = "Bypassed - Primitives hidden";
+	else if (!View.bIsPerspective)
+		DepthOfFieldStats.State = "Bypassed - Orthographic view";
+	else if (View.bIsWireframe)
+		DepthOfFieldStats.State = "Bypassed - Wireframe view";
+	else if (Options.bShowSceneDepth || Options.bShowWorldNormal
+		|| Options.bShowLightCulling || Options.bShowCascade)
+		DepthOfFieldStats.State = "Bypassed - Buffer visualization";
+	else if (bDepthOfFieldDebug)
+		DepthOfFieldStats.State = "Visualizing";
+	else if (!DepthOfFieldStats.Settings.bEnabled)
+		DepthOfFieldStats.State = Options.DepthOfField.bOverrideCamera
+			? "Bypassed - Override DOF disabled" : "Bypassed - Camera DOF disabled";
+	else if (!Renderer->GetDepthOfField() || !Renderer->GetDepthOfField()->IsReady())
+		DepthOfFieldStats.State = "Bypassed - Renderer not ready";
+	else
+		DepthOfFieldStats.State = "Active";
+
 	FSceneRenderOptions CoreOptions = Options;
 	if (Options.bShowLightCulling)
 	{
@@ -874,6 +950,38 @@ bool FSceneRenderer::AddViewportPasses(FRenderGraphBuilder& Graph, FRenderer* Re
 			})) return false;
 	}
 
+	if (Options.DepthOfField.bDrawFocusPlane && Options.bEnableDepthOfField && Options.bDrawPrimitives
+		&& Options.DepthOfField.DebugView == EDepthOfFieldDebugView::None
+		&& !Options.bShowSceneDepth && !Options.bShowWorldNormal && !Options.bShowLightCulling && !Options.bShowCascade
+		&& View.bIsPerspective && !View.bIsWireframe && World && World->LineBatcher)
+	{
+		FSceneView SourceView = View;
+		if (Options.DepthOfField.bOverrideCamera)
+			SourceView.DepthOfFieldSettings = Options.DepthOfField.OverrideSettings;
+
+		// DOF 렌더링과 같은 규칙으로 최종 초점 거리를 확정한다.
+		SanitizeDepthOfFieldSettings(SourceView.DepthOfFieldSettings);
+		FinalizeCameraOptics(SourceView.LensSettings, SourceView.DepthOfFieldSettings, SourceView.FieldOfView);
+
+		FVector4 WorldCorners[4];
+		if (BuildFocusPlaneCorners(SourceView, SourceView.DepthOfFieldSettings.FocalDistanceMeters, WorldCorners))
+		{
+			FLineBatcher* LineBatcher = World->LineBatcher.get();
+			const FMatrix ObserverViewProjection = View.ViewProjectionMatrix;
+
+			// 그래프 실행 시에도 이 뷰의 꼭짓점과 행렬을 사용한다.
+			auto ExecuteFocusPlane = [LineBatcher, WorldCorners, ObserverViewProjection]()
+			{
+				LineBatcher->DrawTranslucentQuad(WorldCorners, ObserverViewProjection, FVector4(1.0f, 0.0f, 1.0f, 0.2f));
+			};
+
+			// 색상과 깊이를 지우지 않고 기존 장면 위에 표시한다.
+			if (!Graph.AddRasterPass(MakeViewportPass("DOF.FocusPlane", FinalColor, Depth), std::move(ExecuteFocusPlane)))
+				return false;
+			DepthOfFieldStats.bFocusPlaneDrawn = true;
+		}
+	}
+
 	const FSceneOverlayCallbacks& Overlay = Callbacks.Overlays;
 	if (Options.bShowCascade && Callbacks.CascadeVisualization)
 	{
@@ -935,9 +1043,16 @@ bool FSceneRenderer::Render(FRenderer* Renderer, FSceneViewTargets& Targets, con
 	FRenderGraphBuilder Graph;
 	if (!AddViewportPasses(Graph, Renderer, Targets, Options, Callbacks) ||
 		!Graph.Execute() || !DidCorePassSucceed() || !DidFXAAPassSucceed())
+	{
+		RenderData.DepthOfFieldStats.State = "Error - Frame rendering failed";
+		RenderData.DepthOfFieldStats.bFocusPlaneDrawn = false;
 		return false;
+	}
 	if (bUseFXAA && !Targets.SwapSceneColorAndBind(FXAA->GetOutputTarget()))
+	{
+		RenderData.DepthOfFieldStats.State = "Error - Output swap failed";
 		return false;
+	}
 
 	RenderCommand::EndRenderPass();
 	return true;

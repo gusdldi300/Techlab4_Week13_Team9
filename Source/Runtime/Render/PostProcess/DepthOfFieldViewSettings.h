@@ -26,6 +26,8 @@ struct FDepthOfFieldViewSettings
 
     // 디버그에서 최대 밝기로 표시할 원본 화면의 픽셀 반경.
     float DebugRadiusFullResolutionPixels = 16.0f;
+
+    bool bDrawFocusPlane = false;
 };
 
 inline void SanitizeDepthOfFieldViewSettings(FDepthOfFieldViewSettings& Settings)

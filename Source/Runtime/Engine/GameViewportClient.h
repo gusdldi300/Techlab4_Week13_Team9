@@ -9,6 +9,7 @@
 #include "Render/SceneViewTargets.h"
 #include "Render/SceneRenderOptions.h"
 #include "UI/UIDrawList.h"
+#include "Render/PostProcess/DepthOfFieldTestController.h"
 
 #include <functional>
 
@@ -59,6 +60,7 @@ public:
 	// UE의 UGameViewportClient::EngineShowFlags와 같은 자리이고 UE에서도 public 멤버다.
 	// 게임 빌드는 UGameEngine이 게임 설정으로, PIE는 UEditorEngine이 에디터 설정으로 채운다.
 	FSceneRenderOptions EngineShowFlags;
+	bool IsDepthOfFieldTestEnabled() const { return DepthOfFieldTest.IsEnabled(); }
 
 	// Draw가 패스를 등록할 때 부른다. 에디터가 PIE 화면에 충돌 도형, 기즈모 같은 것을 올릴 때 쓴다. 게임 빌드에서는 비어 있다.
 	FDebugDrawDelegate DebugDrawDelegate;
@@ -134,4 +136,5 @@ private:
 	bool bHasRenderedView = false;
 	// Draw가 게임 UI를 그릴 때 채우는 목록. 매 프레임 다시 채운다.
 	FUIDrawList UIDrawList;
+	FDepthOfFieldTestController DepthOfFieldTest;
 };

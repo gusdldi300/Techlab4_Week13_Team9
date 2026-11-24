@@ -7,6 +7,16 @@
 
 #include "PlayerCameraManager.generated.h"
 
+// 카메라가 매 프레임 해석한 자동 초점 대상. 씬에는 CameraComponent의 설정만 저장한다.
+struct FCameraAutoFocusViewInfo
+{
+	bool bEnabled = false;
+	bool bHasTarget = false;
+	FVector TargetLocation = FVector::ZeroVector;
+	float InterpSpeed = 8.0f;
+	uint32 CameraUUID = 0;
+};
+
 struct FMinimalViewInfo
 {
 	FVector Location;
@@ -19,6 +29,7 @@ struct FMinimalViewInfo
 	bool bIsOrthogonal = false;
 	FCameraLensSettings LensSettings;
 	FDepthOfFieldSettings DepthOfFieldSettings;
+	FCameraAutoFocusViewInfo AutoFocus;
 
 	void BlendViewInfo(const FMinimalViewInfo& Other, float Alpha);
 	FMatrix CalculateViewMatrix() const;
@@ -122,6 +133,13 @@ public:
 	FViewTarget ViewTarget;
 
 protected:
+	void UpdateAutoFocus(float DeltaTime, FMinimalViewInfo& InOutPOV);
+
+	// 게임 카메라 인스턴스의 일시적 상태이며 원본 카메라의 수동 초점 값을 덮어쓰지 않는다.
+	uint32 AutoFocusCameraUUID = 0;
+	float AutoFocusDistanceMeters = 0.0f;
+	bool bAutoFocusHasDistance = false;
+
 	TArray<UCameraModifier*> ModifierList;
 	APlayerController* PlayerControllerOwner = nullptr;
 	FMinimalViewInfo CameraCachePOV;

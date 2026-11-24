@@ -822,7 +822,7 @@ void FOutputLogPanel::RegisterCommands()
 		});
 #endif
 
-	Add("STAT", "STAT <fps|memory|profile|light|decal|skinning|all|none>", [](const TArray<FString>&, const FString& Line)
+	Add("STAT", "STAT <fps|memory|profile|light|decal|skinning|particle|dof|all|none>", [](const TArray<FString>&, const FString& Line)
 		{
 			FString Message;
 			FStatOverlay::ExecCommand(Line, Message);   // 해석은 엔진 쪽에 맡긴다
@@ -1076,6 +1076,7 @@ void FOutputLogPanel::RegisterCommands()
 	RegisterSuggestion("Stat", "LIGHT", "STAT LIGHT", "Lighting stats overlay");
 	RegisterSuggestion("Stat", "DECAL", "STAT DECAL", "Decal stats overlay");
 	RegisterSuggestion("Stat", "SKINNING", "STAT SKINNING", "Skeletal skinning overlay");
+	RegisterSuggestion("Stat", "DOF", "STAT DOF", "Effective depth of field settings and state");
 	RegisterSuggestion("Stat", "ALL", "STAT ALL", "Enable all stat overlays");
 	RegisterSuggestion("Stat", "NONE", "STAT NONE", "Hide all stat overlays");
 

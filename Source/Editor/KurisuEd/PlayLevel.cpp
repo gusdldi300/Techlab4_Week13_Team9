@@ -191,7 +191,8 @@ void UEditorEngine::TickPIEInput(float DeltaTime)
 		GameViewport.LostFocus();
 		return;
 	}
-	DispatchGameKeyboardInput([&](int32 Key, bool bDown) { GameViewport.InputKey(nullptr, Key, bDown); });
+	DispatchGameKeyboardInput([&](int32 Key, bool bDown) { GameViewport.InputKey(nullptr, Key, bDown); },
+		GameViewport.IsDepthOfFieldTestEnabled());
 
 	// UI 히트 테스트용 마우스 좌표 → 게임 렌더 타깃 기준
 	if (IsPIEInWindow())

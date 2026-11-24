@@ -32,9 +32,10 @@ float4 mainPS(FDepthOfFieldVertexOutput Input) : SV_Target0
     if (DebugView == 1)
     {
         const float Intensity = saturate(LensRadius / DisplayRadius);
-        const float3 FocusColor = float3(0.0f, 1.0f, 0.0f);
-        const float3 NearColor = float3(0.0f, 0.0f, 1.0f);
-        const float3 FarColor = float3(1.0f, 0.0f, 0.0f);
+        // 레이어 색상을 Show > Visualize의 범례와 일치시킨다.
+        const float3 FocusColor = float3(0.0f, 0.0f, 0.0f);
+        const float3 NearColor = float3(0.0f, 1.0f, 0.0f);
+        const float3 FarColor = float3(0.0f, 0.0f, 1.0f);
         const float3 BlurColor = CoCData.x < 0.0f ? NearColor : FarColor;
         return float4(lerp(FocusColor, BlurColor, Intensity), 1.0f);
     }
