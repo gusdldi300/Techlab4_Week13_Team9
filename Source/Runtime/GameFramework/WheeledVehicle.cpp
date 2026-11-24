@@ -13,11 +13,14 @@
 
 namespace
 {
-	// 원통 메시는 Z축이 높이 방향이다. X축으로 90도 눕혀 바퀴 축(Y)과 맞춘다.
-	FQuat WheelMeshBaseRotation()
-	{
-		return FQuat::MakeFromAxisAngle(FVector(1.0f, 0.0f, 0.0f), 1.57079633f);
-	}
+	// Blender에서 차체와 바퀴를 나눠 Import한 Cutlass 모델. 차체 중심, 바퀴 중심이 각 메시의 원점이다.
+	// 임포터는 파일마다 FBX/<이름>/<이름>_Static.fbx.bin으로 저장한다.
+	constexpr const char* BodyMeshPath   = "FBX/Cutlass_Body/Cutlass_Body_Static.fbx.bin";
+	constexpr const char* WheelLMeshPath = "FBX/Cutlass_WheelL/Cutlass_WheelL_Static.fbx.bin";
+	constexpr const char* WheelRMeshPath = "FBX/Cutlass_WheelR/Cutlass_WheelR_Static.fbx.bin";
+	// FBX 임포터는 cm로 가져오고 엔진은 m를 쓴다. 캐릭터 메시와 같은 배율이다.
+	constexpr float ModelScale = 0.01f;
+	constexpr float DegToRad = 0.0174532925f;
 }
 
 AWheeledVehicle::AWheeledVehicle()
@@ -29,13 +32,11 @@ AWheeledVehicle::AWheeledVehicle()
 
 	ChassisMesh = CreateDefaultSubobject<UStaticMeshComponent>("ChassisMesh");
 	ChassisMesh->SetupAttachment(CollisionBox);
-	ChassisMesh->SetStaticMesh(UAssetManager::GetAssetByPath<UStaticMesh>("Cube"));
 
 	for (int32 i = 0; i < 4; ++i)
 	{
 		UStaticMeshComponent* Wheel = CreateDefaultSubobject<UStaticMeshComponent>(FName(("WheelMesh" + std::to_string(i)).c_str()));
 		Wheel->SetupAttachment(CollisionBox);
-		Wheel->SetStaticMesh(UAssetManager::GetAssetByPath<UStaticMesh>("Cylinder"));
 		WheelMeshes[i] = Wheel;
 	}
 
@@ -58,7 +59,44 @@ AWheeledVehicle::AWheeledVehicle()
 	Camera->SetExternalInputManaged(true);
 	Camera->SetRelativeRotation(FRotator(-10.0f, 0.0f, 0.0f));
 
+	SetupMeshes();
 	ApplyDimensions();
+}
+
+void AWheeledVehicle::SetupMeshes()
+{
+	UStaticMesh* Body = UAssetManager::GetAssetByPath<UStaticMesh>(BodyMeshPath);
+	UStaticMesh* WheelL = UAssetManager::GetAssetByPath<UStaticMesh>(WheelLMeshPath);
+	UStaticMesh* WheelR = UAssetManager::GetAssetByPath<UStaticMesh>(WheelRMeshPath);
+	bUsingModelMeshes = Body && WheelL && WheelR;
+
+	if (bUsingModelMeshes)
+	{
+		ChassisMesh->SetStaticMesh(Body);
+		// PhysX 4륜 순서: 0 앞왼, 1 앞오, 2 뒤왼, 3 뒤오. 모델 바퀴는 바깥면이 있어 좌우 메시가 다르다.
+		WheelMeshes[0]->SetStaticMesh(WheelL);
+		WheelMeshes[1]->SetStaticMesh(WheelR);
+		WheelMeshes[2]->SetStaticMesh(WheelL);
+		WheelMeshes[3]->SetStaticMesh(WheelR);
+		return;
+	}
+
+	// 모델을 아직 Import하지 않았으면 기본 도형으로 대신한다.
+	ChassisMesh->SetStaticMesh(UAssetManager::GetAssetByPath<UStaticMesh>("Cube"));
+	for (UStaticMeshComponent* Wheel : WheelMeshes)
+	{
+		Wheel->SetStaticMesh(UAssetManager::GetAssetByPath<UStaticMesh>("Cylinder"));
+	}
+}
+
+FQuat AWheeledVehicle::GetWheelMeshBaseRotation() const
+{
+	if (bUsingModelMeshes)
+	{
+		return FQuat::MakeFromAxisAngle(FVector(0.0f, 0.0f, 1.0f), ModelYawOffset * DegToRad);
+	}
+	// 원통 메시는 Z축이 높이 방향이다. X축으로 90도 눕혀 바퀴 축(Y)과 맞춘다.
+	return FQuat::MakeFromAxisAngle(FVector(1.0f, 0.0f, 0.0f), 1.57079633f);
 }
 
 void AWheeledVehicle::ApplyDimensions()
@@ -69,19 +107,28 @@ void AWheeledVehicle::ApplyDimensions()
 	const float W = VehicleMovement->ChassisWidth;
 	const float H = VehicleMovement->ChassisHeight;
 	CollisionBox->BoxExtent = FVector(L * 0.5f, W * 0.5f, H * 0.5f);
-	ChassisMesh->SetRelativeScale3D(FVector(L, W, H));   // 큐브는 한 변 1m
 
-	// 차가 만들어지기 전(에디터)에도 바퀴가 제자리에 보이도록 정지 위치에 둔다.
 	const float R = VehicleMovement->WheelRadius;
 	const float WW = VehicleMovement->WheelWidth;
-	const float FrontX = L * 0.3f, RearX = -L * 0.3f;
-	const float SideY = (W - WW) * 0.5f;
-	const float Z = -(H * 0.5f + R);
-	const FVector Rest[4] = { FVector(FrontX, -SideY, Z), FVector(FrontX, SideY, Z), FVector(RearX, -SideY, Z), FVector(RearX, SideY, Z) };
-	const FRotator BaseRot = WheelMeshBaseRotation().ToFRotator();
-	for (int32 i = 0; i < 4; ++i)
+	if (bUsingModelMeshes)
 	{
-		WheelMeshes[i]->SetRelativeScale3D(FVector(R, R, WW));   // 원통은 반지름 1, 높이 1
+		// 모델은 이미 실제 크기다. cm → m 배율만 주고, 차체 중심이 원점이므로 위치는 그대로 둔다.
+		ChassisMesh->SetRelativeScale3D(FVector(ModelScale, ModelScale, ModelScale));
+		ChassisMesh->SetRelativeRotation(GetWheelMeshBaseRotation().ToFRotator());
+	}
+	else
+	{
+		ChassisMesh->SetRelativeScale3D(FVector(L, W, H));   // 큐브는 한 변 1m
+	}
+
+	// 차가 만들어지기 전(에디터)에도 바퀴가 제자리에 보이도록 정지 위치에 둔다.
+	TArray<FVector> Rest;
+	VehicleMovement->ComputeWheelOffsets(Rest);
+	const FRotator BaseRot = GetWheelMeshBaseRotation().ToFRotator();
+	for (int32 i = 0; i < 4 && i < Rest.Num(); ++i)
+	{
+		const FVector Scale = bUsingModelMeshes ? FVector(ModelScale, ModelScale, ModelScale) : FVector(R, R, WW);   // 원통은 반지름 1, 높이 1
+		WheelMeshes[i]->SetRelativeScale3D(Scale);
 		WheelMeshes[i]->SetRelativeLocationAndRotation(Rest[i], BaseRot);
 	}
 }
@@ -89,7 +136,8 @@ void AWheeledVehicle::ApplyDimensions()
 void AWheeledVehicle::BeginPlay()
 {
 	// 에디터에서 바꾼 차체·바퀴 크기를 바디가 만들어지기 전에 반영할 수는 없지만(바디는 등록 때 만들어진다),
-	// 표시용 메시는 여기서 다시 맞춘다.
+	// 표시용 메시는 여기서 다시 맞춘다. 액터를 놓은 뒤에 모델을 Import했어도 여기서 모델로 바뀐다.
+	SetupMeshes();
 	ApplyDimensions();
 	Super::BeginPlay();
 }
@@ -122,7 +170,7 @@ void AWheeledVehicle::UpdateWheelMeshes()
 	if (Wheels.Num() != 4) return;
 
 	// 바퀴 로컬 포즈는 차체 강체(루트) 기준이고 조향과 굴림 회전이 들어 있다. 원통을 눕히는 회전을 먼저 적용한다.
-	const FQuat Base = WheelMeshBaseRotation();
+	const FQuat Base = GetWheelMeshBaseRotation();
 	for (int32 i = 0; i < 4; ++i)
 	{
 		const UVehicleWheel* Wheel = Wheels[i];

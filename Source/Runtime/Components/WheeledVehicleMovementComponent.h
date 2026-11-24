@@ -35,27 +35,41 @@ public:
 	UPROPERTY(EditAnywhere)
 	float Mass = 1500.0f;                    // kg
 
+	// 기본값은 Cutlass 모델(DefaultProject/Content/FBX/Cutlass) 크기다.
 	UPROPERTY(EditAnywhere)
-	float ChassisLength = 4.0f;              // 앞뒤 길이(m). 관성과 바퀴 위치 계산에 쓴다
+	float ChassisLength = 4.13f;             // 앞뒤 길이(m). 관성 계산과 충돌 박스에 쓴다
 
 	UPROPERTY(EditAnywhere)
-	float ChassisWidth = 2.0f;               // 좌우 폭(m)
+	float ChassisWidth = 1.56f;              // 좌우 폭(m)
 
 	UPROPERTY(EditAnywhere)
-	float ChassisHeight = 1.0f;              // 높이(m)
+	float ChassisHeight = 0.95f;             // 높이(m)
 
 	UPROPERTY(EditAnywhere)
-	FVector COMOffset = FVector(0.25f, 0.0f, -0.3f);   // 무게 중심. 낮을수록 잘 안 뒤집힌다
+	FVector COMOffset = FVector(0.2f, 0.0f, -0.25f);   // 무게 중심. 낮을수록 잘 안 뒤집힌다
+
+	// ---- 바퀴 위치 (차체 중심 기준, 정지 상태의 바퀴 중심) ----
+	UPROPERTY(EditAnywhere)
+	float FrontAxleX = 1.24f;                // 앞바퀴 축 위치(X가 앞)
+
+	UPROPERTY(EditAnywhere)
+	float RearAxleX = -1.09f;                // 뒷바퀴 축 위치
+
+	UPROPERTY(EditAnywhere)
+	float WheelHalfTrack = 0.642f;           // 좌우 바퀴 중심까지 거리
+
+	UPROPERTY(EditAnywhere)
+	float WheelCenterZ = -0.402f;            // 바퀴 중심 높이
 
 	UPROPERTY(EditAnywhere)
 	FVector InertiaTensorScale = FVector(1.0f, 1.0f, 0.8f);   // 상자 관성에 곱한다. Z(위)를 줄이면 잘 돈다
 
 	// ---- 바퀴 (차를 만들 때 바퀴마다 UVehicleWheel로 복사한다) ----
 	UPROPERTY(EditAnywhere)
-	float WheelRadius = 0.4f;
+	float WheelRadius = 0.262f;
 
 	UPROPERTY(EditAnywhere)
-	float WheelWidth = 0.3f;
+	float WheelWidth = 0.22f;
 
 	UPROPERTY(EditAnywhere)
 	float WheelMass = 20.0f;
@@ -67,7 +81,7 @@ public:
 	float MaxHandBrakeTorque = 4000.0f;      // 뒷바퀴 사이드 브레이크
 
 	UPROPERTY(EditAnywhere)
-	float SuspensionMaxRaise = 0.3f;
+	float SuspensionMaxRaise = 0.2f;
 
 	UPROPERTY(EditAnywhere)
 	float SuspensionMaxDrop = 0.1f;
@@ -90,6 +104,9 @@ public:
 	virtual int32 GetCurrentGear() const { return 0; }              // -1 후진, 0 중립, 1~ 전진
 	bool IsInAir() const { return bIsInAir; }
 	const TArray<UVehicleWheel*>& GetWheels() const { return Wheels; }
+
+	// 차체 기준 바퀴 중심(정지 위치). 4륜 순서(앞왼, 앞오, 뒤왼, 뒤오)로 채운다. 액터가 바퀴 메시 초기 위치에도 쓴다.
+	virtual void ComputeWheelOffsets(TArray<FVector>& OutOffsets) const;
 
 	// ---- FPhysXVehicleManager가 부른다 ----
 	physx::PxVehicleWheels* GetPhysXVehicle() const { return PVehicle; }
@@ -119,8 +136,6 @@ protected:
 
 	// 바퀴 수와 순서는 구동 방식이 정한다. 기본은 4륜 순서(앞왼, 앞오, 뒤왼, 뒤오)다.
 	virtual int32 GetNumWheels() const { return 4; }
-	// 차체 기준 바퀴 중심(정지 위치). 4륜 순서대로 채운다.
-	virtual void ComputeWheelOffsets(TArray<FVector>& OutOffsets) const;
 
 	physx::PxVehicleWheels* PVehicle = nullptr;
 	TArray<UVehicleWheel*> Wheels;

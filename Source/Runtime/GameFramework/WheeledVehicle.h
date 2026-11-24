@@ -32,6 +32,10 @@ public:
 	void BeginPlay() override;
 	void Tick(float DeltaTime) override;
 
+	// 모델이 엔진 좌표계로 들어올 때 앞 방향이 어긋나면(차가 뒤로 가는 것처럼 보이면) 180으로 바꾼다.
+	UPROPERTY(EditAnywhere)
+	float ModelYawOffset = 0.0f;
+
 	UBoxComponent* GetCollisionBox() const { return CollisionBox; }
 	UWheeledVehicleMovementComponent4W* GetVehicleMovement() const { return VehicleMovement; }
 
@@ -40,8 +44,15 @@ private:
 	void UpdateInput();
 	// 물리 결과(바퀴 로컬 포즈)를 바퀴 메시에 넣는다.
 	void UpdateWheelMeshes();
-	// 차체·바퀴 메시 크기를 이동 컴포넌트 속성에 맞춘다.
+	// Cutlass 모델이 Import되어 있으면 그 메시를, 없으면 큐브·원통을 쓴다.
+	void SetupMeshes();
+	// 차체·바퀴 메시 크기와 정지 위치를 이동 컴포넌트 속성에 맞춘다.
 	void ApplyDimensions();
+	// 바퀴 메시에 바퀴 로컬 회전보다 먼저 적용할 회전. 원통은 눕히고, 모델은 Yaw 보정만 한다.
+	FQuat GetWheelMeshBaseRotation() const;
+
+	// true면 Cutlass 모델 메시(cm 단위)를 쓰고 있다.
+	bool bUsingModelMeshes = false;
 
 	UBoxComponent* CollisionBox = nullptr;
 	UStaticMeshComponent* ChassisMesh = nullptr;

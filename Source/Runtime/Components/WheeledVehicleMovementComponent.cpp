@@ -59,11 +59,11 @@ void UWheeledVehicleMovementComponent::OnUnregister()
 void UWheeledVehicleMovementComponent::ComputeWheelOffsets(TArray<FVector>& OutOffsets) const
 {
 	// PhysX 4륜 순서: 0 앞왼, 1 앞오, 2 뒤왼, 3 뒤오. 엔진은 X가 앞, Y가 오른쪽, Z가 위다.
-	// 바퀴 바깥면을 차체 옆면에 맞추고, 바퀴 윗면이 차체 바닥에 닿게 둔다(PhysX 샘플과 같은 배치).
-	const float FrontX = ChassisLength * 0.3f;
-	const float RearX = -ChassisLength * 0.3f;
-	const float SideY = (ChassisWidth - WheelWidth) * 0.5f;
-	const float Z = -(ChassisHeight * 0.5f + WheelRadius);
+	// 위치는 모델에서 잰 값(FrontAxleX 등)을 쓴다. 모델 바퀴 메시와 물리 바퀴가 같은 자리에 있어야 바퀴가 뜨거나 묻히지 않는다.
+	const float FrontX = FrontAxleX;
+	const float RearX = RearAxleX;
+	const float SideY = WheelHalfTrack;
+	const float Z = WheelCenterZ;
 
 	OutOffsets.SetNum(4);
 	OutOffsets[PxVehicleDrive4WWheelOrder::eFRONT_LEFT]  = FVector(FrontX, -SideY, Z);
