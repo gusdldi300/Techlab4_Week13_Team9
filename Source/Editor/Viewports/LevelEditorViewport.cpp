@@ -190,7 +190,7 @@ void FLevelEditorViewportClient::Draw(const FSceneView* View, FScenePassCallback
 					if (Settings.bShowPhysicsBodies)
 						FPhysicsDebugDraw::DrawWorldBodies(GetWorld(), LineBatcher);
 					if (Settings.bShowPhysicsConstraints)
-						DrawHardcodedRagdollConstraints(GetWorld(), LineBatcher);
+						DrawPhysicsAssetConstraints(GetWorld(), LineBatcher);
 					LineBatcher->SetDepthTest(false);
 					LineBatcher->OnRender(SceneView.ViewProjectionMatrix);
 					LineBatcher->SetDepthTest(true);

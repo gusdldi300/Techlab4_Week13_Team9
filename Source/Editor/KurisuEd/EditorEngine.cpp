@@ -2134,7 +2134,7 @@ void UEditorEngine::DrawPIEDebug(UWorld* World, const FMatrix& ViewProjection)
 
 	if (Settings.bShowPhysicsConstraints)
 	{
-		DrawHardcodedRagdollConstraints(World, LineBatcher);
+		DrawPhysicsAssetConstraints(World, LineBatcher);
 	}
 
 	// 모은 선들을 한 번에 그린다.

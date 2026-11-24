@@ -2,7 +2,7 @@
 
 #include "SkinnedMeshComponent.h"
 #include "Animation/AnimInstance.h"
-#include "Physics/HardcodedRagdoll.h"
+#include "Physics/PhysicsAssetInstance.h"
 #include "SkeletalMeshComponent.generated.h"
 
 class UAnimInstance;
@@ -18,7 +18,7 @@ extern bool GShowSkeletalRootDebug;
 class UAnimationAsset;
 class UAnimSingleNodeInstance;
 class UAnimGraphInstance;
-void DrawHardcodedRagdollConstraints(UWorld* World, FLineBatcher* LineBatcher);
+void DrawPhysicsAssetConstraints(UWorld* World, FLineBatcher* LineBatcher);
 
 UCLASS()
 class USkeletalMeshComponent : public USkinnedMeshComponent
@@ -77,18 +77,23 @@ public:
 	// 디버그: root 본 구체 + 액터 위치(root 높이)에서 root까지의 선
 	void DrawRootDebug(FLineBatcher* LineBatcher) const;
 
-	// 켜면 BeginPlay에서 Mixamo 계열 본에 하드코딩 전신 래그돌을 생성한다.
+	// BeginPlay에서 메시의 Physics Asset으로 본별 몸체와 관절을 만든다.
 	UPROPERTY(EditAnywhere)
-	bool bTestHardcodedRagdoll = false;
+	bool bEnablePhysicsAsset = true;
+
+	bool RecreatePhysicsAsset();
+	bool SetRagdollSimulating(bool bEnable);
+	bool IsRagdollSimulating() const;
 
 	void EndPlay() override;
 
-	void DrawHardcodedRagdollConstraints(FLineBatcher* Lines) const;
+	void DrawPhysicsAssetConstraints(FLineBatcher* Lines) const;
 
 	FRagdollDebugStats GetRagdollDebugStats() const;
 
 
 protected:
+	bool ShouldCreatePhysicsState() const override;
 	// 단일 애니메이션 에셋 경로/루프/재생 속도를 씬에 저장·복원한다 (Serialize에서 부른다)
 	void SerializeSingleAnimation(FStructuredArchive::FRecord& Record);
 
@@ -113,5 +118,6 @@ private:
 	FTransform PendingRootMotion;           // 월드 공간 누적값
 	bool bHasPendingRootMotion = false;
 
-	TUniquePtr<FHardcodedRagdoll> HardcodedRagdoll;
+	TUniquePtr<FPhysicsAssetInstance> PhysicsAssetInstance;
+    bool bPhysicsAssetRebuildRequested = false;
 };

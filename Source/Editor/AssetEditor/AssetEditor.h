@@ -42,6 +42,7 @@ public:
 	void Shutdown();
 
 	virtual void OnRenderLine(class FLineBatcher& LineBatcher);
+	virtual void OnRenderOverlay(const struct FSceneView& View) {}
 
 	////////////////////////////////////////////////////////////
 	// Getter

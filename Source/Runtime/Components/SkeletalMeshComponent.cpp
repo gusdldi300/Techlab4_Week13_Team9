@@ -20,7 +20,7 @@
 #include "Asset/AssetManager.h"
 
 #include "Engine/World.h"
-#include "Input/InputSystem.h"
+#include "Render/SkeletalMesh.h"
 
 void USkeletalMeshComponent::SetAnimInstance(UAnimInstance* InInstance)
 {
@@ -70,35 +70,22 @@ void USkeletalMeshComponent::BeginPlay()
 		}
 	}
 
-	if (bTestHardcodedRagdoll)
-	{
-		// 첫 실험에서는 기준 자세에서 바디를 배치한다.
-		ResetPose();
-		RefreshBoneTransformsNow();
-
-		HardcodedRagdoll = MakeUnique<FHardcodedRagdoll>();
-
-		// 일반 컴포넌트 바디 대신 본별 바디를 사용해 컴포넌트 전체의 중복 이동을 방지한다.
-		DestroyPhysicsState();
-		if (!HardcodedRagdoll->Build(*this))
-		{
-			HardcodedRagdoll.reset();
-			CreatePhysicsState();
-		}
-	}
+	if (bEnablePhysicsAsset && GetSkeletalMesh() && GetSkeletalMesh()->GetPhysicsAsset()) RecreatePhysicsAsset();
 
 }
 
 void USkeletalMeshComponent::TickComponent(float DeltaTime)
 {
+    if (PhysicsAssetInstance && !PhysicsAssetInstance->IsValidFor(*this)) bPhysicsAssetRebuildRequested = true;
+    if (bPhysicsAssetRebuildRequested && GetWorld() && GetWorld()->HasBegunPlay()) RecreatePhysicsAsset();
     if (bBlueprintReloadRequested)
     {
         bBlueprintReloadRequested = false;
         ReloadAnimBlueprint();
     }
 
-	// 이번 테스트가 실행되는 동안만 애니메이션 평가를 건너뛰어, 시작 자세와 떨어지는 바디를 비교하기 쉽게 한다.
-	if (AnimInstance && GetSkeletalMesh() && (!HardcodedRagdoll || !HardcodedRagdoll->IsSimulating()))
+	// 부분 래그돌에서도 애니메이션을 평가하고, 물리 몸체가 있는 본의 결과만 덮어쓴다.
+	if (AnimInstance && GetSkeletalMesh())
 	{
         bUpdatingAnimation = true;
 		if (auto* Instance = Cast<UAnimSingleNodeInstance>(AnimInstance))
@@ -114,7 +101,7 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
 
 		// 루트 모션: AnimInstance에 모인 delta를 월드 공간으로 바꿔 CharacterMovement가 가져갈 때까지 쌓아 둔다
 		const FRootMotionMovementParams RootMotion = AnimInstance->ConsumeExtractedRootMotion();
-		if (RootMotion.bHasRootMotion)
+		if (RootMotion.bHasRootMotion && !IsRagdollSimulating())
 		{
 			const FTransform WorldDelta = ConvertRootMotionToWorld(RootMotion.GetRootMotionTransform());
 			PendingRootMotion.Location = (bHasPendingRootMotion ? PendingRootMotion.Location : FVector::ZeroVector) + WorldDelta.Location;
@@ -124,34 +111,14 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
         bUpdatingAnimation = false;
 	}
 
-	if (HardcodedRagdoll && HardcodedRagdoll->IsSimulating())
-	{
-		HardcodedRagdoll->ApplyToMesh(*this);
-	}
-
 	Super::TickComponent(DeltaTime);
+    if (PhysicsAssetInstance)
+    {
+        // Kinematic bodies follow animation even while other bodies simulate.
+        PhysicsAssetInstance->SyncFromAnimation(*this);
+        PhysicsAssetInstance->ApplyToMesh(*this);
+    }
 
-	if (HardcodedRagdoll)
-	{
-		if (!HardcodedRagdoll->IsSimulating())
-		{
-			HardcodedRagdoll->SyncFromAnimation(*this);
-		}
-
-		// 첫 실험용 입력이다. 테스트 메시 하나만 활성화한다.
-		if (FInputSystem::IsKeyPressed(EKeyCode::R))
-		{
-			if (HardcodedRagdoll->SetSimulating(*this, true))
-			{
-				PendingRootMotion = FTransform();
-				bHasPendingRootMotion = false;
-			}
-		}
-		else if (FInputSystem::IsKeyPressed(EKeyCode::K))
-		{
-			HardcodedRagdoll->SetSimulating(*this, false);
-		}
-	}
 }
 
 const TArray<FBoneInfo>& USkeletalMeshComponent::GetBones() const
@@ -327,6 +294,8 @@ void USkeletalMeshComponent::SerializeSingleAnimation(FStructuredArchive::FRecor
 
 void USkeletalMeshComponent::OnSkeletalMeshChanged()
 {
+    PhysicsAssetInstance.reset();
+    bPhysicsAssetRebuildRequested = true;
     bBlueprintReloadRequested = !AnimBlueprintPath.empty();
 	BoneSpaceTransforms.Reset();
 	for (const FBoneInfo& Bone : GetBones())
@@ -631,27 +600,68 @@ UAnimGraphInstance* USkeletalMeshComponent::CreateAnimGraph()
 }
 
 
+bool USkeletalMeshComponent::RecreatePhysicsAsset()
+{
+    bPhysicsAssetRebuildRequested = false;
+    PhysicsAssetInstance.reset();
+    if (!bEnablePhysicsAsset || !GetSkeletalMesh() || !GetSkeletalMesh()->GetPhysicsAsset())
+    {
+        CreatePhysicsState();
+        return false;
+    }
+    DestroyPhysicsState();
+    auto Instance = MakeUnique<FPhysicsAssetInstance>();
+    if (!Instance->Build(*this))
+    {
+        CreatePhysicsState();
+        return false;
+    }
+    PhysicsAssetInstance = std::move(Instance);
+    bPhysicsAssetRebuildRequested = false;
+    if (bSimulatePhysics) return SetRagdollSimulating(true);
+    return true;
+}
+
+bool USkeletalMeshComponent::SetRagdollSimulating(bool bEnable)
+{
+    if ((!PhysicsAssetInstance || !PhysicsAssetInstance->IsValidFor(*this)) && (!bEnable || !RecreatePhysicsAsset())) return false;
+    if (!PhysicsAssetInstance->SetSimulating(*this,bEnable)) return false;
+    bSimulatePhysics = bEnable;
+    if (bEnable) { PendingRootMotion = FTransform(); bHasPendingRootMotion = false; }
+    return true;
+}
+
+bool USkeletalMeshComponent::IsRagdollSimulating() const
+{
+    return PhysicsAssetInstance && PhysicsAssetInstance->IsSimulating();
+}
+
+bool USkeletalMeshComponent::ShouldCreatePhysicsState() const
+{
+    return !PhysicsAssetInstance && Super::ShouldCreatePhysicsState();
+}
+
 void USkeletalMeshComponent::EndPlay()
 {
-	HardcodedRagdoll.reset();
+	PhysicsAssetInstance.reset();
 	Super::EndPlay();
 }
 
 void USkeletalMeshComponent::OnUnregister()
 {
-	HardcodedRagdoll.reset();
+	PhysicsAssetInstance.reset();
 	Super::OnUnregister();
 }
 
-void USkeletalMeshComponent::DrawHardcodedRagdollConstraints(FLineBatcher* Lines) const
+void USkeletalMeshComponent::DrawPhysicsAssetConstraints(FLineBatcher* Lines) const
 {
-	if (Lines && HardcodedRagdoll)
+	if (Lines && PhysicsAssetInstance)
 	{
-		HardcodedRagdoll->DrawConstraints(*Lines);
+		PhysicsAssetInstance->DrawConstraints(*Lines);
 	}
 }
 
-void DrawHardcodedRagdollConstraints(UWorld* World, FLineBatcher* LineBatcher)
+void DrawPhysicsAssetConstraints(UWorld* World, FLineBatcher* LineBatcher)
 {
 	if (!World || !LineBatcher)
 	{
@@ -664,12 +674,12 @@ void DrawHardcodedRagdollConstraints(UWorld* World, FLineBatcher* LineBatcher)
 
 		if (Mesh &&	Mesh->GetWorld() == World && Mesh->IsRegistered())
 		{
-			Mesh->DrawHardcodedRagdollConstraints(LineBatcher);
+			Mesh->DrawPhysicsAssetConstraints(LineBatcher);
 		}
 	}
 }
 
 FRagdollDebugStats USkeletalMeshComponent::GetRagdollDebugStats() const
 {
-	return HardcodedRagdoll ? HardcodedRagdoll->GetDebugStats() : FRagdollDebugStats{};
+	return PhysicsAssetInstance ? PhysicsAssetInstance->GetDebugStats() : FRagdollDebugStats{};
 }

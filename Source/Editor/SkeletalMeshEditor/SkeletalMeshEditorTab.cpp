@@ -60,6 +60,11 @@ void FSkeletalMeshEditorTab::DrawMenuBar()
 	// 레벨 에디터와 같은 순서: File → Edit → Window
 	if (ImGui::BeginMenu("File"))
 	{
+		if (ImGui::MenuItem("Open Physics Asset Editor..."))
+		{
+			MeshEditor.OpenPhysicsAssetEditor();
+		}
+		ImGui::Separator();
 		if (ImGui::MenuItem("Close Editor"))
 		{
 			MeshEditor.Close();

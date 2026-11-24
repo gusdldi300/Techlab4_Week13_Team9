@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Physics/PhysicsAssetFile.h"
 #include "Editor/EditorUI/EditorStyle.h"
 #include "Editor/ContentDrawer/ContentDrawerPanel.h"
 #include "Editor/Viewports/ViewportToolbarWidgets.h"
@@ -343,6 +344,10 @@ namespace
 			return { "Folder", IM_COL32(56, 60, 68, 255), false };
 		}
 
+        if (PhysicsAssetFile::IsPhysicsAssetPath(PathString))
+        {
+            return { "Physics Asset", IM_COL32(232, 162, 76, 255), true };
+        }
 		if (AnimSequenceFile::IsAnimSequencePath(PathString))
 		{
 			return { "Animation Sequence", IM_COL32(98, 184, 86, 255), true };
@@ -1218,7 +1223,7 @@ void FContentDrawerPanel::RenderContents()
 							OnOpenMesh(PathString);
 						}
 
-						else if ((BlendSpaceFile::IsBlendSpacePath(PathString) || AnimBlueprintFile::IsAnimBlueprintPath(PathString) ||	ParticleSystemFile::IsParticleSystemPath(PathString)) && OnOpenMesh)
+						else if ((BlendSpaceFile::IsBlendSpacePath(PathString) || AnimBlueprintFile::IsAnimBlueprintPath(PathString) ||	ParticleSystemFile::IsParticleSystemPath(PathString) || PhysicsAssetFile::IsPhysicsAssetPath(PathString)) && OnOpenMesh)
 						{
 							OnOpenMesh(PathString);
 						}
