@@ -22,6 +22,8 @@ struct FPhysicsSceneStats
 };
 
 
+class FLineBatcher;
+
 //서로다른 물리엔진에서 시뮬레이션 시키는 공간을 추상화한 클래스 physX는 PxScene, havok hknpWorld라는 이름으로 불리므로
 //물리 엔진을 교체하더라도 유연하게 대응하기 위해 이 클래스를 만들었다.
 class FPhysicsScene
@@ -46,6 +48,9 @@ public:
 	// 이 물리 세계의 차량 관리자. 차량을 지원하지 않는 구현은 nullptr을 돌려준다.
 	// 차량 컴포넌트가 자기를 등록할 때 쓴다. 소유권은 Scene에 있다.
 	virtual class FPhysXVehicleManager* GetVehicleManager() { return nullptr; }
+
+	// Debug rendering reads the completed simulation, including aggregate actors.
+	virtual void DrawDebugBodies(FLineBatcher* Lines) const = 0;
 
 	//stat physics용 통계. 마지막으로 끝난 스텝 기준의 값이다
 	const FPhysicsSceneStats& GetStats() const { return Stats; }

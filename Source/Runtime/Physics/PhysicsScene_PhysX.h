@@ -21,6 +21,7 @@ public:
 	void EndFrame() override;
 	void AddActor(const FPhysicsActorHandle& Handle) override;
 	FPhysXVehicleManager* GetVehicleManager() override { return VehicleManager.get(); }
+	void DrawDebugBodies(FLineBatcher* Lines) const override;
 
 
 private:

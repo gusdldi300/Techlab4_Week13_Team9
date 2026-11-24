@@ -195,6 +195,7 @@ void FBodyInstance::InitBody(const UBodySetup* Setup, const FBodyInstanceInitPar
 
 void FBodyInstance::TermBody()
 {
+	DisabledCollisionBodies.Reset();
 	if (ActorHandle.IsValid())
 	{
 		// Scene에 들어 있으면 release가 Scene에서도 빼 준다. 붙어 있던 Shape도 함께 해제된다.

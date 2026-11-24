@@ -27,6 +27,7 @@ void FViewportsPanel::DrawShowMenu()
         Settings.bShowUUID = Defaults.bShowUUID;
         Settings.bDrawCascadeBounds = Defaults.bDrawCascadeBounds;
         Settings.bShowRootDebug = Defaults.bShowRootDebug;
+        Settings.bShowPhysicsConstraints = Defaults.bShowPhysicsConstraints;
         Settings.bShowVignette = Defaults.bShowVignette;
         Settings.bShowCameraOverlay = Defaults.bShowCameraOverlay;
     }
@@ -43,6 +44,7 @@ void FViewportsPanel::DrawShowMenu()
             { "Decal", "stat decal", EStatFlags::Decal },
             { "Skinning", "stat skinning", EStatFlags::Skinning },
             { "Particle", "stat particle", EStatFlags::Particle },
+            { "Ragdoll", "stat ragdoll", EStatFlags::Ragdoll },
             { "Physics", "stat physics", EStatFlags::Physics },
         };
         FString Message;
@@ -73,6 +75,7 @@ void FViewportsPanel::DrawShowMenu()
     Flag("Grid", "Grid", Settings.bDrawBatchLine);
     Flag("Particles", "Particles", Settings.bShowParticles);
     Flag("Collision", "Physics Bodies", Settings.bShowPhysicsBodies);
+    Flag("Collision", "Physics Constraints", Settings.bShowPhysicsConstraints);
     Flag("SkeletalMesh", "Skeletal Meshes", Settings.bShowSkeletalMesh);
     Flag("StaticMesh", "Static Meshes", Settings.bDrawPrimitives);
     SectionHeader("Developer");
