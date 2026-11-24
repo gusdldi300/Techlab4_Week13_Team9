@@ -3,6 +3,7 @@
 
 #include "Editor/KurisuEd/EditorEngine.h"
 #include "Editor/KurisuEd/Editor.h"
+#include "Components/ClothComponent.h"
 
 #include "Core/EngineStatics.h"
 #include "Core/EngineTimer.h"
@@ -2118,6 +2119,12 @@ void UEditorEngine::DrawPIEDebug(UWorld* World, const FMatrix& ViewProjection)
 
 	const FEditorSettings& Settings = EditorSettings->GetSettings();
 	GShowSkeletalRootDebug = Settings.bShowRootDebug;
+
+	// 천은 아직 메시 렌더링이 없어 시뮬레이션 결과를 선으로만 보여 준다. 그래서 게임 화면에도 그린다.
+	// 아래 디버그 선은 깊이 테스트를 끄고 그리므로, 천은 깊이 테스트를 켠 채 먼저 따로 그린다.
+	LineBatcher->BeginFrame();
+	DrawClothComponents(World, LineBatcher, nullptr);
+	LineBatcher->OnRender(ViewProjection);
 
 	// 이번 화면에 표시할 선 목록을 시작한다.
 	LineBatcher->BeginFrame();
