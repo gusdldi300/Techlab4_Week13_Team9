@@ -6,6 +6,8 @@ namespace physx
 	class PxScene;
 }
 
+namespace nv { namespace cloth { class Solver; } }
+
 //FPhysScene은 UWorld 하나에 대응하는 물리 세계로, PxScene을 소유하고 매 프레임 시뮬레이션과 결과 동기화를 책임지는 클래스다
 class FPhysicsScene_PhysX : public FPhysicsScene
 {
@@ -20,10 +22,15 @@ public:
 	void EndFrame() override;
 	void AddActor(const FPhysicsActorHandle& Handle) override;
 
+	void AddCloth(const FClothHandle& Handle) override;
+	void RemoveCloth(const FClothHandle& Handle) override;
+
 
 private:
 	// 한 스텝을 시작한다. simulate 후 bSimulating이 true가 된다.
 	void BeginStep();
+	// 이 Scene의 천을 FixedStep만큼 진행한다. PhysX가 워커 스레드에서 강체를 계산하는 동안 게임 스레드에서 돈다.
+	void StepCloth();
 	// 진행 중인 스텝을 끝내고 통계와 컴포넌트 위치를 갱신한다.
 	void FinishStep();
 
@@ -37,6 +44,8 @@ private:
 	// 한 프레임에 돌 수 있는 최대 스텝 수. 이보다 밀린 시간은 버린다(Spiral of Death 방지).
 	static constexpr int MaxStepsPerFrame = 4;
 
+	// 이 Scene의 천을 한 번에 시뮬레이션하는 NvCloth 실행기. Scene이 소유하고 함께 해제한다.
+	nv::cloth::Solver* ClothSolver = nullptr;
 
 
 };

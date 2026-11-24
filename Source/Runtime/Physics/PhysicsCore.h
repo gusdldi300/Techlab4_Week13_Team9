@@ -14,7 +14,7 @@ namespace physx
 	class PxMaterial;
 }
 
-
+namespace nv { namespace cloth { class Factory; } }
 
 class FPhysicsCore
 {
@@ -34,6 +34,8 @@ public:
 	// PxDefaultCpuDispatcher → PxCpuDispatcher 변환은 상속 관계가 보여야 하므로 정의는 .cpp에 둔다.
 	physx::PxCpuDispatcher* GetDispatcher();
 	physx::PxMaterial* GetDefaultMaterial() { return gDefaultMaterial; }
+
+	nv::cloth::Factory* GetClothFactory() { return gClothFactory; }
 
 private:
 	static bool InitPhysX();
@@ -65,5 +67,8 @@ private:
 	//물리 재질(UPhysicalMaterial)이 지정되지 않은 바디가 함께 쓰는 기본 재질. 마찰 0.5, 반발 0.1
 	//재질은 여러 Scene과 바디가 공유할 수 있으므로 Physics와 같은 수명으로 Core가 소유한다
 	static physx::PxMaterial* gDefaultMaterial;
+
+	// 천 객체(Fabric, Cloth, Solver)를 만드는 NvCloth 팩토리. CPU 솔버 전용이다. 프로세스에 하나만 만든다.
+	static nv::cloth::Factory* gClothFactory;
 
 };
