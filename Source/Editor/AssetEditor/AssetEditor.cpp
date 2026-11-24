@@ -207,6 +207,7 @@ void FAssetEditorViewportClient::Draw(const FSceneView* View, FScenePassCallback
 	// 추후 AssetEditor 전용 Gizmo 슬롯을 만들어서 그쪽으로 옮기는 게 좋을 듯
 	Callbacks.Overlays.EditorGizmo = [this, View, LineBatcher]
 	{
+		AssetEditor.OnRenderOverlay(*View);
 		LineBatcher->BeginFrame();
 		AssetEditor.OnRenderLine(*LineBatcher);
 		LineBatcher->OnRender(View->ViewProjectionMatrix);

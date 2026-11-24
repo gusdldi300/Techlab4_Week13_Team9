@@ -2,9 +2,46 @@
 #include "PhysicsScene_PhysX.h"
 #include <PxPhysicsAPI.h>
 #include "PhysicsCore.h"
+#include "PhysicsDebugDraw.h"
 #include "BodyInstance.h"
 #include "Physics/PhysicsStats.h"
 using namespace physx;
+
+namespace
+{
+    PxFilterFlags AssetFilterShader(PxFilterObjectAttributes A, PxFilterData FA,
+        PxFilterObjectAttributes B, PxFilterData FB, PxPairFlags& Pairs, const void* Constants, PxU32 Size)
+    {
+        const bool TaggedA = FA.word3 == FBodyInstance::AssetCollisionFilterTag;
+        const bool TaggedB = FB.word3 == FBodyInstance::AssetCollisionFilterTag;
+        if (!TaggedA && !TaggedB) return PxDefaultSimulationFilterShader(A,FA,B,FB,Pairs,Constants,Size);
+        if (PxFilterObjectIsTrigger(A) || PxFilterObjectIsTrigger(B))
+        {
+            Pairs = PxPairFlag::eTRIGGER_DEFAULT;
+            return PxFilterFlag::eDEFAULT;
+        }
+        Pairs = PxPairFlag::eCONTACT_DEFAULT;
+        return TaggedA && TaggedB && FA.word0 == FB.word0 ? PxFilterFlag::eCALLBACK : PxFilterFlag::eDEFAULT;
+    }
+
+    // The callback can read engine objects; the PhysX filter shader cannot dereference external data.
+    class FAssetCollisionFilter final : public PxSimulationFilterCallback
+    {
+    public:
+        PxFilterFlags pairFound(PxU32, PxFilterObjectAttributes, PxFilterData,
+            const PxActor* A, const PxShape*, PxFilterObjectAttributes, PxFilterData,
+            const PxActor* B, const PxShape*, PxPairFlags&) override
+        {
+            const auto* BodyA = static_cast<const FBodyInstance*>(A->userData);
+            const auto* BodyB = static_cast<const FBodyInstance*>(B->userData);
+            return BodyA && BodyB && BodyA->IsCollisionDisabledWith(BodyB)
+                ? PxFilterFlag::eSUPPRESS : PxFilterFlag::eDEFAULT;
+        }
+        void pairLost(PxU32, PxFilterObjectAttributes, PxFilterData, PxFilterObjectAttributes, PxFilterData, bool) override {}
+        bool statusChange(PxU32&, PxPairFlags&, PxFilterFlags&) override { return false; }
+    };
+    FAssetCollisionFilter AssetCollisionFilter;
+}
 
 std::unique_ptr<FPhysicsScene> MakePhysicsScene()
 {
@@ -35,7 +72,8 @@ void FPhysicsScene_PhysX::CreatePhysicsScene()
     PxSceneDesc Desc(Physics->getTolerancesScale());          
     Desc.gravity = PxVec3(0.0f, 0.0f, -9.81f);           
     Desc.cpuDispatcher = FPhysicsCore::Get().GetDispatcher();  
-    Desc.filterShader = PxDefaultSimulationFilterShader;
+    Desc.filterShader = AssetFilterShader;
+    Desc.filterCallback = &AssetCollisionFilter;
 
     Desc.flags |= PxSceneFlag::eENABLE_ACTIVE_ACTORS;
 
@@ -145,6 +183,7 @@ void FPhysicsScene_PhysX::FinishStep()
     {
         if (FBodyInstance* Body = static_cast<FBodyInstance*>(Actors[i]->userData))
         {
+            if (!Body->GetOwnerComponent()) continue; // Bone actors are applied as a skeletal pose, not a component transform.
             Body->SyncComponentToBody();
             ++NumSynced;
         }
@@ -170,4 +209,25 @@ void FPhysicsScene_PhysX::AddActor(const FPhysicsActorHandle& Handle)
 
     PxSceneWriteLock WriteLock(*PhysXScene);
     PhysXScene->addActor(*Handle.Actor);
+}
+
+void FPhysicsScene_PhysX::DrawDebugBodies(FLineBatcher* Lines) const
+{
+    if (!Lines || !PhysXScene || bSimulating) return;
+    PxSceneReadLock Lock(*PhysXScene);
+    const PxActorTypeFlags Types = PxActorTypeFlag::eRIGID_STATIC | PxActorTypeFlag::eRIGID_DYNAMIC;
+    PxActor* Actors[64];
+    const PxU32 Count = PhysXScene->getNbActors(Types);
+    for (PxU32 Offset = 0; Offset < Count;)
+    {
+        const PxU32 Read = PhysXScene->getActors(Types, Actors, 64, Offset);
+        if (!Read) break;
+        for (PxU32 I = 0; I < Read; ++I)
+        {
+            FPhysicsActorHandle Handle;
+            Handle.Actor = Actors[I]->is<PxRigidActor>();
+            FPhysicsDebugDraw::DrawActorShapes(Lines, Handle, FVector4(0.3f, 0.9f, 1.0f, 1.0f));
+        }
+        Offset += Read;
+    }
 }

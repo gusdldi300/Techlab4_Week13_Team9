@@ -1,0 +1,113 @@
+{
+  "Bodies": [
+    {
+      "Bone": "mixamorig:LeftArm",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              -0.0893552303314209,
+              -0.11972808837890625,
+              5.98954963684082
+            ],
+            "ContributeToMass": true,
+            "Length": 13.843348503112793,
+            "Name": "None",
+            "Radius": 3.5139565467834473,
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:LeftForeArm",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              -0.24238014221191406,
+              -0.2002410888671875,
+              3.5143604278564453
+            ],
+            "ContributeToMass": true,
+            "Length": 10.725131034851074,
+            "Name": "None",
+            "Radius": 5.302682399749756,
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    }
+  ],
+  "Constraints": [
+    {
+      "Child": "mixamorig:LeftForeArm",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:LeftArm",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -2.4021389322115283e-09,
+        5.377355449809329e-09,
+        7.0111236572265625
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9999693036079407,
+        -0.00016410074022132903,
+        0.007835445925593376
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -2.735760062932968e-09,
+        0.9997807741165161,
+        0.020939139649271965
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    }
+  ],
+  "DisabledCollisions": [
+    [
+      0,
+      1
+    ]
+  ],
+  "Format": "KurisuPhysicsAsset",
+  "PreviewMesh": "FBX/Sonic_SadIdle/Sonic_SadIdle.fbx.bin",
+  "Version": 1
+}

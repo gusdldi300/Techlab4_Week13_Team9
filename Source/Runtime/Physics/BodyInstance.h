@@ -3,6 +3,7 @@
 #include "Physics/AggregateGeom.h"
 #include "Math/Vector.h"
 #include "Math/Quat.h"
+#include "Containers/Set.h"
 
 // UPrimitiveComponent가 FBodyInstance를 값 멤버로 가지므로 여기서 그 헤더를 include하면 순환 include가 된다.
 class UPrimitiveComponent;
@@ -45,6 +46,10 @@ public:
 	const FPhysicsActorHandle& GetActorHandle() const { return ActorHandle; }
 
 	void SyncComponentToBody();
+	// Immutable while the scene simulates. Physics Asset instances fill this before their first step.
+	static constexpr uint32 AssetCollisionFilterTag = 0x4B525341;
+	void DisableCollisionWith(const FBodyInstance* Other) { DisabledCollisionBodies.Add(Other); }
+	bool IsCollisionDisabledWith(const FBodyInstance* Other) const { return DisabledCollisionBodies.Contains(Other); }
 
 private:
 	//월드 포즈를 갖고 충돌 Shape를 붙일 수 있는 강체 액터를 가리키는 핸들
@@ -52,6 +57,7 @@ private:
 	FPhysicsActorHandle ActorHandle;
 	//이 인스턴스를 소유한 컴포넌트
 	UPrimitiveComponent* OwnerComponent = nullptr;
+	TSet<const FBodyInstance*> DisabledCollisionBodies;
 
 
 

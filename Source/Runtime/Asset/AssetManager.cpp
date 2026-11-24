@@ -1,4 +1,5 @@
 #include "EnginePCH.h"
+#include "Physics/PhysicsAssetFile.h"
 #include "AssetManager.h"
 #include "Render/Buffer.h"
 #include "Render/Material.h"
@@ -663,6 +664,18 @@ URenderAsset* UAssetManager::LoadFbxMesh(const FString& Path, FString& OutError)
 	}
 	if (!Asset) { OutError = "FBX binary: mesh resource creation failed: " + Path; return nullptr; }
 	Get().RegisterAsset(Key, Asset);
+    if (USkeletalMesh* Mesh = Cast<USkeletalMesh>(Asset))
+    {
+        const auto PhysicsPath = PhysicsAssetFile::GetDefaultPath(Key);
+        std::error_code FileError;
+        if (!PhysicsPath.empty() && std::filesystem::is_regular_file(PhysicsPath, FileError))
+        {
+            UPhysicsAsset* PhysicsAsset = nullptr;
+            FString Error;
+            if (PhysicsAssetFile::Read(PhysicsPath, *Mesh, PhysicsAsset, Error)) Mesh->SetPhysicsAsset(PhysicsAsset);
+            else KRS_LOG(Warning, "Cannot load Physics Asset for {}: {}", Key, Error);
+        }
+    }
 	return Asset;
 }
 
