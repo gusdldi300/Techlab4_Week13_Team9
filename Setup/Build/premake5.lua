@@ -310,6 +310,11 @@ project "KurisuEditor"
 	kind     "WindowedApp"
 	CommonSettings()
 
+	-- VS에서 실행(F5)하면 프로젝트 브라우저를 건너뛰고 에셋이 모두 들어 있는 DefaultProject를 연다(KurisuGame과 같은 프로젝트).
+	-- 브라우저에서 새로 만든 프로젝트는 Content가 비어 있어 소닉·차량 메시와 파티클을 찾지 못한다.
+	debugdir (ProjectRoot .. "/DefaultProject")
+	debugargs { "DefaultProject.kproject" }
+
 	-- FBX 해석은 Editor에서 수행하고 Runtime/Game은 SDK에 의존하지 않는다.
 	includedirs { path.join(FbxSdkRoot, "include"), ProjectRoot, ProjectRoot .. "/Source/Editor/Resources" }
 	defines { "FBXSDK_SHARED" }
