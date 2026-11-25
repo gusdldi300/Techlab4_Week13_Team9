@@ -82,3 +82,17 @@ namespace FPhysicsQuery
 		const FCollisionShape& Shape, ECollisionChannel Channel,
 		const FCollisionQueryParams& Params = FCollisionQueryParams());
 }
+
+class FQueryFilterCallback : public PxQueryFilterCallback {
+public:
+	FQueryFilterCallback(ECollisionChannel InChannel, const FCollisionQueryParams& InParams) : Channel(InChannel), Params(InParams){}
+	
+	PxQueryHitType::Enum preFilter(const PxFilterData& filterData, const PxShape* shape,
+		const PxRigidActor* actor, PxHitFlags& queryFlags) override;
+	
+	PxQueryHitType::Enum postFilter(const PxFilterData& filterData, const PxQueryHit& hit) override;
+
+private:
+	ECollisionChannel Channel;
+	const FCollisionQueryParams &Params;
+};

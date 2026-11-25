@@ -6,6 +6,8 @@
 #include "BodyInstance.h"
 #include "Physics/PhysicsStats.h"
 #include "PhysicsFilterShader.h"
+#include "Engine/World.h"
+
 using namespace physx;
 
 namespace
@@ -232,6 +234,11 @@ void FPhysicsScene_PhysX::AddActor(const FPhysicsActorHandle& Handle)
 
     PxSceneWriteLock WriteLock(*PhysXScene);
     PhysXScene->addActor(*Handle.Actor);
+}
+
+physx::PxScene* FPhysicsScene_PhysX::GetNativeScene() const
+{
+    return PhysXScene;
 }
 
 void FPhysicsScene_PhysX::DrawDebugBodies(FLineBatcher* Lines) const
