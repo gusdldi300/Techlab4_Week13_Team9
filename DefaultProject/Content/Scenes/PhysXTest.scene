@@ -16,7 +16,7 @@
                                     "Location": {
                                         "X": -5.095052242279053,
                                         "Y": -0.9921135306358337,
-                                        "Z": 0.6207973957061768
+                                        "Z": 2.6207973957061768
                                     },
                                     "Rotation": {
                                         "Pitch": 0.0,
@@ -41,6 +41,15 @@
                             "OverrideMaterials": [],
                             "Parent": "DefaultSceneRoot",
                             "Properties": {
+                                "CollisionResponses": {
+                                    "Camera": "Block",
+                                    "Pawn": "Block",
+                                    "PhysicsBody": "Block",
+                                    "Vehicle": "Block",
+                                    "Visibility": "Block",
+                                    "WorldDynamic": "Block",
+                                    "WorldStatic": "Block"
+                                },
                                 "ObjectType": "WorldStatic",
                                 "StaticMesh": "Cube",
                                 "Transform": {
@@ -138,7 +147,7 @@
                                     },
                                     "Rotation": {
                                         "Pitch": 74.9999771118164,
-                                        "Roll": 3.298722049294156e-06,
+                                        "Roll": 3.2987197755574016e-06,
                                         "Yaw": 29.999982833862305
                                     },
                                     "Scale": {
@@ -188,6 +197,15 @@
                             "Name": "UBillboardComponent",
                             "Parent": "UDirectionalLightComponent",
                             "Properties": {
+                                "CollisionResponses": {
+                                    "Camera": "Block",
+                                    "Pawn": "Block",
+                                    "PhysicsBody": "Block",
+                                    "Vehicle": "Block",
+                                    "Visibility": "Block",
+                                    "WorldDynamic": "Block",
+                                    "WorldStatic": "Block"
+                                },
                                 "ObjectType": "WorldStatic",
                                 "Transform": {
                                     "Location": {
@@ -228,6 +246,15 @@
                             ],
                             "Parent": "UDirectionalLightComponent",
                             "Properties": {
+                                "CollisionResponses": {
+                                    "Camera": "Block",
+                                    "Pawn": "Block",
+                                    "PhysicsBody": "Block",
+                                    "Vehicle": "Block",
+                                    "Visibility": "Block",
+                                    "WorldDynamic": "Block",
+                                    "WorldStatic": "Block"
+                                },
                                 "ObjectType": "WorldStatic",
                                 "StaticMesh": "Arrow",
                                 "Transform": {
@@ -306,6 +333,15 @@
                             "OverrideMaterials": [],
                             "Parent": "DefaultSceneRoot",
                             "Properties": {
+                                "CollisionResponses": {
+                                    "Camera": "Block",
+                                    "Pawn": "Block",
+                                    "PhysicsBody": "Block",
+                                    "Vehicle": "Block",
+                                    "Visibility": "Block",
+                                    "WorldDynamic": "Block",
+                                    "WorldStatic": "Ignore"
+                                },
                                 "ObjectType": "WorldDynamic",
                                 "StaticMesh": "Cube",
                                 "Transform": {
@@ -384,6 +420,15 @@
                             "OverrideMaterials": [],
                             "Parent": "DefaultSceneRoot",
                             "Properties": {
+                                "CollisionResponses": {
+                                    "Camera": "Block",
+                                    "Pawn": "Block",
+                                    "PhysicsBody": "Block",
+                                    "Vehicle": "Block",
+                                    "Visibility": "Block",
+                                    "WorldDynamic": "Block",
+                                    "WorldStatic": "Block"
+                                },
                                 "ObjectType": "Pawn",
                                 "StaticMesh": "Cube",
                                 "Transform": {
@@ -462,6 +507,15 @@
                             "OverrideMaterials": [],
                             "Parent": "DefaultSceneRoot",
                             "Properties": {
+                                "CollisionResponses": {
+                                    "Camera": "Block",
+                                    "Pawn": "Block",
+                                    "PhysicsBody": "Block",
+                                    "Vehicle": "Block",
+                                    "Visibility": "Block",
+                                    "WorldDynamic": "Block",
+                                    "WorldStatic": "Block"
+                                },
                                 "ObjectType": "PhysicsBody",
                                 "StaticMesh": "Cube",
                                 "Transform": {
@@ -494,6 +548,93 @@
                         }
                     ],
                     "Name": "FallingBox_2",
+                    "ParentActor": "",
+                    "ParentComponent": "",
+                    "Properties": {
+                        "ScriptPath": "",
+                        "bActorEnableCollision": true
+                    },
+                    "RootComponentName": "DefaultSceneRoot"
+                },
+                {
+                    "Class": "AStaticMeshActor",
+                    "Components": [
+                        {
+                            "Class": "USceneComponent",
+                            "DefaultSubobjectName": "DefaultSceneRoot",
+                            "Name": "DefaultSceneRoot",
+                            "Parent": "",
+                            "Properties": {
+                                "Transform": {
+                                    "Location": {
+                                        "X": -5.095052242279053,
+                                        "Y": -0.9921135306358337,
+                                        "Z": -6.379202842712402
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0.0,
+                                        "Roll": 0.0,
+                                        "Yaw": 0.0
+                                    },
+                                    "Scale": {
+                                        "X": 8.0,
+                                        "Y": 9.0,
+                                        "Z": 1.0
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bHiddenInGame": false,
+                                "bVisible": true
+                            }
+                        },
+                        {
+                            "Class": "UStaticMeshComponent",
+                            "DefaultSubobjectName": "UStaticMeshComponent",
+                            "Name": "UStaticMeshComponent",
+                            "OverrideMaterials": [],
+                            "Parent": "DefaultSceneRoot",
+                            "Properties": {
+                                "CollisionResponses": {
+                                    "Camera": "Block",
+                                    "Pawn": "Block",
+                                    "PhysicsBody": "Block",
+                                    "Vehicle": "Block",
+                                    "Visibility": "Block",
+                                    "WorldDynamic": "Block",
+                                    "WorldStatic": "Block"
+                                },
+                                "ObjectType": "WorldDynamic",
+                                "StaticMesh": "Cube",
+                                "Transform": {
+                                    "Location": {
+                                        "X": 0.0,
+                                        "Y": 0.0,
+                                        "Z": 0.0
+                                    },
+                                    "Rotation": {
+                                        "Pitch": 0.0,
+                                        "Roll": 0.0,
+                                        "Yaw": 0.0
+                                    },
+                                    "Scale": {
+                                        "X": 1.0,
+                                        "Y": 1.0,
+                                        "Z": 1.0
+                                    }
+                                },
+                                "bAutoActivate": true,
+                                "bBlockComponent": true,
+                                "bCastShadow": true,
+                                "bGenerateOverlapEvents": true,
+                                "bHiddenInGame": false,
+                                "bReceiveShadow": true,
+                                "bReceivesDecals": true,
+                                "bSimulatePhysics": false,
+                                "bVisible": true
+                            }
+                        }
+                    ],
+                    "Name": "AStaticMeshActor_1",
                     "ParentActor": "",
                     "ParentComponent": "",
                     "Properties": {
