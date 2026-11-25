@@ -49,6 +49,26 @@ namespace FPhysicsQuery
 		const FVector& Start, const FVector& End,
 		ECollisionChannel Channel, const FCollisionQueryParams& Params)
 	{
+		// 값 셋팅 후 raycast 진행 
+		PxScene * Scene = GetPxScene(World);
+		if (Scene == nullptr) return false;
+
+		OutHit.Init(Start, End);
+		FVector Direction = End - Start;
+		if (Direction.Size() < KINDA_SMALL_NUMBER) return false;
+
+		FQueryFilterCallback FilterCall(Channel, Params);
+		PxRaycastBuffer RayBuffer;
+
+		Scene->raycast(U2PVector(Start), U2PVector(Direction.Normalized()), Direction.Size(),
+			RayBuffer, PxHitFlag::eDEFAULT, CreatePxQueryFilterData(),&FilterCall);
+		
+		// Block 판정 받은 shape 가 있다면 변환
+		if (RayBuffer.hasBlock) {
+			ConvertRayHitToHit(RayBuffer.block, OutHit, Start, End, true);
+			return true;
+		}
+
 		return false;
 	}
 
@@ -56,6 +76,38 @@ namespace FPhysicsQuery
 		const FVector& Start, const FVector& End,
 		ECollisionChannel Channel, const FCollisionQueryParams& Params)
 	{
+		// 값 셋팅 후 raycast 진행 
+		PxScene* Scene = GetPxScene(World);
+		if (Scene == nullptr) return false;
+
+		OutHits.Empty();
+		FVector Direction = End - Start;
+		if (Direction.Size() < KINDA_SMALL_NUMBER) return false;
+
+		// 멀티 설정 
+		PxRaycastHit TouchBuffer[32];
+		FQueryFilterCallback FilterCall(Channel, Params);
+		PxRaycastBuffer RayBuffer(TouchBuffer, 32);
+
+		Scene->raycast(U2PVector(Start), U2PVector(Direction.Normalized()), Direction.Size(),
+			RayBuffer, PxHitFlag::eDEFAULT, CreatePxQueryFilterData(), &FilterCall);
+
+		// Touch 된 것 OutHits 에 넣기
+		for (PxU32 i = 0; i < RayBuffer.getNbTouches(); ++i) {
+			FHitResult Hit;
+			ConvertRayHitToHit(RayBuffer.getTouch(i), Hit, Start, End, false);
+			OutHits.Add(Hit);
+		}
+		
+		// Block 된 것 OutHits 에 넣기
+		if (RayBuffer.hasBlock) {
+			FHitResult Hit;
+			ConvertRayHitToHit(RayBuffer.block, Hit, Start, End, true);
+			OutHits.Add(Hit);
+		}
+
+		if (!OutHits.IsEmpty()) return true;
+
 		return false;
 	}
 
