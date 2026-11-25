@@ -35,7 +35,7 @@ public:
     bool IsSimulating() const { return bBuilt && bSimulating; }
     bool IsValidFor(const USkeletalMeshComponent& Mesh) const { return Matches(Mesh); }
     bool SyncFromAnimation(USkeletalMeshComponent& Mesh, bool bTeleport = false);
-    bool SetSimulating(USkeletalMeshComponent& Mesh, bool bEnable);
+    bool SetSimulating(USkeletalMeshComponent& Mesh, bool bEnable, const FVector& InitialVelocity = FVector::ZeroVector);
     void ApplyToMesh(USkeletalMeshComponent& Mesh);
     void DrawConstraints(FLineBatcher& Lines) const;
     FRagdollDebugStats GetDebugStats() const;

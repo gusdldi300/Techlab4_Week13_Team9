@@ -50,7 +50,8 @@ premake.override(vstudio.vc2010.elements, "projectReferences", function(base, pr
 	if prj.kind ~= "StaticLib" and ref.name == "KurisuEngine" then
 		table.insert(calls, function()
 			-- Headless checks link only referenced runtime objects; launch objects require an application entry point.
-			vstudio.vc2010.element("UseLibraryDependencyInputs", nil, prj.name == "PhysicsAssetGrabChecks" and "false" or "true")
+			local IsHeadlessPhysicsCheck = prj.name == "PhysicsAssetGrabChecks" or prj.name == "PhysicsAssetLifetimeChecks"
+			vstudio.vc2010.element("UseLibraryDependencyInputs", nil, IsHeadlessPhysicsCheck and "false" or "true")
 		end)
 	end
 	return calls
@@ -532,16 +533,18 @@ project "Shaders"
 
 -- Opt-in regression harness: premake5 --file=Setup/Build/premake5.lua --physics-grab-checks vs2026
 if _OPTIONS["physics-grab-checks"] then
-    project "PhysicsAssetGrabChecks"
-        location (ProjectRoot .. "/Build/Projects")
-        kind "ConsoleApp"
-        CommonSettings()
-        files { ProjectRoot .. "/Setup/Tests/PhysicsAssetGrabChecks.cpp" }
-        includedirs {
-            ProjectRoot .. "/Source/Runtime", GeneratedDir .. "/Runtime",
-            IncludeDir.stb, IncludeDir.json, IncludeDir.lua, IncludeDir.sol2, IncludeDir.PhysX,
-        }
-        links { "KurisuEngine", "d3d11.lib", "dxgi.lib", "dxguid.lib", "d3dcompiler.lib" }
-        LinkPhysX()
-        LinkNvCloth()
+    for _, TestName in ipairs { "PhysicsAssetGrabChecks", "PhysicsAssetLifetimeChecks" } do
+        project (TestName)
+            location (ProjectRoot .. "/Build/Projects")
+            kind "ConsoleApp"
+            CommonSettings()
+            files { ProjectRoot .. "/Setup/Tests/" .. TestName .. ".cpp" }
+            includedirs {
+                ProjectRoot .. "/Source/Runtime", GeneratedDir .. "/Runtime",
+                IncludeDir.stb, IncludeDir.json, IncludeDir.lua, IncludeDir.sol2, IncludeDir.PhysX,
+            }
+            links { "KurisuEngine", "d3d11.lib", "dxgi.lib", "dxguid.lib", "d3dcompiler.lib" }
+            LinkPhysX()
+            LinkNvCloth()
+    end
 end

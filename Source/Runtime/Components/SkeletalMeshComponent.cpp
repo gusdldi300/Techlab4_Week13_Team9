@@ -84,8 +84,8 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
         ReloadAnimBlueprint();
     }
 
-	// 부분 래그돌에서도 애니메이션을 평가하고, 물리 몸체가 있는 본의 결과만 덮어쓴다.
-	if (AnimInstance && GetSkeletalMesh())
+	// 전신 래그돌 중에는 바디가 없는 손가락·발가락도 전환 순간의 로컬 자세를 유지한다.
+	if (AnimInstance && GetSkeletalMesh() && !IsRagdollSimulating())
 	{
         bUpdatingAnimation = true;
 		if (auto* Instance = Cast<UAnimSingleNodeInstance>(AnimInstance))
@@ -117,6 +117,8 @@ void USkeletalMeshComponent::TickComponent(float DeltaTime)
         // Kinematic bodies follow animation even while other bodies simulate.
         PhysicsAssetInstance->SyncFromAnimation(*this);
         PhysicsAssetInstance->ApplyToMesh(*this);
+        // Super tick refreshed the animation pose. Publish the final physics pose as well.
+        if (PhysicsAssetInstance->IsSimulating()) RefreshBoneTransformsNow();
     }
 
 }
@@ -622,13 +624,20 @@ bool USkeletalMeshComponent::RecreatePhysicsAsset()
     return true;
 }
 
-bool USkeletalMeshComponent::SetRagdollSimulating(bool bEnable)
+bool USkeletalMeshComponent::SetRagdollSimulating(bool bEnable, const FVector& InitialVelocity)
 {
     if ((!PhysicsAssetInstance || !PhysicsAssetInstance->IsValidFor(*this)) && (!bEnable || !RecreatePhysicsAsset())) return false;
-    if (!PhysicsAssetInstance->SetSimulating(*this,bEnable)) return false;
+    if (!PhysicsAssetInstance->SetSimulating(*this,bEnable,InitialVelocity)) return false;
     bSimulatePhysics = bEnable;
     if (bEnable) { PendingRootMotion = FTransform(); bHasPendingRootMotion = false; }
     return true;
+}
+
+bool USkeletalMeshComponent::SyncPhysicsAssetFromAnimation(bool bTeleport)
+{
+    if (!PhysicsAssetInstance) return false;
+    RefreshBoneTransformsNow();
+    return PhysicsAssetInstance->SyncFromAnimation(*this,bTeleport);
 }
 
 bool USkeletalMeshComponent::IsRagdollSimulating() const
