@@ -5,6 +5,7 @@
 #include "Render/PostProcess/DepthOfFieldStats.h"
 
 #include <cctype>
+#include <cmath>
 #include <format>
 #include <psapi.h>
 
@@ -141,6 +142,22 @@ TArray<FString> FStatOverlay::GetDepthOfFieldLines(const FDepthOfFieldStats& Sta
 	Lines.Add(std::format("  Max Aperture   f/{:.2f}", Settings.MinFStop));
 	Lines.Add(std::format("  Focus          {:.3f} m", Settings.FocalDistanceMeters));
 	Lines.Add(std::format("  Focal Length   {:.2f} mm", Stats.Lens.FocalLengthMm));
+
+	// 1/f = 1/u + 1/v 에서 v = fu / (u - f). 초점면에 맞춘 센서 위치다.
+	const double FocalLengthMm = Stats.Lens.FocalLengthMm;
+	const double FocusDistanceMm = Settings.FocalDistanceMeters * 1000.0;
+	if (std::isfinite(FocalLengthMm) && std::isfinite(FocusDistanceMm)
+		&& FocalLengthMm > 0.0 && FocusDistanceMm > FocalLengthMm)
+	{
+		const double ImageDistanceMm = FocalLengthMm * FocusDistanceMm
+			/ (FocusDistanceMm - FocalLengthMm);
+		Lines.Add(std::format("  Image Distance {:.3f} mm", ImageDistanceMm));
+	}
+	else
+	{
+		Lines.Add("  Image Distance N/A");
+	}
+
 	Lines.Add(std::format("  Sensor Height  {:.2f} mm", Stats.Lens.SensorHeightMm));
 	Lines.Add(std::format("  Aperture       {} blades", Settings.ApertureBladeCount));
 	if (Settings.DepthBlurKmFor50Percent > 0.0f
