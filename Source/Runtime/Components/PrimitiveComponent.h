@@ -8,6 +8,7 @@
 #include "Collision/HitResult.h"
 #include "Core/Delegate/Delegate.h"
 #include "Physics/BodyInstance.h"
+#include "Physics/CollisionChannel.h"
 #include "PrimitiveComponent.generated.h"
 
 class FPrimitiveSceneProxy;
@@ -16,7 +17,7 @@ class UPrimitiveComponent;
 
 // (Self, Other, OtherComp). 담당: C
 DECLARE_DELEGATE(FComponentOverlapSignature, UPrimitiveComponent*, AActor*, UPrimitiveComponent*);
-DECLARE_DELEGATE(FComponentHitSignature, UPrimitiveComponent*, AActor*, UPrimitiveComponent*);
+DECLARE_DELEGATE(FComponentHitSignature, UPrimitiveComponent*, AActor*, UPrimitiveComponent*, const FHitResult&);
 
 struct FOverlapInfo
 {
@@ -102,6 +103,11 @@ public:
 	UPROPERTY(EditAnywhere)
 	bool bBlockComponent = false;
 
+	UPROPERTY(EditAnywhere)
+	ECollisionChannel ObjectType = ECollisionChannel::WorldStatic;	// 내 타입
+
+	FCollisionResponseContainer CollisionResponses;					// 채널마다 어떻게 설정?
+
 	// ---- 물리 바디 (담당: A) ----
 	// true면 PhysX가 움직이는 Dynamic 바디를 만든다.
 	// false여도 bBlockComponent가 true면 움직이지 않는 Static 바디(바닥, 벽)를 만든다.
@@ -122,7 +128,7 @@ public:
 	// UWorld::UpdateOverlaps가 겹침 상태가 바뀐 프레임에 호출한다
 	void BeginComponentOverlap(UPrimitiveComponent* OtherComp);
 	void EndComponentOverlap(UPrimitiveComponent* OtherComp);
-	void DispatchHit(UPrimitiveComponent* OtherComp);
+	void DispatchHit(UPrimitiveComponent* OtherComp, const FHitResult & HitResult);
 
 protected:
 	virtual void OnRegister() override;

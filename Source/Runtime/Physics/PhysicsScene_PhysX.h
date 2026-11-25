@@ -24,6 +24,7 @@ public:
 	void EndFrame() override;
 	void AddActor(const FPhysicsActorHandle& Handle) override;
 	FPhysXVehicleManager* GetVehicleManager() override { return VehicleManager.get(); }
+	physx::PxScene* GetNativeScene() const;
 	void DrawDebugBodies(FLineBatcher* Lines) const override;
 
 	void AddCloth(const FClothHandle& Handle) override;
