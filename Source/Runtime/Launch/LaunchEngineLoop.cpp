@@ -27,6 +27,7 @@
 #include "Core/Stats/LightweightStats.h"
 #include "Core/Async/TaskPool.h"
 #include "Tasks/Tasks.h"
+#include "Physics/PhysicsCore.h"
 
 #include "Render/RealtimeGPUProfiler.h"
 
@@ -200,6 +201,12 @@ bool FEngineLoop::Init()
 	// 워커 스레드는 에셋 로드가 끝난 뒤, 엔진이 생기기 전에 켠다. 끄는 것도 이 클래스의 Exit가 한다.
 	Tasks::FTaskScheduler::Get().Initialize();
 
+	//PhysX
+	if (!FPhysicsCore::Get().InitPhysX())
+	{
+		return false;
+	}
+
 	GEngine = NewObject<UEngine>(nullptr, PendingEngineClass);
 	if (!GEngine)
 	{
@@ -240,6 +247,9 @@ bool FEngineLoop::Init()
 
 	const uint32 Cores = std::max(1u, std::thread::hardware_concurrency());
 	FTaskPool::Get().Init(std::min(Cores - 1, 15u));
+
+
+
 	return true;
 }
 
@@ -316,6 +326,8 @@ void FEngineLoop::Exit()
 	DestroyAllObjectsExceptEngine();
 	delete GEngine;
 	GEngine = nullptr;
+
+	FPhysicsCore::ShutdownPhysX();
 
 	DepthBuffer.reset();
 	Swapchain.reset();

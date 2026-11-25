@@ -1,0 +1,8 @@
+{
+  "Bodies": [],
+  "Constraints": [],
+  "DisabledCollisions": [],
+  "Format": "KurisuPhysicsAsset",
+  "PreviewMesh": "FBX/Sonic_Running/Sonic_Running.fbx.bin",
+  "Version": 1
+}

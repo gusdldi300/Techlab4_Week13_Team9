@@ -491,3 +491,13 @@ Tools/SnowMountain/build_snow_mountain.py
 !/Source/ThirdParty/PhysX/lib/x64/debug/*.dll
 !/Source/ThirdParty/PhysX/lib/x64/release/*.lib
 !/Source/ThirdParty/PhysX/lib/x64/release/*.dll
+
+# Keep the bundled NvCloth 1.1.6 import libraries and runtime DLLs in Git (PDBs stay local).
+!/Source/ThirdParty/NvCloth/lib/x64/debug/
+!/Source/ThirdParty/NvCloth/lib/x64/release/
+/Source/ThirdParty/NvCloth/lib/x64/debug/*
+/Source/ThirdParty/NvCloth/lib/x64/release/*
+!/Source/ThirdParty/NvCloth/lib/x64/debug/*.lib
+!/Source/ThirdParty/NvCloth/lib/x64/debug/*.dll
+!/Source/ThirdParty/NvCloth/lib/x64/release/*.lib
+!/Source/ThirdParty/NvCloth/lib/x64/release/*.dll

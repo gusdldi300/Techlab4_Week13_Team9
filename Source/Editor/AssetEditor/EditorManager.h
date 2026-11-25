@@ -42,6 +42,7 @@ public:
 	int32 GetEditorCount() const { return Editors.Num(); }
 
 	void OpenAnimBlueprintPreview(const FString& PreviewMeshPath);
+	void OpenPhysicsAssetEditor(const FString& MeshPath);
 
 	// 이 경로를 연 에디터. 없으면 nullptr.
 	FAssetEditor* FindEditor(const FString& Path) const;
@@ -63,4 +64,6 @@ private:
 
 	void CreateAnimBlueprintPreview(const FString& PreviewMeshPath);
 	TArray<FString> PendingAnimBlueprintPreviews;
+	void CreatePhysicsAssetEditor(const FString& MeshPath);
+	TArray<FString> PendingPhysicsAssetEditors;
 };

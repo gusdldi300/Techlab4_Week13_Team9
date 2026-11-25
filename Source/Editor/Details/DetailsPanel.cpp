@@ -3548,6 +3548,18 @@ void FDetailsPanel::OnRender()
 					EndPropertyGridTable();
 				}
 			}
+            if (auto* SkelComp = Cast<USkeletalMeshComponent>(TargetComponent);
+                SkelComp && SkelComp->GetWorld() && SkelComp->GetWorld()->IsGameWorld())
+            {
+                ImGui::SeparatorText("Physics Asset");
+                const auto Stats = SkelComp->GetRagdollDebugStats();
+                ImGui::Text("Bodies: %d   Constraints: %d",Stats.Bodies,Stats.Joints);
+                bool Simulating = SkelComp->IsRagdollSimulating();
+                ImGui::BeginDisabled(Stats.Bodies == 0);
+                if (ImGui::Checkbox("Simulate Physics Asset",&Simulating))
+                    SkelComp->SetRagdollSimulating(Simulating);
+                ImGui::EndDisabled();
+            }
 			DrawShadowPreview();
 
 			if (SelectCandidateComponent != TargetComponent)

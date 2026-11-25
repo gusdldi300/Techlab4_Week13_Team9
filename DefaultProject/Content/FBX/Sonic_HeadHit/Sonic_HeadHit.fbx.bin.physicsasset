@@ -1,0 +1,1346 @@
+{
+  "Bodies": [
+    {
+      "Bone": "mixamorig:Hips",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              -5.177862644195557,
+              0.0,
+              -0.5370731353759766
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              19.162933349609375,
+              14.217340469360352,
+              8.845494270324707
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "MassOverrideKg": 8.88888931274414,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:Spine",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              -9.725460052490234,
+              0.1704559326171875,
+              2.8805623054504395
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              5.949531555175781,
+              5.986708164215088,
+              3.7210872173309326
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "MassOverrideKg": 8.333333969116211,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:Spine2",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              0.9139928817749023,
+              0.1889021396636963,
+              4.937592506408691
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              11.058063507080078,
+              12.488835334777832,
+              13.588099479675293
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "MassOverrideKg": 8.333333969116211,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:Neck",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              0.9317294955253601,
+              0.45752477645874023,
+              2.484309434890747
+            ],
+            "ContributeToMass": true,
+            "Length": 9.999999747378752e-05,
+            "Name": "None",
+            "Radius": 9.668746948242188,
+            "Rotation": [
+              -43.09052658081055,
+              0.0,
+              -0.0
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "MassOverrideKg": 1.6666667461395264,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:Head",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [],
+        "Spheres": [
+          {
+            "Center": [
+              -7.969113349914551,
+              0.0,
+              11.540382385253906
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Radius": 19.04966163635254
+          }
+        ]
+      },
+      "MassOverrideKg": 4.44444465637207,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:LeftArm",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              0.03578874096274376,
+              0.009821891784667969,
+              5.427907466888428
+            ],
+            "ContributeToMass": true,
+            "Length": 1.0253667831420898,
+            "Name": "None",
+            "Radius": 1.562725305557251,
+            "Rotation": [
+              6.575804036401678e-06,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "MassOverrideKg": 2.222222328186035,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:LeftForeArm",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              -0.2709663212299347,
+              -0.40756964683532715,
+              4.921606063842773
+            ],
+            "ContributeToMass": true,
+            "Length": 9.999999747378752e-05,
+            "Name": "None",
+            "Radius": 4.104815483093262,
+            "Rotation": [
+              1.0911070603469852e-05,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "MassOverrideKg": 1.388888955116272,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:LeftHand",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              0.10053431987762451,
+              2.030045986175537,
+              11.412827491760254
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              6.83591890335083,
+              23.120555877685547,
+              22.082509994506836
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "MassOverrideKg": 0.8333333730697632,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:RightArm",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              -0.5330367088317871,
+              0.6522006988525391,
+              4.531217575073242
+            ],
+            "ContributeToMass": true,
+            "Length": 9.999999747378752e-05,
+            "Name": "None",
+            "Radius": 2.1661734580993652,
+            "Rotation": [
+              2.410657543805428e-05,
+              0.0,
+              0.0
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "MassOverrideKg": 2.222222328186035,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:RightForeArm",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              -0.27162230014801025,
+              0.415311336517334,
+              4.915587425231934
+            ],
+            "ContributeToMass": true,
+            "Length": 9.999999747378752e-05,
+            "Name": "None",
+            "Radius": 4.10520076751709,
+            "Rotation": [
+              -1.5587247617077082e-06,
+              0.0,
+              -0.0
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "MassOverrideKg": 1.388888955116272,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:RightHand",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              0.12401235103607178,
+              -2.2219457626342773,
+              11.307258605957031
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              6.643247127532959,
+              22.99134635925293,
+              22.153606414794922
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "MassOverrideKg": 0.8333333730697632,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:LeftUpLeg",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              -0.20108751952648163,
+              -0.4520890414714813,
+              9.964210510253906
+            ],
+            "ContributeToMass": true,
+            "Length": 8.06197452545166,
+            "Name": "None",
+            "Radius": 2.46895694732666,
+            "Rotation": [
+              3.197896830897662e-06,
+              8.924342520403097e-14,
+              3.197896830897662e-06
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "MassOverrideKg": 5.555555820465088,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:LeftLeg",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              0.1576959639787674,
+              0.9815685749053955,
+              8.85577392578125
+            ],
+            "ContributeToMass": true,
+            "Length": 9.999999747378752e-05,
+            "Name": "None",
+            "Radius": 6.022635459899902,
+            "Rotation": [
+              -3.3382857509423047e-06,
+              0.0,
+              -0.0
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "MassOverrideKg": 2.777777910232544,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:LeftFoot",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              -3.990269660949707,
+              1.0149762630462646,
+              11.243896484375
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              19.810266494750977,
+              15.872086524963379,
+              26.416072845458984
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "MassOverrideKg": 1.388888955116272,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:RightUpLeg",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              -0.057700105011463165,
+              0.4523491859436035,
+              9.717928886413574
+            ],
+            "ContributeToMass": true,
+            "Length": 8.514410972595215,
+            "Name": "None",
+            "Radius": 2.468872547149658,
+            "Rotation": [
+              -3.197851356162573e-06,
+              0.0,
+              -0.0
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "MassOverrideKg": 5.555555820465088,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:RightLeg",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              -0.03133845329284668,
+              -0.981299877166748,
+              8.596480369567871
+            ],
+            "ContributeToMass": true,
+            "Length": 9.999999747378752e-05,
+            "Name": "None",
+            "Radius": 6.035746097564697,
+            "Rotation": [
+              0.0,
+              0.0,
+              1.6695498743501958e-06
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "MassOverrideKg": 2.777777910232544,
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "mixamorig:RightFoot",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              -4.1038594245910645,
+              -1.0117356777191162,
+              10.99980354309082
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              19.883203506469727,
+              15.871245384216309,
+              26.433866500854492
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "MassOverrideKg": 1.388888955116272,
+      "Material": null,
+      "PhysicsType": 2
+    }
+  ],
+  "Constraints": [
+    {
+      "Child": "mixamorig:Spine",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:Hips",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -0.11674022674560547,
+        0.0,
+        2.3702011108398438
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9987892508506775,
+        0.0,
+        0.049194373190402985
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:Spine2",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:Spine",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        9.577926221027155e-07,
+        -6.310887241768095e-30,
+        5.932685852050781
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        1.0,
+        -9.244460794322855e-33,
+        -3.005944506639935e-07
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        9.244460794322855e-33,
+        1.0,
+        -2.7788351105900782e-39
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:Neck",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:Spine2",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        7.618754693794472e-08,
+        0.0,
+        3.5596115589141846
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9987892508506775,
+        3.851858419406533e-33,
+        -0.04919407144188881
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -3.856528070715175e-33,
+        1.0,
+        0.0
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:Head",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:Neck",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -3.246307373046875,
+        -6.310887241768095e-30,
+        3.4702301025390625
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        0.0,
+        1.0,
+        -9.860757788779595e-32
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:LeftArm",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:Spine2",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -0.0023217545822262764,
+        -9.901909828186035,
+        2.9776809215545654
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        -1.4066696166992188e-05,
+        0.03893953561782837,
+        -0.9992412328720093
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        0.999826967716217,
+        0.018570661544799805,
+        0.0007093250751495361
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:LeftForeArm",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:LeftArm",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -2.4021389322115283e-09,
+        5.377355449809329e-09,
+        7.0111236572265625
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9999693036079407,
+        -0.00016410074022132903,
+        0.007835445925593376
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -2.735760062932968e-09,
+        0.9997807741165161,
+        0.020939139649271965
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:LeftHand",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:LeftForeArm",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        2.0916459675390797e-09,
+        1.8286172576154058e-10,
+        9.859296798706055
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9844557642936707,
+        -0.04442325606942177,
+        0.16992180049419403
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        0.029157666489481926,
+        0.9953962564468384,
+        0.09130262583494186
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:RightArm",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:Spine2",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -0.05488651245832443,
+        9.901910781860352,
+        2.9803013801574707
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.0004991292953491211,
+        -0.03934115171432495,
+        -0.9992258548736572
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -0.9996472001075745,
+        0.026520192623138428,
+        -0.0015435516834259033
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:RightForeArm",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:RightArm",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -5.803606484278134e-09,
+        -8.042619015213859e-09,
+        7.012495040893555
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9999662637710571,
+        0.00023277539003174752,
+        0.008212698623538017
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        1.7316779121756554e-09,
+        0.9995985627174377,
+        -0.02833217941224575
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:RightHand",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:RightForeArm",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        1.9204406953576836e-09,
+        3.388223035472038e-11,
+        9.859293937683105
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9844685792922974,
+        0.05111178010702133,
+        0.16795611381530762
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -0.03323549032211304,
+        0.9936415553092957,
+        -0.10757269710302353
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:LeftUpLeg",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:Hips",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        0.08595085144042969,
+        -3.7433016300201416,
+        -1.3061294555664063
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9999922513961792,
+        -5.820766091346741e-11,
+        -0.003943515010178089
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        0.0005144640454091132,
+        -0.9914536476135254,
+        0.13045722246170044
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:LeftLeg",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:LeftUpLeg",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -1.148814376961127e-09,
+        -1.493867962665263e-08,
+        17.08670425415039
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9997977614402771,
+        -0.0001919322821777314,
+        0.02011062577366829
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        1.1641532182693481e-10,
+        0.9999544620513916,
+        0.009543383494019508
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:LeftFoot",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:LeftLeg",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        2.8287097109114256e-09,
+        -9.20019402883554e-08,
+        16.368135452270508
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.6060253381729126,
+        -0.00769833056256175,
+        -0.7954080104827881
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        0.012701956555247307,
+        0.9999193549156189,
+        -3.259629011154175e-09
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:RightUpLeg",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:Hips",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        0.14554405212402344,
+        3.7433016300201416,
+        -1.3061294555664063
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9999778270721436,
+        2.9103830456733704e-11,
+        -0.006662800908088684
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -0.0008692046394571662,
+        -0.9914538860321045,
+        -0.1304534524679184
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:RightLeg",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:RightUpLeg",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -4.434212996784481e-10,
+        6.952202369348015e-08,
+        17.086946487426758
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9999969601631165,
+        2.3397591576213017e-05,
+        0.0024535467382520437
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -7.003109203651547e-11,
+        0.9999545216560364,
+        -0.009535769000649452
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "mixamorig:RightFoot",
+      "LinearLimit": 0.0,
+      "Parent": "mixamorig:RightLeg",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -1.1219913886861832e-09,
+        2.9921828570422804e-08,
+        16.364147186279297
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.6216435432434082,
+        0.00787110161036253,
+        -0.783260703086853
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -0.01266073901206255,
+        0.9999198317527771,
+        6.51925802230835e-09
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    }
+  ],
+  "DisabledCollisions": [
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      2
+    ],
+    [
+      0,
+      11
+    ],
+    [
+      0,
+      12
+    ],
+    [
+      0,
+      14
+    ],
+    [
+      0,
+      15
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      1,
+      3
+    ],
+    [
+      1,
+      5
+    ],
+    [
+      1,
+      8
+    ],
+    [
+      1,
+      11
+    ],
+    [
+      1,
+      14
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      2,
+      4
+    ],
+    [
+      2,
+      5
+    ],
+    [
+      2,
+      6
+    ],
+    [
+      2,
+      8
+    ],
+    [
+      2,
+      9
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      3,
+      5
+    ],
+    [
+      3,
+      8
+    ],
+    [
+      5,
+      6
+    ],
+    [
+      5,
+      7
+    ],
+    [
+      5,
+      8
+    ],
+    [
+      6,
+      7
+    ],
+    [
+      8,
+      9
+    ],
+    [
+      8,
+      10
+    ],
+    [
+      9,
+      10
+    ],
+    [
+      11,
+      12
+    ],
+    [
+      11,
+      13
+    ],
+    [
+      11,
+      14
+    ],
+    [
+      12,
+      13
+    ],
+    [
+      14,
+      15
+    ],
+    [
+      14,
+      16
+    ],
+    [
+      15,
+      16
+    ]
+  ],
+  "Format": "KurisuPhysicsAsset",
+  "PreviewMesh": "FBX/Sonic_HeadHit/Sonic_HeadHit.fbx.bin",
+  "Version": 1
+}

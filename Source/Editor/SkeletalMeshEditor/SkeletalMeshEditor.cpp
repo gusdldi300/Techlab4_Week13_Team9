@@ -62,6 +62,11 @@ void FSkeletalMeshEditor::OpenAnimationAsset(const FString& InAssetPath)
 	}
 }
 
+void FSkeletalMeshEditor::OpenPhysicsAssetEditor()
+{
+	EditorManager.OpenPhysicsAssetEditor(GetAssetPath());
+}
+
 void FSkeletalMeshEditor::SyncBoneGizmo()
 {
 	if (!MeshComponent || !BoneGizmoTarget || SelectedBoneIndex < 0 || SelectedBoneIndex >= BoneItems.Num() ||

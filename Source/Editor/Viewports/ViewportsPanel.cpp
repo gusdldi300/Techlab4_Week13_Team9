@@ -20,9 +20,13 @@
 #include "Components/SkinnedMeshComponent.h"
 #include "Components/ParticleSystemComponent.h"
 #include "Particles/ParticleEmitterInstance.h"
+#include "Engine/World.h"
+#include "Physics/PhysicsScene.h"
+#include "Physics/PhysicsStats.h"
 #include "Editor/Gizmo/Gizmo.h"
 #include "Input/InputSystem.h"
 
+#include "Components/SkeletalMeshComponent.h"
 
 namespace {
 constexpr float SplitterThickness = 6.0f;
@@ -566,6 +570,74 @@ const FRenderStats& Stats = RenderData.RenderStats;
 		Lines.Add({ std::format("  Particles {} / {} ({:.1f} %)", Active, Capacity,
 			Capacity > 0 ? 100.0 * static_cast<double>(Active) / static_cast<double>(Capacity) : 0.0), ValueColor });
 		Lines.Add({ std::format("  Memory {:.1f} KB", static_cast<double>(MemoryBytes) / 1024.0), ValueColor });
+	}
+
+	if (FStatOverlay::IsEnabled(EStatFlags::Ragdoll))
+	{
+		// 일반 PIE 화면이면 게임 뷰포트 월드, 그 외에는 현재 에디터 뷰포트 월드를 사용한다.
+		const bool bGameView = GameViewportClient && Client->GetViewIndex() == GameViewportIndex;
+		const UWorld* TargetWorld = bGameView ? GameViewportClient->GetWorld() : Client->GetWorld();
+
+		FRagdollDebugStats Total;
+
+		if (TargetWorld)
+		{
+			for (TObjectIterator<USkeletalMeshComponent> It; It; ++It)
+			{
+				if (!It->IsRegistered() || It->GetWorld() != TargetWorld) continue;
+
+				const FRagdollDebugStats Stats = It->GetRagdollDebugStats();
+
+				Total.Instances += Stats.Instances;
+				Total.SimulatingInstances += Stats.SimulatingInstances;
+				Total.Bodies += Stats.Bodies;
+				Total.Joints += Stats.Joints;
+				Total.KinematicSyncMs += Stats.KinematicSyncMs;
+				Total.PhysicsPoseMs += Stats.PhysicsPoseMs;
+			}
+		}
+
+		Lines.Add({ "Ragdoll", TitleColor });
+		Lines.Add({ std::format("  Instances {}   Dynamic {}", Total.Instances, Total.SimulatingInstances), ValueColor });
+		Lines.Add({ std::format("  Bodies {}   Joints {}", Total.Bodies, Total.Joints), ValueColor });
+		Lines.Add({ std::format("  Kinematic Sync {:.3f} ms (last update)", Total.KinematicSyncMs), ValueColor });
+		Lines.Add({ std::format("  Physics Pose {:.3f} ms (last update)", Total.PhysicsPoseMs), ValueColor });
+	}
+	if (FStatOverlay::IsEnabled(EStatFlags::Physics)) {
+		// 물리 Scene은 게임 월드(PIE, Game)에만 있다. 에디터 뷰포트에서는 없다고만 표시한다.
+		const UWorld* World = Client->GetWorld();
+		const FPhysicsScene* PhysicsScene = World ? World->GetPhysicsScene() : nullptr;
+		if (!PhysicsScene) {
+			Lines.Add({ "Physics  (no physics scene: run PIE)", TitleColor });
+		}
+		else {
+			const FPhysicsSceneStats& PhysStats = PhysicsScene->GetStats();
+			Lines.Add({ std::format("Physics  [step {:.1f} ms, {} step(s) this frame]", PhysStats.FixedStep * 1000.0f,
+				PhysStats.NumStepsLastFrame), TitleColor });
+			Lines.Add({ std::format("  Bodies  Static {}   Dynamic {} (Kinematic {})",
+				PhysStats.NumStaticBodies, PhysStats.NumDynamicBodies, PhysStats.NumKinematicBodies), ValueColor });
+			Lines.Add({ std::format("  Active Dynamic {}   Synced Components {}",
+				PhysStats.NumActiveDynamicBodies, PhysStats.NumSyncedComponents), ValueColor });
+			Lines.Add({ std::format("  Contact Pairs {}   New {}   Lost {}",
+				PhysStats.NumContactPairs, PhysStats.NumNewTouches, PhysStats.NumLostTouches), ValueColor });
+			Lines.Add({ std::format("  Constraints {}   Steps {}",
+				PhysStats.NumActiveConstraints, PhysStats.NumSteps), ValueColor });
+		}
+
+		ProfileLines.Add({ "Physics (ms)", TitleColor, { "Last", "Avg", "Max" } });
+		for (TStatId Id : { PhysicsStats::STAT_PhysicsTotal, PhysicsStats::STAT_PhysicsSimulate,
+							PhysicsStats::STAT_PhysicsFetchResults, PhysicsStats::STAT_PhysicsSyncComponents }) {
+			FProfileStatLine Line{ "  " + FString(Id.GetName()), ValueColor };
+			if (const FCycleStatData* D = FStatRegistry::Find(Id)) {
+				Line.Values[0] = std::format("{:.2f}", D->GetLastMs());
+				Line.Values[1] = std::format("{:.2f}", D->GetRecentAverageMs());
+				Line.Values[2] = std::format("{:.2f}", D->GetMaxMs());
+			}
+			else {
+				Line.Values[0] = Line.Values[1] = Line.Values[2] = "-";
+			}
+			ProfileLines.Add(Line);
+		}
 	}
 
 	if (Lines.Num() == 0 && ProfileLines.Num() == 0)

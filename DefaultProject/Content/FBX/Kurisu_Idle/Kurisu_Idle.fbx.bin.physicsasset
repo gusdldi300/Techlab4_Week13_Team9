@@ -1,0 +1,1331 @@
+{
+  "Bodies": [
+    {
+      "Bone": "Bip001-Pelvis",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              -0.8830478191375732,
+              -1.2971982955932617,
+              5.043451309204102
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              15.634369850158691,
+              20.001983642578125,
+              14.517731666564941
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-Spine",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              0.6997518539428711,
+              0.23229455947875977,
+              13.025697708129883
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              11.268036842346191,
+              15.182273864746094,
+              13.195688247680664
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-Spine1",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              1.464393138885498,
+              0.04739952087402344,
+              3.167419672012329
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              14.856121063232422,
+              16.56671905517578,
+              8.082283020019531
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-Spine2",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              -0.8860588073730469,
+              2.415945291519165,
+              5.121166229248047
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              11.090457916259766,
+              13.672906875610352,
+              9.203133583068848
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-Neck",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              2.1116812229156494,
+              0.17057205736637115,
+              2.6617367267608643
+            ],
+            "ContributeToMass": true,
+            "Length": 9.999999747378752e-05,
+            "Name": "None",
+            "Radius": 3.3327231407165527,
+            "Rotation": [
+              16.932621002197266,
+              -1.1427964636823162e-06,
+              -7.677510438952595e-06
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-Head",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [],
+        "Spheres": [
+          {
+            "Center": [
+              2.3562936782836914,
+              0.8859343528747559,
+              8.104669570922852
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Radius": 10.131394386291504
+          }
+        ]
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-L-UpperArm",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              0.02568945288658142,
+              0.25499823689460754,
+              8.56691837310791
+            ],
+            "ContributeToMass": true,
+            "Length": 10.991264343261719,
+            "Name": "None",
+            "Radius": 3.9481003284454346,
+            "Rotation": [
+              -0.00024496004334650934,
+              -2.584465697008653e-10,
+              0.00012090051313862205
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-L-Forearm",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              1.323591947555542,
+              0.43112504482269287,
+              13.330156326293945
+            ],
+            "ContributeToMass": true,
+            "Length": 14.048285484313965,
+            "Name": "None",
+            "Radius": 5.081265926361084,
+            "Rotation": [
+              0.0001285774924326688,
+              -6.733065494035628e-11,
+              -6.000680514262058e-05
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-L-Hand",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              2.3137359619140625,
+              2.0460081100463867,
+              7.815908432006836
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              6.290201187133789,
+              8.846314430236816,
+              11.199823379516602
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-R-UpperArm",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              0.6433360576629639,
+              0.038233235478401184,
+              9.04001522064209
+            ],
+            "ContributeToMass": true,
+            "Length": 9.453696250915527,
+            "Name": "None",
+            "Radius": 4.2910943031311035,
+            "Rotation": [
+              -3.477534119156189e-05,
+              1.0919534373932116e-11,
+              -3.598200419219211e-05
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-R-Forearm",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              1.1173760890960693,
+              0.014502478763461113,
+              13.336343765258789
+            ],
+            "ContributeToMass": true,
+            "Length": 14.075191497802734,
+            "Name": "None",
+            "Radius": 5.0266828536987305,
+            "Rotation": [
+              1.747722535583307e-07,
+              -4.6563040966354774e-14,
+              -3.052962347283028e-05
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-R-Hand",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              2.3152239322662354,
+              -2.053954839706421,
+              7.815849304199219
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              6.292819023132324,
+              8.838078498840332,
+              11.19970989227295
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-L-Thigh",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              0.5861194133758545,
+              0.812420129776001,
+              19.247804641723633
+            ],
+            "ContributeToMass": true,
+            "Length": 21.54059600830078,
+            "Name": "None",
+            "Radius": 5.885002613067627,
+            "Rotation": [
+              5.743325891671702e-05,
+              -3.8380715272623434e-11,
+              -7.657768583158031e-05
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-L-Calf",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              -1.1395740509033203,
+              0.6934846043586731,
+              21.95990753173828
+            ],
+            "ContributeToMass": true,
+            "Length": 24.375572204589844,
+            "Name": "None",
+            "Radius": 3.9232630729675293,
+            "Rotation": [
+              -4.673215880757198e-05,
+              4.764518640731907e-12,
+              -1.1683039701892994e-05
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-L-Foot",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              -4.773097038269043,
+              -0.10584187507629395,
+              6.12355899810791
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              10.870122909545898,
+              9.183114051818848,
+              18.86057472229004
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-R-Thigh",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              0.4754413366317749,
+              -0.9080336689949036,
+              17.301666259765625
+            ],
+            "ContributeToMass": true,
+            "Length": 24.758712768554688,
+            "Name": "None",
+            "Radius": 6.032249927520752,
+            "Rotation": [
+              -9.098365808313247e-06,
+              2.0467830989107094e-12,
+              -2.577870327513665e-05
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-R-Calf",
+      "Geometry": {
+        "Boxes": [],
+        "Capsules": [
+          {
+            "Center": [
+              -1.1608898639678955,
+              -0.5397098660469055,
+              21.970478057861328
+            ],
+            "ContributeToMass": true,
+            "Length": 24.172378540039063,
+            "Name": "None",
+            "Radius": 4.034347057342529,
+            "Rotation": [
+              -3.732078766915947e-05,
+              -1.4797185829071302e-12,
+              4.5433998820954e-06
+            ]
+          }
+        ],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    },
+    {
+      "Bone": "Bip001-R-Foot",
+      "Geometry": {
+        "Boxes": [
+          {
+            "Center": [
+              -4.767035961151123,
+              -0.1707906723022461,
+              6.337332725524902
+            ],
+            "ContributeToMass": true,
+            "Name": "None",
+            "Rotation": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "Size": [
+              10.99860954284668,
+              8.692996978759766,
+              18.870454788208008
+            ]
+          }
+        ],
+        "Capsules": [],
+        "Spheres": []
+      },
+      "Material": null,
+      "PhysicsType": 2
+    }
+  ],
+  "Constraints": [
+    {
+      "Child": "Bip001-Spine",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-Pelvis",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        1.4769313335418701,
+        -0.7195478081703186,
+        9.217222213745117
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9926236867904663,
+        7.43217810850183e-07,
+        0.12123619019985199
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        7.441004754582536e-07,
+        1.0,
+        -1.2222665645822417e-05
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-Spine1",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-Spine",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -4.914335022476735e-06,
+        -1.5028856068965979e-05,
+        20.951751708984375
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9999999403953552,
+        7.410860369816419e-09,
+        -0.00039213651325553656
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -1.0081424584029719e-10,
+        1.0,
+        1.8641581846168265e-05
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-Spine2",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-Spine1",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -3.657340130303055e-06,
+        1.197146843878727e-06,
+        9.092878341674805
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9933387041091919,
+        -4.7636590352340136e-06,
+        -0.1152309700846672
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        4.004957645520335e-06,
+        1.0,
+        -6.815698270656867e-06
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-Neck",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-Spine2",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        0.5302721858024597,
+        -1.7528633179608732e-05,
+        9.077377319335938
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9999840259552002,
+        3.80953567302722e-11,
+        -0.005655444227159023
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -4.233309189305423e-11,
+        1.0,
+        -7.491992581876161e-10
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-Head",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-Neck",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        1.760495662689209,
+        7.48077980006201e-07,
+        5.7826385498046875
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        1.0,
+        7.347413476244125e-12,
+        1.3453896663406795e-08
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -7.347444701266692e-12,
+        1.0,
+        2.335581283929855e-09
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-L-UpperArm",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-Spine2",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -2.0873892307281494,
+        -11.186241149902344,
+        4.144001483917236
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        -0.005655646324157715,
+        -1.6093254089355469e-06,
+        -0.9999837875366211
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        0.9999837875366211,
+        1.1920928955078125e-07,
+        -0.005655854940414429
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-L-Forearm",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-L-UpperArm",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -8.046334551181644e-05,
+        -4.016315142507665e-05,
+        18.982084274291992
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        1.0,
+        -3.369446588408209e-08,
+        -6.851185503364832e-07
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        3.369445167322738e-08,
+        1.0,
+        -1.9743520596193775e-08
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-L-Hand",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-L-Forearm",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        5.4591884691035375e-05,
+        2.7226891688769683e-05,
+        25.951772689819336
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        1.0,
+        2.859312644432066e-07,
+        -2.9150457976356847e-06
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -2.85930696009018e-07,
+        1.0,
+        1.9417838359458983e-07
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-R-UpperArm",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-Spine2",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -3.5497748851776123,
+        10.42884635925293,
+        4.229458332061768
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        -0.005655527114868164,
+        1.1622905731201172e-06,
+        -0.9999839067459106
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -0.9999839067459106,
+        3.5762786865234375e-07,
+        0.0056555867195129395
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-R-Forearm",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-R-UpperArm",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -1.5807287127245218e-05,
+        1.1746747077268083e-05,
+        18.982236862182617
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        1.0,
+        -6.910127581249981e-08,
+        2.9533170575746226e-08
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        6.910127581249981e-08,
+        1.0,
+        -2.8125558770852876e-08
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-R-Hand",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-R-Forearm",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -4.248485765856458e-06,
+        1.4409191862796433e-05,
+        25.951906204223633
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        1.0,
+        -1.29654154079617e-08,
+        -2.0126027777678246e-07
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        1.2965418960675379e-08,
+        1.0,
+        1.4109143187113204e-08
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-L-Thigh",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-Pelvis",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        1.0138840675354004,
+        -6.676655292510986,
+        -0.6828674674034119
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9999193549156189,
+        -7.945297693368047e-05,
+        -0.012699916027486324
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -4.013454599771649e-06,
+        -0.9999822378158569,
+        0.005940073635429144
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-L-Calf",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-L-Thigh",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        3.615415334934369e-05,
+        4.7981917305151e-05,
+        36.0339469909668
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9993436932563782,
+        -0.0005811261362396181,
+        0.03621985763311386
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        0.000152171342051588,
+        0.9999298453330994,
+        0.011844711378216743
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-L-Foot",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-L-Calf",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -3.438174826442264e-05,
+        8.771456123213284e-06,
+        42.092952728271484
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.4151995778083801,
+        -0.05113396793603897,
+        -0.9082920551300049
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -0.002815552055835724,
+        0.9983420968055725,
+        -0.05749053508043289
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-R-Thigh",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-Pelvis",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -1.0138883590698242,
+        6.676704406738281,
+        0.6827377676963806
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9999197721481323,
+        7.376068970188498e-05,
+        -0.012667185626924038
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -3.7106256058905274e-06,
+        -0.9999810457229614,
+        -0.006115772761404514
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-R-Calf",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-R-Thigh",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -5.6473445511073805e-06,
+        1.5596047887811437e-05,
+        36.033836364746094
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.9993413090705872,
+        0.0005798654747195542,
+        0.03628534823656082
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        -0.00015013018855825067,
+        0.9999298453330994,
+        -0.01184481754899025
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    },
+    {
+      "Child": "Bip001-R-Foot",
+      "LinearLimit": 0.0,
+      "Parent": "Bip001-R-Calf",
+      "Pos1": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "Pos2": [
+        -2.740494346653577e-05,
+        -2.9376155907812063e-06,
+        42.092987060546875
+      ],
+      "PriAxis1": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "PriAxis2": [
+        0.41516977548599243,
+        0.05113348364830017,
+        -0.9083057641983032
+      ],
+      "SecAxis1": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "SecAxis2": [
+        0.0028180647641420364,
+        0.9983420968055725,
+        0.05749019980430603
+      ],
+      "Swing1LimitDegrees": 45.0,
+      "Swing1Motion": 1,
+      "Swing2LimitDegrees": 45.0,
+      "Swing2Motion": 1,
+      "TwistLimitDegrees": 15.0,
+      "TwistMotion": 1,
+      "XMotion": 2,
+      "YMotion": 2,
+      "ZMotion": 2
+    }
+  ],
+  "DisabledCollisions": [
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      12
+    ],
+    [
+      0,
+      15
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      3,
+      6
+    ],
+    [
+      3,
+      9
+    ],
+    [
+      4,
+      5
+    ],
+    [
+      6,
+      7
+    ],
+    [
+      7,
+      8
+    ],
+    [
+      9,
+      10
+    ],
+    [
+      10,
+      11
+    ],
+    [
+      12,
+      13
+    ],
+    [
+      13,
+      14
+    ],
+    [
+      15,
+      16
+    ],
+    [
+      16,
+      17
+    ]
+  ],
+  "Format": "KurisuPhysicsAsset",
+  "PreviewMesh": "FBX/Kurisu_Idle/Kurisu_Idle.fbx.bin",
+  "Version": 1
+}

@@ -1,7 +1,9 @@
 #include "EnginePCH.h"
+#include "Physics/PhysicsDebugDraw.h"
 
 #include "Editor/KurisuEd/EditorEngine.h"
 #include "Editor/KurisuEd/Editor.h"
+#include "Components/ClothComponent.h"
 
 #include "Core/EngineStatics.h"
 #include "Core/EngineTimer.h"
@@ -2109,19 +2111,47 @@ void UEditorEngine::SaveProjectThumbnail()
 // PIE 디버그 표시 (Settings > Debug Draw (PIE))
 void UEditorEngine::DrawPIEDebug(UWorld* World, const FMatrix& ViewProjection)
 {
-	const FEditorSettings& Settings = EditorSettings->GetSettings();
-	GShowSkeletalRootDebug = Settings.bShowRootDebug;  // 런타임 "root" 라벨 표시용
+	if (!World)
+	{
+		return;
+	}
 
-	// 충돌 도형·스프링 암 같은 배치 라인은 에디터 뷰와 SIE에서만 그린다. 게임 화면에는 올리지 않는다.
 	FLineBatcher* LineBatcher = World->LineBatcher.get();
 
-	// root는 바닥 높이라 가려지기 쉬우므로 깊이 테스트 없이 따로 그린다 (항상 위에 보임)
+	if (!LineBatcher)
+	{
+		return;
+	}
+
+	const FEditorSettings& Settings = EditorSettings->GetSettings();
+	GShowSkeletalRootDebug = Settings.bShowRootDebug;
+
+	// 천은 아직 메시 렌더링이 없어 시뮬레이션 결과를 선으로만 보여 준다. 그래서 게임 화면에도 그린다.
+	// 아래 디버그 선은 깊이 테스트를 끄고 그리므로, 천은 깊이 테스트를 켠 채 먼저 따로 그린다.
+	LineBatcher->BeginFrame();
+	DrawClothComponents(World, LineBatcher, nullptr);
+	LineBatcher->OnRender(ViewProjection);
+
+	// 이번 화면에 표시할 선 목록을 시작한다.
+	LineBatcher->BeginFrame();
+
 	if (Settings.bShowRootDebug)
 	{
-		LineBatcher->BeginFrame();
 		DrawSkeletalRootDebug(World, LineBatcher);
-		LineBatcher->SetDepthTest(false);
-		LineBatcher->OnRender(ViewProjection);
-		LineBatcher->SetDepthTest(true);
 	}
+
+	if (Settings.bShowPhysicsBodies)
+	{
+		FPhysicsDebugDraw::DrawWorldBodies(World, LineBatcher);
+	}
+
+	if (Settings.bShowPhysicsConstraints)
+	{
+		DrawPhysicsAssetConstraints(World, LineBatcher);
+	}
+
+	// 모은 선들을 한 번에 그린다.
+	LineBatcher->SetDepthTest(false);
+	LineBatcher->OnRender(ViewProjection);
+	LineBatcher->SetDepthTest(true);
 }

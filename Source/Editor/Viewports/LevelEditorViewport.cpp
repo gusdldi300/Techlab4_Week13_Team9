@@ -9,6 +9,7 @@
 #include "Components/PointLightComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Components/ParticleSystemComponent.h"
+#include "Components/ClothComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/Actor/DecalActor.h"
 #include "GameFramework/Actor/PointLightActor.h"
@@ -17,6 +18,8 @@
 #include "Engine/Level.h"
 #include "GameFramework/Actor.h"
 #include "Asset/AssetManager.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Physics/PhysicsDebugDraw.h"
 
 FLevelEditorViewportClient* GCurrentLevelEditingViewportClient = nullptr;
 
@@ -176,6 +179,7 @@ void FLevelEditorViewportClient::Draw(const FSceneView* View, FScenePassCallback
 				// 이 뷰포트가 보고 있는 월드의 것을 그린다. PIE와 SIE 중에는 PIE 월드다.
 				DrawCollisionShapes(GetWorld(), LineBatcher, SelectedActor);
 				DrawSpringArms(GetWorld(), LineBatcher, SelectedActor);
+				DrawClothComponents(GetWorld(), LineBatcher, SelectedActor);
 				if (EngineShowFlags.bShowParticles)
 				{
 					DrawParticleSystems(GetWorld(), LineBatcher);
@@ -183,6 +187,18 @@ void FLevelEditorViewportClient::Draw(const FSceneView* View, FScenePassCallback
 				}
 
 				LineBatcher->OnRender(SceneView.ViewProjectionMatrix);
+
+				if (Settings.bShowPhysicsBodies || Settings.bShowPhysicsConstraints)
+				{
+					LineBatcher->BeginFrame();
+					if (Settings.bShowPhysicsBodies)
+						FPhysicsDebugDraw::DrawWorldBodies(GetWorld(), LineBatcher);
+					if (Settings.bShowPhysicsConstraints)
+						DrawPhysicsAssetConstraints(GetWorld(), LineBatcher);
+					LineBatcher->SetDepthTest(false);
+					LineBatcher->OnRender(SceneView.ViewProjectionMatrix);
+					LineBatcher->SetDepthTest(true);
+				}
 			};
 	}
 	if (Settings.bDrawBatchLine)

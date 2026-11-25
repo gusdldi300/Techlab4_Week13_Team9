@@ -20,6 +20,7 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/Actor/GundamCharacter.h"
 #include "GameFramework/Actor/SonicCharacter.h"
+#include "GameFramework/WheeledVehicle.h"
 #include "Core/StatOverlay.h"
 #include "Core/Stats/LightweightStats.h"
 #include <algorithm>
@@ -467,6 +468,7 @@ void FViewportsPanel::DrawSpawnMenu(FEditorViewportClient& Client)
     Spawn("Character", ACharacter::StaticClass());
     Spawn("Gundam Character", AGundamCharacter::StaticClass());
     Spawn("Sonic Character", ASonicCharacter::StaticClass());
+    Spawn("Wheeled Vehicle", AWheeledVehicle::StaticClass());
     Spawn("Text", ATextRenderActor::StaticClass());
     ImGui::SeparatorText("Meshes");
     Spawn("Skeletal Mesh", ASkeletalMeshActor::StaticClass());
