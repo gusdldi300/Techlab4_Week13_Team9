@@ -17,7 +17,7 @@ class UPrimitiveComponent;
 
 // (Self, Other, OtherComp). 담당: C
 DECLARE_DELEGATE(FComponentOverlapSignature, UPrimitiveComponent*, AActor*, UPrimitiveComponent*);
-DECLARE_DELEGATE(FComponentHitSignature, UPrimitiveComponent*, AActor*, UPrimitiveComponent*);
+DECLARE_DELEGATE(FComponentHitSignature, UPrimitiveComponent*, AActor*, UPrimitiveComponent*, const FHitResult&);
 
 struct FOverlapInfo
 {
@@ -128,7 +128,7 @@ public:
 	// UWorld::UpdateOverlaps가 겹침 상태가 바뀐 프레임에 호출한다
 	void BeginComponentOverlap(UPrimitiveComponent* OtherComp);
 	void EndComponentOverlap(UPrimitiveComponent* OtherComp);
-	void DispatchHit(UPrimitiveComponent* OtherComp);
+	void DispatchHit(UPrimitiveComponent* OtherComp, const FHitResult & HitResult);
 
 protected:
 	virtual void OnRegister() override;

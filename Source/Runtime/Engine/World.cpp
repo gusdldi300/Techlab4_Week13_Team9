@@ -1092,8 +1092,9 @@ void UWorld::UpdateOverlaps()
 				// 지금은 “처음 막혔을 때 한 번” Hit를 보내는 정책
 				if (A->bBlockComponent && B->bBlockComponent)
 				{
-					A->DispatchHit(B);
-					B->DispatchHit(A);
+					FHitResult HitResult;
+					A->DispatchHit(B, HitResult);
+					B->DispatchHit(A, HitResult);
 				}
 			}
 			// true -> false: 분리
