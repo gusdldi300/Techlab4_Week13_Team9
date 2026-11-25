@@ -46,6 +46,11 @@ public:
 	const FPhysicsActorHandle& GetActorHandle() const { return ActorHandle; }
 
 	void SyncComponentToBody();
+	// COM in world space, read from the live PhysX body after simulation has finished.
+	bool GetCenterOfMass(FVector& WorldPosition, float& MassKg) const;
+	// Uses the same scaled primitive geometry and mass policy as InitBody; no scene/actor allocation.
+	// LocalPosition includes Scale3D already and must only be rotated/translated into world space.
+	static bool CalculateCenterOfMass(const UBodySetup& Setup, const FVector& Scale3D, FVector& LocalPosition, float& MassKg);
 	// Immutable while the scene simulates. Physics Asset instances fill this before their first step.
 	static constexpr uint32 AssetCollisionFilterTag = 0x4B525341;
 	void DisableCollisionWith(const FBodyInstance* Other) { DisabledCollisionBodies.Add(Other); }

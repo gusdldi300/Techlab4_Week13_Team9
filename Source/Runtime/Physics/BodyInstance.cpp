@@ -45,20 +45,19 @@ namespace
 		return true;
 	}
 
-	// AggregateGeom의 도형을 모두 PhysX Shape로 만들어 붙이고, 붙인 개수를 돌려준다.
+	// Enumerate scaled PhysX primitive geometry for both live shapes and COM preview.
 	// 반 크기 변환과 캡슐 축 변환은 엔진 데이터와 PhysX 규약이 다른 부분이라 이 함수 한 곳에서만 한다.
-	int32 CreateShapes(PxRigidActor& Actor, const FKAggregateGeom& Geom, PxMaterial& Material, const FVector& Scale3D, 
-		const PxFilterData& SimFilter, const PxFilterData& QueryFilter)
+	template<typename TVisitor>
+	void VisitShapes(const FKAggregateGeom& Geom, const FVector& Scale3D, TVisitor&& Visit)
 	{
 		const FVector Scale = AbsVector(Scale3D);
-		int32 NumCreated = 0;
 
 		// 구는 비균일 스케일을 표현할 수 없다. 언리얼처럼 가장 작은 축 스케일을 쓴다.
 		const float SphereScale = std::min({ Scale.X, Scale.Y, Scale.Z });
 		for (const FKSphereElem& Elem : Geom.SphereElems)
 		{
 			const PxSphereGeometry Sphere(std::max(Elem.Radius * SphereScale, MinExtent));
-			NumCreated += AttachShape(Actor, Sphere, Material, MulVector(Elem.Center, Scale3D), PxQuat(PxIdentity), SimFilter, QueryFilter) ? 1 : 0;
+			Visit(Sphere, MulVector(Elem.Center, Scale3D), PxQuat(PxIdentity));
 		}
 
 		for (const FKBoxElem& Elem : Geom.BoxElems)
@@ -68,7 +67,7 @@ namespace
 				std::max(Elem.X * Scale.X * 0.5f, MinExtent),
 				std::max(Elem.Y * Scale.Y * 0.5f, MinExtent),
 				std::max(Elem.Z * Scale.Z * 0.5f, MinExtent));
-			NumCreated += AttachShape(Actor, Box, Material, MulVector(Elem.Center, Scale3D), U2PQuat(Elem.Rotation.Quaternion()), SimFilter, QueryFilter) ? 1 : 0;
+			Visit(Box, MulVector(Elem.Center, Scale3D), U2PQuat(Elem.Rotation.Quaternion()));
 		}
 
 		// 엔진 캡슐(FKSphylElem)은 Z축으로 서 있고, PhysX 캡슐은 X축으로 누워 있다.
@@ -82,11 +81,62 @@ namespace
 				std::max(Elem.Radius * CapsuleRadiusScale, MinExtent),
 				std::max(Elem.Length * Scale.Z * 0.5f, MinExtent));
 			const PxQuat Rotation = U2PQuat(Elem.Rotation.Quaternion()) * CapsuleXToZ;
-			NumCreated += AttachShape(Actor, Capsule, Material, MulVector(Elem.Center, Scale3D), Rotation, SimFilter, QueryFilter) ? 1 : 0;
+			Visit(Capsule, MulVector(Elem.Center, Scale3D), Rotation);
 		}
 
-		return NumCreated;
 	}
+
+	int32 CreateShapes(PxRigidActor& Actor, const FKAggregateGeom& Geom, PxMaterial& Material, const FVector& Scale3D,
+		const PxFilterData& SimFilter, const PxFilterData& QueryFilter)
+	{
+		int32 Count = 0;
+		VisitShapes(Geom, Scale3D, [&](const PxGeometry& Geometry, const FVector& Center, const PxQuat& Rotation) {
+			Count += AttachShape(Actor, Geometry, Material, Center, Rotation, SimFilter, QueryFilter) ? 1 : 0;
+		});
+		return Count;
+	}
+}
+
+bool FBodyInstance::CalculateCenterOfMass(const UBodySetup& Setup, const FVector& Scale3D, FVector& LocalPosition, float& MassKg)
+{
+	if (!std::isfinite(Scale3D.X + Scale3D.Y + Scale3D.Z)) return false;
+	PxVec3 WeightedCenter(0);
+	float Volume = 0;
+	// Runtime currently includes every simulation shape when computing inertia/COM.
+	// Keep this query identical, including the fallback when CalculateMass returns zero.
+	VisitShapes(Setup.AggGeom, Scale3D, [&](const PxGeometry& Geometry, const FVector& Center, const PxQuat& Rotation) {
+		const PxMassProperties Properties(Geometry);
+		const PxVec3 Position = U2PVector(Center) + Rotation.rotate(Properties.centerOfMass);
+		WeightedCenter += Position * Properties.mass;
+		Volume += Properties.mass;
+	});
+	if (!(Volume > 0) || !std::isfinite(Volume)) return false;
+	const PxVec3 Center = WeightedCenter / Volume;
+	const float RequestedMass = Setup.CalculateMass() * std::abs(Scale3D.X * Scale3D.Y * Scale3D.Z);
+	MassKg = RequestedMass > 0 ? RequestedMass : Volume * DefaultDensity;
+	if (!Center.isFinite() || !std::isfinite(MassKg)) return false;
+	LocalPosition = P2UVector(Center);
+	return true;
+}
+
+bool FBodyInstance::GetCenterOfMass(FVector& WorldPosition, float& MassKg) const
+{
+	if (!ActorHandle.Actor) return false;
+	const auto* Body = ActorHandle.Actor->is<PxRigidBody>();
+	if (!Body) return false;
+	const auto Read = [&]() {
+		const PxVec3 Position = Body->getGlobalPose().transform(Body->getCMassLocalPose().p);
+		if (!Position.isFinite()) return false;
+		WorldPosition = P2UVector(Position);
+		MassKg = Body->getMass();
+		return std::isfinite(MassKg);
+	};
+	if (PxScene* Scene = Body->getScene())
+	{
+		PxSceneReadLock Lock(*Scene);
+		return Read();
+	}
+	return Read();
 }
 
 FBodyInstance::~FBodyInstance()
