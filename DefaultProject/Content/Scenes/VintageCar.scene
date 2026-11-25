@@ -4,8 +4,8 @@
   "PersistentLevel": {
    "Actors": [
     {
-     "Class": "AVintageRacingCar",
-     "Name": "AVintageRacingCar_0",
+     "Class": "ARedBuggy",
+     "Name": "ARedBuggy_0",
      "ParentActor": "",
      "ParentComponent": "",
      "Properties": {
@@ -24,7 +24,7 @@
          "Location": {
           "X": -39.515928571428574,
           "Y": 146.5357142857143,
-          "Z": 0.860000416636467
+          "Z": 1.1
          },
          "Rotation": {
           "Pitch": 0,
@@ -10789,6 +10789,1073 @@
       "bActorEnableCollision": true
      },
      "RootComponentName": "USkyLightComponent"
+    },
+    {
+     "Class": "AStaticMeshActor",
+     "Name": "Test_SpeedBump0",
+     "ParentActor": "",
+     "ParentComponent": "",
+     "Properties": {
+      "ScriptPath": "",
+      "bActorEnableCollision": true
+     },
+     "RootComponentName": "DefaultSceneRoot",
+     "Components": [
+      {
+       "Class": "USceneComponent",
+       "DefaultSubobjectName": "DefaultSceneRoot",
+       "Name": "DefaultSceneRoot",
+       "Parent": "",
+       "Properties": {
+        "Transform": {
+         "Location": {
+          "X": -39.5,
+          "Y": 136.0,
+          "Z": 0.11
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0.0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 7.0,
+          "Y": 0.8,
+          "Z": 0.24
+         }
+        }
+       }
+      },
+      {
+       "Class": "UStaticMeshComponent",
+       "DefaultSubobjectName": "UStaticMeshComponent",
+       "Name": "UStaticMeshComponent",
+       "Parent": "DefaultSceneRoot",
+       "OverrideMaterials": [
+        {
+         "Base": "DefaultMaterial",
+         "Instance": {
+          "BaseColor": {
+           "W": 1.0,
+           "X": 0.95,
+           "Y": 0.75,
+           "Z": 0.1
+          },
+          "BlendState": "Opaque",
+          "FlipNormalY": false,
+          "PSOType": 0,
+          "Properties": {},
+          "SamplerState": "LinearClamp",
+          "Shininess": 8.0,
+          "SpecularColor": {
+           "X": 0.08,
+           "Y": 0.08,
+           "Z": 0.08
+          },
+          "Textures": [
+           "WhiteTexture",
+           "FlatNormalTexture"
+          ],
+          "UVScrollSpeed": [
+           0.0,
+           0.0
+          ]
+         }
+        }
+       ],
+       "Properties": {
+        "StaticMesh": "Cube",
+        "Transform": {
+         "Location": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 1,
+          "Y": 1,
+          "Z": 1
+         }
+        },
+        "bBlockComponent": true
+       }
+      }
+     ]
+    },
+    {
+     "Class": "AStaticMeshActor",
+     "Name": "Test_SpeedBump1",
+     "ParentActor": "",
+     "ParentComponent": "",
+     "Properties": {
+      "ScriptPath": "",
+      "bActorEnableCollision": true
+     },
+     "RootComponentName": "DefaultSceneRoot",
+     "Components": [
+      {
+       "Class": "USceneComponent",
+       "DefaultSubobjectName": "DefaultSceneRoot",
+       "Name": "DefaultSceneRoot",
+       "Parent": "",
+       "Properties": {
+        "Transform": {
+         "Location": {
+          "X": -39.5,
+          "Y": 131.0,
+          "Z": 0.11
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0.0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 7.0,
+          "Y": 0.8,
+          "Z": 0.24
+         }
+        }
+       }
+      },
+      {
+       "Class": "UStaticMeshComponent",
+       "DefaultSubobjectName": "UStaticMeshComponent",
+       "Name": "UStaticMeshComponent",
+       "Parent": "DefaultSceneRoot",
+       "OverrideMaterials": [
+        {
+         "Base": "DefaultMaterial",
+         "Instance": {
+          "BaseColor": {
+           "W": 1.0,
+           "X": 0.15,
+           "Y": 0.15,
+           "Z": 0.17
+          },
+          "BlendState": "Opaque",
+          "FlipNormalY": false,
+          "PSOType": 0,
+          "Properties": {},
+          "SamplerState": "LinearClamp",
+          "Shininess": 8.0,
+          "SpecularColor": {
+           "X": 0.08,
+           "Y": 0.08,
+           "Z": 0.08
+          },
+          "Textures": [
+           "WhiteTexture",
+           "FlatNormalTexture"
+          ],
+          "UVScrollSpeed": [
+           0.0,
+           0.0
+          ]
+         }
+        }
+       ],
+       "Properties": {
+        "StaticMesh": "Cube",
+        "Transform": {
+         "Location": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 1,
+          "Y": 1,
+          "Z": 1
+         }
+        },
+        "bBlockComponent": true
+       }
+      }
+     ]
+    },
+    {
+     "Class": "AStaticMeshActor",
+     "Name": "Test_SpeedBump2",
+     "ParentActor": "",
+     "ParentComponent": "",
+     "Properties": {
+      "ScriptPath": "",
+      "bActorEnableCollision": true
+     },
+     "RootComponentName": "DefaultSceneRoot",
+     "Components": [
+      {
+       "Class": "USceneComponent",
+       "DefaultSubobjectName": "DefaultSceneRoot",
+       "Name": "DefaultSceneRoot",
+       "Parent": "",
+       "Properties": {
+        "Transform": {
+         "Location": {
+          "X": -39.5,
+          "Y": 126.0,
+          "Z": 0.11
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0.0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 7.0,
+          "Y": 0.8,
+          "Z": 0.24
+         }
+        }
+       }
+      },
+      {
+       "Class": "UStaticMeshComponent",
+       "DefaultSubobjectName": "UStaticMeshComponent",
+       "Name": "UStaticMeshComponent",
+       "Parent": "DefaultSceneRoot",
+       "OverrideMaterials": [
+        {
+         "Base": "DefaultMaterial",
+         "Instance": {
+          "BaseColor": {
+           "W": 1.0,
+           "X": 0.95,
+           "Y": 0.75,
+           "Z": 0.1
+          },
+          "BlendState": "Opaque",
+          "FlipNormalY": false,
+          "PSOType": 0,
+          "Properties": {},
+          "SamplerState": "LinearClamp",
+          "Shininess": 8.0,
+          "SpecularColor": {
+           "X": 0.08,
+           "Y": 0.08,
+           "Z": 0.08
+          },
+          "Textures": [
+           "WhiteTexture",
+           "FlatNormalTexture"
+          ],
+          "UVScrollSpeed": [
+           0.0,
+           0.0
+          ]
+         }
+        }
+       ],
+       "Properties": {
+        "StaticMesh": "Cube",
+        "Transform": {
+         "Location": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 1,
+          "Y": 1,
+          "Z": 1
+         }
+        },
+        "bBlockComponent": true
+       }
+      }
+     ]
+    },
+    {
+     "Class": "AStaticMeshActor",
+     "Name": "Test_SpeedBump3",
+     "ParentActor": "",
+     "ParentComponent": "",
+     "Properties": {
+      "ScriptPath": "",
+      "bActorEnableCollision": true
+     },
+     "RootComponentName": "DefaultSceneRoot",
+     "Components": [
+      {
+       "Class": "USceneComponent",
+       "DefaultSubobjectName": "DefaultSceneRoot",
+       "Name": "DefaultSceneRoot",
+       "Parent": "",
+       "Properties": {
+        "Transform": {
+         "Location": {
+          "X": -39.5,
+          "Y": 121.0,
+          "Z": 0.11
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0.0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 7.0,
+          "Y": 0.8,
+          "Z": 0.24
+         }
+        }
+       }
+      },
+      {
+       "Class": "UStaticMeshComponent",
+       "DefaultSubobjectName": "UStaticMeshComponent",
+       "Name": "UStaticMeshComponent",
+       "Parent": "DefaultSceneRoot",
+       "OverrideMaterials": [
+        {
+         "Base": "DefaultMaterial",
+         "Instance": {
+          "BaseColor": {
+           "W": 1.0,
+           "X": 0.15,
+           "Y": 0.15,
+           "Z": 0.17
+          },
+          "BlendState": "Opaque",
+          "FlipNormalY": false,
+          "PSOType": 0,
+          "Properties": {},
+          "SamplerState": "LinearClamp",
+          "Shininess": 8.0,
+          "SpecularColor": {
+           "X": 0.08,
+           "Y": 0.08,
+           "Z": 0.08
+          },
+          "Textures": [
+           "WhiteTexture",
+           "FlatNormalTexture"
+          ],
+          "UVScrollSpeed": [
+           0.0,
+           0.0
+          ]
+         }
+        }
+       ],
+       "Properties": {
+        "StaticMesh": "Cube",
+        "Transform": {
+         "Location": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 1,
+          "Y": 1,
+          "Z": 1
+         }
+        },
+        "bBlockComponent": true
+       }
+      }
+     ]
+    },
+    {
+     "Class": "AStaticMeshActor",
+     "Name": "Test_Washboard0",
+     "ParentActor": "",
+     "ParentComponent": "",
+     "Properties": {
+      "ScriptPath": "",
+      "bActorEnableCollision": true
+     },
+     "RootComponentName": "DefaultSceneRoot",
+     "Components": [
+      {
+       "Class": "USceneComponent",
+       "DefaultSubobjectName": "DefaultSceneRoot",
+       "Name": "DefaultSceneRoot",
+       "Parent": "",
+       "Properties": {
+        "Transform": {
+         "Location": {
+          "X": -40.8,
+          "Y": 114.0,
+          "Z": 0.11
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0.0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 2.6,
+          "Y": 0.7,
+          "Z": 0.3
+         }
+        }
+       }
+      },
+      {
+       "Class": "UStaticMeshComponent",
+       "DefaultSubobjectName": "UStaticMeshComponent",
+       "Name": "UStaticMeshComponent",
+       "Parent": "DefaultSceneRoot",
+       "OverrideMaterials": [
+        {
+         "Base": "DefaultMaterial",
+         "Instance": {
+          "BaseColor": {
+           "W": 1.0,
+           "X": 0.15,
+           "Y": 0.15,
+           "Z": 0.17
+          },
+          "BlendState": "Opaque",
+          "FlipNormalY": false,
+          "PSOType": 0,
+          "Properties": {},
+          "SamplerState": "LinearClamp",
+          "Shininess": 8.0,
+          "SpecularColor": {
+           "X": 0.08,
+           "Y": 0.08,
+           "Z": 0.08
+          },
+          "Textures": [
+           "WhiteTexture",
+           "FlatNormalTexture"
+          ],
+          "UVScrollSpeed": [
+           0.0,
+           0.0
+          ]
+         }
+        }
+       ],
+       "Properties": {
+        "StaticMesh": "Cube",
+        "Transform": {
+         "Location": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 1,
+          "Y": 1,
+          "Z": 1
+         }
+        },
+        "bBlockComponent": true
+       }
+      }
+     ]
+    },
+    {
+     "Class": "AStaticMeshActor",
+     "Name": "Test_Washboard1",
+     "ParentActor": "",
+     "ParentComponent": "",
+     "Properties": {
+      "ScriptPath": "",
+      "bActorEnableCollision": true
+     },
+     "RootComponentName": "DefaultSceneRoot",
+     "Components": [
+      {
+       "Class": "USceneComponent",
+       "DefaultSubobjectName": "DefaultSceneRoot",
+       "Name": "DefaultSceneRoot",
+       "Parent": "",
+       "Properties": {
+        "Transform": {
+         "Location": {
+          "X": -38.2,
+          "Y": 111.8,
+          "Z": 0.11
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0.0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 2.6,
+          "Y": 0.7,
+          "Z": 0.3
+         }
+        }
+       }
+      },
+      {
+       "Class": "UStaticMeshComponent",
+       "DefaultSubobjectName": "UStaticMeshComponent",
+       "Name": "UStaticMeshComponent",
+       "Parent": "DefaultSceneRoot",
+       "OverrideMaterials": [
+        {
+         "Base": "DefaultMaterial",
+         "Instance": {
+          "BaseColor": {
+           "W": 1.0,
+           "X": 0.95,
+           "Y": 0.75,
+           "Z": 0.1
+          },
+          "BlendState": "Opaque",
+          "FlipNormalY": false,
+          "PSOType": 0,
+          "Properties": {},
+          "SamplerState": "LinearClamp",
+          "Shininess": 8.0,
+          "SpecularColor": {
+           "X": 0.08,
+           "Y": 0.08,
+           "Z": 0.08
+          },
+          "Textures": [
+           "WhiteTexture",
+           "FlatNormalTexture"
+          ],
+          "UVScrollSpeed": [
+           0.0,
+           0.0
+          ]
+         }
+        }
+       ],
+       "Properties": {
+        "StaticMesh": "Cube",
+        "Transform": {
+         "Location": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 1,
+          "Y": 1,
+          "Z": 1
+         }
+        },
+        "bBlockComponent": true
+       }
+      }
+     ]
+    },
+    {
+     "Class": "AStaticMeshActor",
+     "Name": "Test_Washboard2",
+     "ParentActor": "",
+     "ParentComponent": "",
+     "Properties": {
+      "ScriptPath": "",
+      "bActorEnableCollision": true
+     },
+     "RootComponentName": "DefaultSceneRoot",
+     "Components": [
+      {
+       "Class": "USceneComponent",
+       "DefaultSubobjectName": "DefaultSceneRoot",
+       "Name": "DefaultSceneRoot",
+       "Parent": "",
+       "Properties": {
+        "Transform": {
+         "Location": {
+          "X": -40.8,
+          "Y": 109.6,
+          "Z": 0.11
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0.0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 2.6,
+          "Y": 0.7,
+          "Z": 0.3
+         }
+        }
+       }
+      },
+      {
+       "Class": "UStaticMeshComponent",
+       "DefaultSubobjectName": "UStaticMeshComponent",
+       "Name": "UStaticMeshComponent",
+       "Parent": "DefaultSceneRoot",
+       "OverrideMaterials": [
+        {
+         "Base": "DefaultMaterial",
+         "Instance": {
+          "BaseColor": {
+           "W": 1.0,
+           "X": 0.15,
+           "Y": 0.15,
+           "Z": 0.17
+          },
+          "BlendState": "Opaque",
+          "FlipNormalY": false,
+          "PSOType": 0,
+          "Properties": {},
+          "SamplerState": "LinearClamp",
+          "Shininess": 8.0,
+          "SpecularColor": {
+           "X": 0.08,
+           "Y": 0.08,
+           "Z": 0.08
+          },
+          "Textures": [
+           "WhiteTexture",
+           "FlatNormalTexture"
+          ],
+          "UVScrollSpeed": [
+           0.0,
+           0.0
+          ]
+         }
+        }
+       ],
+       "Properties": {
+        "StaticMesh": "Cube",
+        "Transform": {
+         "Location": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 1,
+          "Y": 1,
+          "Z": 1
+         }
+        },
+        "bBlockComponent": true
+       }
+      }
+     ]
+    },
+    {
+     "Class": "AStaticMeshActor",
+     "Name": "Test_Washboard3",
+     "ParentActor": "",
+     "ParentComponent": "",
+     "Properties": {
+      "ScriptPath": "",
+      "bActorEnableCollision": true
+     },
+     "RootComponentName": "DefaultSceneRoot",
+     "Components": [
+      {
+       "Class": "USceneComponent",
+       "DefaultSubobjectName": "DefaultSceneRoot",
+       "Name": "DefaultSceneRoot",
+       "Parent": "",
+       "Properties": {
+        "Transform": {
+         "Location": {
+          "X": -38.2,
+          "Y": 107.4,
+          "Z": 0.11
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0.0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 2.6,
+          "Y": 0.7,
+          "Z": 0.3
+         }
+        }
+       }
+      },
+      {
+       "Class": "UStaticMeshComponent",
+       "DefaultSubobjectName": "UStaticMeshComponent",
+       "Name": "UStaticMeshComponent",
+       "Parent": "DefaultSceneRoot",
+       "OverrideMaterials": [
+        {
+         "Base": "DefaultMaterial",
+         "Instance": {
+          "BaseColor": {
+           "W": 1.0,
+           "X": 0.95,
+           "Y": 0.75,
+           "Z": 0.1
+          },
+          "BlendState": "Opaque",
+          "FlipNormalY": false,
+          "PSOType": 0,
+          "Properties": {},
+          "SamplerState": "LinearClamp",
+          "Shininess": 8.0,
+          "SpecularColor": {
+           "X": 0.08,
+           "Y": 0.08,
+           "Z": 0.08
+          },
+          "Textures": [
+           "WhiteTexture",
+           "FlatNormalTexture"
+          ],
+          "UVScrollSpeed": [
+           0.0,
+           0.0
+          ]
+         }
+        }
+       ],
+       "Properties": {
+        "StaticMesh": "Cube",
+        "Transform": {
+         "Location": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 1,
+          "Y": 1,
+          "Z": 1
+         }
+        },
+        "bBlockComponent": true
+       }
+      }
+     ]
+    },
+    {
+     "Class": "AStaticMeshActor",
+     "Name": "Test_Washboard4",
+     "ParentActor": "",
+     "ParentComponent": "",
+     "Properties": {
+      "ScriptPath": "",
+      "bActorEnableCollision": true
+     },
+     "RootComponentName": "DefaultSceneRoot",
+     "Components": [
+      {
+       "Class": "USceneComponent",
+       "DefaultSubobjectName": "DefaultSceneRoot",
+       "Name": "DefaultSceneRoot",
+       "Parent": "",
+       "Properties": {
+        "Transform": {
+         "Location": {
+          "X": -40.8,
+          "Y": 105.2,
+          "Z": 0.11
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0.0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 2.6,
+          "Y": 0.7,
+          "Z": 0.3
+         }
+        }
+       }
+      },
+      {
+       "Class": "UStaticMeshComponent",
+       "DefaultSubobjectName": "UStaticMeshComponent",
+       "Name": "UStaticMeshComponent",
+       "Parent": "DefaultSceneRoot",
+       "OverrideMaterials": [
+        {
+         "Base": "DefaultMaterial",
+         "Instance": {
+          "BaseColor": {
+           "W": 1.0,
+           "X": 0.15,
+           "Y": 0.15,
+           "Z": 0.17
+          },
+          "BlendState": "Opaque",
+          "FlipNormalY": false,
+          "PSOType": 0,
+          "Properties": {},
+          "SamplerState": "LinearClamp",
+          "Shininess": 8.0,
+          "SpecularColor": {
+           "X": 0.08,
+           "Y": 0.08,
+           "Z": 0.08
+          },
+          "Textures": [
+           "WhiteTexture",
+           "FlatNormalTexture"
+          ],
+          "UVScrollSpeed": [
+           0.0,
+           0.0
+          ]
+         }
+        }
+       ],
+       "Properties": {
+        "StaticMesh": "Cube",
+        "Transform": {
+         "Location": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 1,
+          "Y": 1,
+          "Z": 1
+         }
+        },
+        "bBlockComponent": true
+       }
+      }
+     ]
+    },
+    {
+     "Class": "AStaticMeshActor",
+     "Name": "Test_Washboard5",
+     "ParentActor": "",
+     "ParentComponent": "",
+     "Properties": {
+      "ScriptPath": "",
+      "bActorEnableCollision": true
+     },
+     "RootComponentName": "DefaultSceneRoot",
+     "Components": [
+      {
+       "Class": "USceneComponent",
+       "DefaultSubobjectName": "DefaultSceneRoot",
+       "Name": "DefaultSceneRoot",
+       "Parent": "",
+       "Properties": {
+        "Transform": {
+         "Location": {
+          "X": -38.2,
+          "Y": 103.0,
+          "Z": 0.11
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0.0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 2.6,
+          "Y": 0.7,
+          "Z": 0.3
+         }
+        }
+       }
+      },
+      {
+       "Class": "UStaticMeshComponent",
+       "DefaultSubobjectName": "UStaticMeshComponent",
+       "Name": "UStaticMeshComponent",
+       "Parent": "DefaultSceneRoot",
+       "OverrideMaterials": [
+        {
+         "Base": "DefaultMaterial",
+         "Instance": {
+          "BaseColor": {
+           "W": 1.0,
+           "X": 0.95,
+           "Y": 0.75,
+           "Z": 0.1
+          },
+          "BlendState": "Opaque",
+          "FlipNormalY": false,
+          "PSOType": 0,
+          "Properties": {},
+          "SamplerState": "LinearClamp",
+          "Shininess": 8.0,
+          "SpecularColor": {
+           "X": 0.08,
+           "Y": 0.08,
+           "Z": 0.08
+          },
+          "Textures": [
+           "WhiteTexture",
+           "FlatNormalTexture"
+          ],
+          "UVScrollSpeed": [
+           0.0,
+           0.0
+          ]
+         }
+        }
+       ],
+       "Properties": {
+        "StaticMesh": "Cube",
+        "Transform": {
+         "Location": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 1,
+          "Y": 1,
+          "Z": 1
+         }
+        },
+        "bBlockComponent": true
+       }
+      }
+     ]
+    },
+    {
+     "Class": "AStaticMeshActor",
+     "Name": "Test_JumpRamp",
+     "ParentActor": "",
+     "ParentComponent": "",
+     "Properties": {
+      "ScriptPath": "",
+      "bActorEnableCollision": true
+     },
+     "RootComponentName": "DefaultSceneRoot",
+     "Components": [
+      {
+       "Class": "USceneComponent",
+       "DefaultSubobjectName": "DefaultSceneRoot",
+       "Name": "DefaultSceneRoot",
+       "Parent": "",
+       "Properties": {
+        "Transform": {
+         "Location": {
+          "X": -39.5,
+          "Y": 85.0,
+          "Z": 0.6932719700497485
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": -15.0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 5.0,
+          "Y": 6.0,
+          "Z": 0.4
+         }
+        }
+       }
+      },
+      {
+       "Class": "UStaticMeshComponent",
+       "DefaultSubobjectName": "UStaticMeshComponent",
+       "Name": "UStaticMeshComponent",
+       "Parent": "DefaultSceneRoot",
+       "OverrideMaterials": [
+        {
+         "Base": "DefaultMaterial",
+         "Instance": {
+          "BaseColor": {
+           "W": 1.0,
+           "X": 0.85,
+           "Y": 0.25,
+           "Z": 0.2
+          },
+          "BlendState": "Opaque",
+          "FlipNormalY": false,
+          "PSOType": 0,
+          "Properties": {},
+          "SamplerState": "LinearClamp",
+          "Shininess": 8.0,
+          "SpecularColor": {
+           "X": 0.08,
+           "Y": 0.08,
+           "Z": 0.08
+          },
+          "Textures": [
+           "WhiteTexture",
+           "FlatNormalTexture"
+          ],
+          "UVScrollSpeed": [
+           0.0,
+           0.0
+          ]
+         }
+        }
+       ],
+       "Properties": {
+        "StaticMesh": "Cube",
+        "Transform": {
+         "Location": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+         },
+         "Rotation": {
+          "Pitch": 0,
+          "Roll": 0,
+          "Yaw": 0
+         },
+         "Scale": {
+          "X": 1,
+          "Y": 1,
+          "Z": 1
+         }
+        },
+        "bBlockComponent": true
+       }
+      }
+     ]
     }
    ],
    "Properties": {}

@@ -74,6 +74,11 @@ public:
 	UPROPERTY(EditAnywhere)
 	float WheelMass = 20.0f;
 
+	// 타이어 종방향 강성(중력 1당). 구동·제동 힘을 얼마나 적은 미끄러짐으로 땅에 전달하는지 정한다.
+	// 낮으면 같은 힘을 내려고 바퀴가 더 헛돈다(가속 중 바퀴 둘레 속도가 차 속도보다 눈에 띄게 빠르다).
+	UPROPERTY(EditAnywhere)
+	float TireLongStiffness = 1000.0f;
+
 	// ---- 뒷바퀴가 앞바퀴와 다를 때 (bSeparateRearWheels가 true일 때만 쓴다) ----
 	// false면 뒷바퀴도 WheelHalfTrack·WheelCenterZ·WheelRadius·WheelWidth를 쓴다.
 	UPROPERTY(EditAnywhere)

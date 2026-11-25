@@ -73,11 +73,19 @@ public:
 	UPROPERTY(EditAnywhere)
 	bool bPinTopEdge = true;         // 윗변 정점을 고정한다
 
+	// 강성(Stiffness): Solver가 한 번 반복할 때 구속 오차를 얼마나 메우는지 [0, 1]. 1이면 매번 쉬는 길이로 완전히 되돌린다.
+	// 쿠커가 만든 Phase 4종(세로·가로·대각선·굽힘)에 각각 따로 준다.
 	UPROPERTY(EditAnywhere)
-	float StretchStiffness = 1.0f;
+	float VerticalStiffness = 1.0f;  // 세로(중력 방향) 구속. 낮을수록 아래로 늘어진다
 
 	UPROPERTY(EditAnywhere)
-	float BendStiffness = 0.5f;
+	float HorizontalStiffness = 1.0f; // 가로(중력에 수직) 구속. 낮을수록 옆으로 벌어진다
+
+	UPROPERTY(EditAnywhere)
+	float ShearStiffness = 1.0f;     // 대각선 구속. 낮을수록 마름모로 찌그러져 천이 비스듬히 잘 늘어진다
+
+	UPROPERTY(EditAnywhere)
+	float BendStiffness = 0.5f;      // 굽힘 구속. 낮을수록 실크처럼 잘 접히고, 높을수록 가죽처럼 뻣뻣하다
 
 	UPROPERTY(EditAnywhere)
 	float Damping = 0.1f;

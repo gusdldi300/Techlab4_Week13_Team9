@@ -77,8 +77,15 @@ bool FClothInstance::Init(const FClothInstanceInitParams& Params, FPhysicsScene*
 	for (uint32 i = 0; i < Phases.size(); ++i)
 	{
 		Phases[i].mPhaseIndex = static_cast<uint16_t>(i);
-		const bool bBending = i < PhaseTypes.size() && PhaseTypes[i] == nv::cloth::ClothFabricPhaseType::eBENDING;
-		Phases[i].mStiffness = bBending ? Params.BendStiffness : Params.StretchStiffness;
+		// Phase 종류마다 강성을 따로 준다. 세로·가로는 늘어남, 대각선은 찌그러짐, 굽힘은 접힘에 저항한다.
+		const int32_t Type = i < PhaseTypes.size() ? PhaseTypes[i] : nv::cloth::ClothFabricPhaseType::eINVALID;
+		switch (Type)
+		{
+		case nv::cloth::ClothFabricPhaseType::eBENDING:  Phases[i].mStiffness = Params.BendStiffness;    break;
+		case nv::cloth::ClothFabricPhaseType::eSHEARING: Phases[i].mStiffness = Params.ShearStiffness;   break;
+		case nv::cloth::ClothFabricPhaseType::eVERTICAL: Phases[i].mStiffness = Params.VerticalStiffness; break;
+		default:                                         Phases[i].mStiffness = Params.HorizontalStiffness; break;
+		}
 		Phases[i].mStiffnessMultiplier = 1.0f;
 		Phases[i].mCompressionLimit = 1.0f;
 		Phases[i].mStretchLimit = 1.0f;

@@ -48,7 +48,8 @@ ASonicCapeCharacter::ASonicCapeCharacter()
 	CapeComponent->NumY = 13;            // 세로 정점 수 → 0.6m
 	CapeComponent->Spacing = 0.05f;
 	CapeComponent->bPinTopEdge = true;
-	CapeComponent->StretchStiffness = 1.0f;
+	CapeComponent->VerticalStiffness = 1.0f;
+	CapeComponent->HorizontalStiffness = 1.0f;
 	CapeComponent->BendStiffness = 0.3f;  // 낮을수록 잘 접힌다
 	CapeComponent->Damping = 0.05f;
 	CapeComponent->WindGust = 0.35f;

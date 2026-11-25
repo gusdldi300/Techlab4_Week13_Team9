@@ -100,6 +100,13 @@ void UPrimitiveComponent::DestroyPhysicsState()
 	BodyInstance.TermBody();
 }
 
+void UPrimitiveComponent::RecreatePhysicsState()
+{
+	if (!IsRegistered()) return;
+	DestroyPhysicsState();
+	CreatePhysicsState();
+}
+
 void UPrimitiveComponent::BeginPlay()
 {
 	Super::BeginPlay();

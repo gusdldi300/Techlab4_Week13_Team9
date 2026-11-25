@@ -10,6 +10,9 @@ physx::PxFoundation*            FPhysicsCore::gFoundation = nullptr;
 physx::PxDefaultAllocator       FPhysicsCore::gAllocator;
 physx::PxDefaultErrorCallback   FPhysicsCore::gErrorCallback;
 physx::PxPvd*                   FPhysicsCore::gPvd = nullptr;
+
+// PxInitExtensions가 성공했는지. 성공한 경우에만 PxCloseExtensions를 부른다.
+static bool bExtensionsInitialized = false;
 physx::PxPvdTransport*          FPhysicsCore::gTransport = nullptr;
 physx::PxPhysics*               FPhysicsCore::gPhysics = nullptr;
 physx::PxDefaultCpuDispatcher*  FPhysicsCore::gDispatcher = nullptr;
@@ -71,7 +74,15 @@ bool FPhysicsCore::InitPhysX()
         return false;
     }
 
-    gDispatcher = PxDefaultCpuDispatcherCreate(4);
+    // 관절(PxD6Joint 등)은 PhysXExtensions에 있다. 이 초기화로 관절 타입이 PVD에 등록된다.
+    // 빠지면 PVD가 연결된 상태에서 관절을 만들 때 "isInstanceValid" 어서션으로 멈춘다(래그돌 BeginPlay).
+    bExtensionsInitialized = PxInitExtensions(*gPhysics, gPvd);
+    if (!bExtensionsInitialized)
+    {
+        KRS_LOG(Warning, "[Physics] PxInitExtensions failed. Joints may not appear in PVD");
+    }
+
+    gDispatcher =PxDefaultCpuDispatcherCreate(4);
     if (!gDispatcher)
     {
         KRS_LOG(Error, "[Physics] PxDefaultCpuDispatcherCreate failed");
@@ -136,6 +147,13 @@ void FPhysicsCore::ShutdownPhysX()
     {
         physx::PxCloseVehicleSDK();
         bVehicleSDKInitialized = false;
+    }
+
+    // 확장도 PxPhysics에 붙어 있으므로 Physics보다 먼저 닫는다.
+    if (bExtensionsInitialized)
+    {
+        PxCloseExtensions();
+        bExtensionsInitialized = false;
     }
 
     if (gPhysics)

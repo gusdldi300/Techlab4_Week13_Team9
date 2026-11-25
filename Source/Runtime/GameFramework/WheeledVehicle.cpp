@@ -7,7 +7,6 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/VehicleWheel.h"
 #include "Components/WheeledVehicleMovementComponent4W.h"
-#include "Components/SkidMarkComponent.h"
 #include "Asset/AssetManager.h"
 #include "Input/KeyCode.h"
 #include <string>
@@ -39,9 +38,6 @@ AWheeledVehicle::AWheeledVehicle()
 	}
 
 	VehicleMovement = CreateDefaultSubobject<UWheeledVehicleMovementComponent4W>("VehicleMovement");
-
-	SkidMarks = CreateDefaultSubobject<USkidMarkComponent>("SkidMarks");
-	SkidMarks->SetVehicleMovement(VehicleMovement);
 
 	// 차 뒤 위에서 따라가는 카메라. 차가 기울어도 화면이 같이 구르지 않게 Yaw만 따른다.
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>("SpringArm");

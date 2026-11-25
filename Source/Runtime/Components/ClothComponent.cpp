@@ -277,7 +277,9 @@ void UClothComponent::CreateClothState()
 	Params.Indices = Indices;
 	Params.WorldLocation = GetWorldLocation();
 	Params.WorldRotation = GetWorldRotation().Quaternion();
-	Params.StretchStiffness = StretchStiffness;
+	Params.VerticalStiffness = VerticalStiffness;
+	Params.HorizontalStiffness = HorizontalStiffness;
+	Params.ShearStiffness = ShearStiffness;
 	Params.BendStiffness = BendStiffness;
 	Params.Damping = Damping;
 	Params.SolverFrequency = SolverFrequency;
@@ -321,7 +323,7 @@ void UClothComponent::PostEditChangeProperty(const FProperty& Property)
 {
 	Super::PostEditChangeProperty(Property);
 	if (Property.Name == "NumX" || Property.Name == "NumY" || Property.Name == "Spacing" ||
-		Property.Name == "bPinTopEdge" || Property.Name == "bFlagLayout" || Property.Name == "StretchStiffness" || Property.Name == "BendStiffness" ||
+		Property.Name == "bPinTopEdge" || Property.Name == "bFlagLayout" || Property.Name == "VerticalStiffness" || Property.Name == "HorizontalStiffness" ||Property.Name == "ShearStiffness" || Property.Name == "BendStiffness" ||
 		Property.Name == "Damping" || Property.Name == "SolverFrequency" ||
 		Property.Name == "SourceMeshPath" || Property.Name == "SourceMeshScale")
 	{

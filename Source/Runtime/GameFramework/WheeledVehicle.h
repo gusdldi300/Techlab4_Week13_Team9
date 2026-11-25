@@ -8,7 +8,6 @@ class UStaticMeshComponent;
 class UWheeledVehicleMovementComponent4W;
 class USpringArmComponent;
 class UCameraComponent;
-class USkidMarkComponent;
 
 // 레벨에 놓는 4륜 차. 언리얼 PhysXVehicles의 AWheeledVehicle에 대응한다.
 //
@@ -39,7 +38,6 @@ public:
 
 	UBoxComponent* GetCollisionBox() const { return CollisionBox; }
 	UWheeledVehicleMovementComponent4W* GetVehicleMovement() const { return VehicleMovement; }
-	USkidMarkComponent* GetSkidMarks() const { return SkidMarks; }
 
 protected:
 	// 모델 메시 경로(Import 결과). 기본은 Cutlass다. 다른 차는 생성자에서 이 값과 이동 컴포넌트 치수를 바꾼 뒤
@@ -75,6 +73,4 @@ private:
 	UWheeledVehicleMovementComponent4W* VehicleMovement = nullptr;
 	USpringArmComponent* SpringArm = nullptr;
 	UCameraComponent* Camera = nullptr;
-	// 미끄러질 때 바퀴 자국 데칼을 찍는다. 이 차가 소유하고(합성), 이동 컴포넌트의 바퀴 상태를 읽는다.
-	USkidMarkComponent* SkidMarks = nullptr;
 };

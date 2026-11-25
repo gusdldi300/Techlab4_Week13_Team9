@@ -1,6 +1,7 @@
 #include "EnginePCH.h"
 #include "PhysXVehicleManager.h"
 #include "PhysicsCore.h"
+#include "PhysicsFiltering.h"
 #include "Components/WheeledVehicleMovementComponent.h"
 #include <PxPhysicsAPI.h>
 #include <vehicle/PxVehicleSDK.h>
@@ -12,8 +13,10 @@ using namespace physx;
 
 namespace
 {
-	// 차체 Shape의 쿼리 필터 word3에 남기는 표시. 엔진의 다른 쿼리는 필터 데이터를 쓰지 않으므로 영향이 없다.
-	constexpr PxU32 ChassisShapeFlag = 0x0000ffffu;
+	// 차체 Shape의 쿼리 필터 word3에 남기는 표시. word3은 위 8비트가 채널, 아래 24비트가 플래그다(PhysicsFiltering.h).
+	// 다른 플래그(접촉 알림 등)와 겹치지 않는 전용 비트만 써야 한다. 아래 16비트 전체를 표시로 쓰면
+	// 접촉 알림 비트가 켜진 모든 Shape(땅 포함)가 차체로 보여 바퀴 레이가 아무것도 맞히지 못한다.
+	constexpr PxU32 ChassisShapeFlag = CFF_VehicleChassis;
 
 	// 바퀴 레이가 맞힐 후보를 고른다. filterData1이 맞을 수 있는 Shape의 쿼리 필터 데이터다.
 	PxQueryHitType::Enum WheelRaycastPreFilter(

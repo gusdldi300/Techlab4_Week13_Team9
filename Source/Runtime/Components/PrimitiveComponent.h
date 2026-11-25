@@ -130,6 +130,10 @@ public:
 	void EndComponentOverlap(UPrimitiveComponent* OtherComp);
 	void DispatchHit(UPrimitiveComponent* OtherComp, const FHitResult & HitResult);
 
+	// 등록된 뒤 위치나 설정이 바뀌었을 때 바디를 지금 상태로 다시 만든다. (언리얼의 RecreatePhysicsState)
+	// 씬 파일 로드처럼 등록(바디 생성)이 저장된 Transform을 읽기 전에 일어나는 경우에 쓴다.
+	void RecreatePhysicsState();
+
 protected:
 	virtual void OnRegister() override;
 	virtual void OnUnregister() override;

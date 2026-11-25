@@ -11,7 +11,8 @@ struct FCollisionFilterData {
 };
 
 enum ECollisionFilterFlag : uint32 {
-	CFF_ContactNotify = 0x01,	// 어디서 닿았는지 알림 
+	CFF_ContactNotify = 0x01,	// 어디서 닿았는지 알림
+	CFF_VehicleChassis = 0x02,	// 차량 차체 Shape(쿼리용). 바퀴 레이가 자기 차체를 맞히지 않게 거른다
 };
 
 static constexpr uint32 ChannelShift = 24;

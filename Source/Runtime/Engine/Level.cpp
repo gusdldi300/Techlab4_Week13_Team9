@@ -6,6 +6,7 @@
 // 전방 선언만으로는 C4150(소멸자 미호출)이 되어 액터가 GUObjectArray에 남는다.
 #include "GameFramework/Actor.h"
 #include "Components/ExponentialHeightFogComponent.h"
+#include "Components/PrimitiveComponent.h"
 
 void ULevel::AddActor(AActor* Actor)
 {
@@ -130,4 +131,19 @@ void ULevel::Serialize(FStructuredArchive::FRecord Record)
                     Pending.Child->GetRootComponent()->SetupAttachment(Parent, EAttachmentRule::KeepRelative);
                 break;
             }
+
+	// SpawnActor가 원점에서 컴포넌트를 등록하면서 바디를 이미 만들었다. 바디는 그 뒤에 읽은 Transform을 따라가지 않으므로,
+	// 저장된 위치·부착을 다 읽은 지금 다시 만든다. 다시 만들지 않으면 물리 Scene이 있는 월드(독립 실행 게임)에서
+	// 모든 충돌체가 원점에 겹쳐 생기고, 시뮬레이션하는 바디는 그 위치에서 출발한다.
+	// 에디터 월드는 물리 Scene이 없어 바디를 만들지 않으므로 아무 일도 하지 않는다.
+	if (OwningWorld->GetPhysicsScene())
+	{
+		for (AActor* Actor : Actors)
+		{
+			if (!Actor) continue;
+			for (UActorComponent* Component : Actor->GetComponents())
+				if (UPrimitiveComponent* Primitive = Cast<UPrimitiveComponent>(Component))
+					Primitive->RecreatePhysicsState();
+		}
+	}
 }

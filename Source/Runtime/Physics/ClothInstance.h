@@ -28,7 +28,9 @@ struct FClothInstanceInitParams
 	FQuat   WorldRotation;
 
 	FVector Gravity = FVector(0.0f, 0.0f, -9.81f);
-	float StretchStiffness = 1.0f;   // 가로·세로·대각선 구속
+	float VerticalStiffness = 1.0f;   // 세로 구속(eVERTICAL, 중력 방향). 낮을수록 아래로 늘어난다
+	float HorizontalStiffness = 1.0f; // 가로 구속(eHORIZONTAL, 중력에 수직). 낮을수록 옆으로 벌어진다
+	float ShearStiffness = 1.0f;     // 대각선 구속(eSHEARING). 낮을수록 마름모로 쉽게 찌그러진다
 	float BendStiffness = 0.5f;      // 접힘 구속. 낮을수록 실크, 높을수록 가죽처럼 보인다
 	float Damping = 0.1f;            // 0이면 감쇠 없음, 1이면 매 스텝 속도 0
 	float SolverFrequency = 120.0f;  // 1초당 구속 반복 횟수

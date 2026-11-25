@@ -116,6 +116,7 @@ void UWheeledVehicleMovementComponent::CreateVehicle()
 		Wheel->ShapeRadius = GetWheelRadius(i);
 		Wheel->ShapeWidth = GetWheelWidth(i);
 		Wheel->Mass = WheelMass;
+		Wheel->LongStiffValue = TireLongStiffness;
 		Wheel->SteerAngle = bFront ? MaxSteerAngle : 0.0f;
 		Wheel->MaxHandBrakeTorque = bFront ? 0.0f : MaxHandBrakeTorque;
 		Wheel->SuspensionMaxRaise = SuspensionMaxRaise;
@@ -202,12 +203,23 @@ PxVehicleWheels* UWheeledVehicleMovementComponent::SetupVehicle(PxRigidDynamic& 
 void UWheeledVehicleMovementComponent::PreSimulate(float DeltaTime)
 {
 	if (!PVehicle) return;
+
+	// 잠든 차체는 PxVehicleUpdates가 건너뛴다. 입력이 들어오면 먼저 깨워야 가속·조향이 먹는다.
+	PxRigidDynamic* Chassis = PVehicle->getRigidDynamicActor();
+	if (Chassis->isSleeping() && (RawThrottle != 0.0f || RawSteering != 0.0f))
+	{
+		Chassis->wakeUp();
+	}
 	UpdateSimulation(DeltaTime);
 }
 
 void UWheeledVehicleMovementComponent::PostSimulate(const PxVehicleWheelQueryResult& Result)
 {
 	if (!PVehicle) return;
+
+	// 차가 멈춰 차체가 잠들면 PxVehicleUpdates가 이 차를 건너뛰고, 결과는 기본값(localPose = 단위 변환)으로 남는다.
+	// 그대로 옮겨 적으면 바퀴가 차체 원점(몸체 안쪽)으로 순간 이동해 사라져 보인다. 잠든 동안은 마지막 상태를 유지한다.
+	if (PVehicle->getRigidDynamicActor()->isSleeping()) return;
 
 	bIsInAir = PxVehicleIsInAir(Result);
 
