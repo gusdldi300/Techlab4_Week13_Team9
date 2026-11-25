@@ -5,6 +5,9 @@
 #include "PhysicsDebugDraw.h"
 #include "BodyInstance.h"
 #include "Physics/PhysicsStats.h"
+#include <NvCloth/Factory.h> 
+#include <NvCloth/Solver.h>
+
 using namespace physx;
 
 namespace
@@ -50,6 +53,10 @@ std::unique_ptr<FPhysicsScene> MakePhysicsScene(bool bUseTemporalSolver)
 
 FPhysicsScene_PhysX::~FPhysicsScene_PhysX()
 {
+    // Solver는 천을 참조만 하고 지우지 않는다. 천 컴포넌트가 RemoveCloth로 먼저 빠져 있어야 한다.
+    delete ClothSolver;
+    ClothSolver = nullptr;
+
     // createScene이 실패했거나 호출되지 않았으면 null이다.
     if (PhysXScene)
     {
@@ -59,6 +66,8 @@ FPhysicsScene_PhysX::~FPhysicsScene_PhysX()
             PhysXScene->fetchResults(true);
             bSimulating = false;
         }
+        // 관리자가 가진 배치 쿼리는 이 Scene이 만든 객체이므로 Scene보다 먼저 release한다.
+        VehicleManager.reset();
         PhysXScene->release();
         PhysXScene = nullptr;
     }
@@ -96,7 +105,22 @@ void FPhysicsScene_PhysX::CreatePhysicsScene()
         Pvd->setScenePvdFlag(PxPvdSceneFlag::eTRANSMIT_SCENEQUERIES, true);
     }
 
+    if (FPhysicsCore::Get().IsVehicleSDKInitialized())
+    {
+        VehicleManager = std::make_unique<FPhysXVehicleManager>(PhysXScene);
+    }
+
     KRS_LOG(Info, "[Physics] Scene created");
+
+    // Solver를 못 만들어도 강체 물리는 그대로 둔다. 이 Scene에서 천만 동작하지 않는다.
+    if (nv::cloth::Factory* ClothFactory = FPhysicsCore::Get().GetClothFactory())
+    {
+        ClothSolver = ClothFactory->createSolver();
+    }
+    if (!ClothSolver)
+    {
+        KRS_LOG(Warning, "[NvCloth] createSolver failed. Cloth is disabled in this scene.");
+    }
 
 }
 
@@ -150,9 +174,31 @@ void FPhysicsScene_PhysX::BeginStep()
         // Scene을 바꾸는 호출은 쓰기 잠금 안에서 한다. 쓰기는 혼자만 할 수 있다.
         SCOPE_CYCLE_COUNTER(PhysicsStats::STAT_PhysicsSimulate);
         PxSceneWriteLock WriteLock(*PhysXScene);
+        // 차량은 이번 스텝에 차체가 받을 속도 변화를 simulate 전에 계산해야 한다.
+        // simulate 뒤로 미루면 서스펜션 힘이 한 스텝 늦게 들어가 스프링을 엇박자로 밀게 되고, 차가 점점 크게 출렁이다 튄다.
+        if (VehicleManager)
+        {
+            VehicleManager->Update(FixedStep);
+        }
         PhysXScene->simulate(FixedStep);
     }
     bSimulating = true;
+
+    // simulate는 바로 돌아오므로 PhysX 워커가 강체를 계산하는 동안 게임 스레드가 천을 계산한다.
+    StepCloth();
+}
+
+void FPhysicsScene_PhysX::StepCloth()
+{
+    if (!ClothSolver || ClothSolver->getNumCloths() == 0) return;
+
+    // begin~end 사이에는 천을 넣거나 뺄 수 없다. 이 함수 안에서 한 번에 끝내므로 컴포넌트 코드가 끼어들지 않는다.
+    ClothSolver->beginSimulation(FixedStep);
+    for (int i = 0; i < ClothSolver->getSimulationChunkCount(); ++i)
+    {
+        ClothSolver->simulateChunk(i);
+    }
+    ClothSolver->endSimulation();
 }
 
 void FPhysicsScene_PhysX::FinishStep()
@@ -239,5 +285,21 @@ void FPhysicsScene_PhysX::DrawDebugBodies(FLineBatcher* Lines) const
             FPhysicsDebugDraw::DrawActorShapes(Lines, Handle, FVector4(0.3f, 0.9f, 1.0f, 1.0f));
         }
         Offset += Read;
+    }
+}
+
+void FPhysicsScene_PhysX::AddCloth(const FClothHandle& Handle)
+{
+    if (ClothSolver && Handle.IsValid())
+    {
+        ClothSolver->addCloth(Handle.Cloth);
+    }
+}
+
+void FPhysicsScene_PhysX::RemoveCloth(const FClothHandle& Handle)
+{
+    if (ClothSolver && Handle.IsValid())
+    {
+        ClothSolver->removeCloth(Handle.Cloth);
     }
 }

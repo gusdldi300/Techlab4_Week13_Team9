@@ -48,8 +48,17 @@ public:
 	//해제는 바디 쪽에서 액터를 release하면 Scene에서도 자동으로 빠진다
 	virtual void AddActor(const FPhysicsActorHandle& Handle) = 0;
 
+	// 이 물리 세계의 차량 관리자. 차량을 지원하지 않는 구현은 nullptr을 돌려준다.
+	// 차량 컴포넌트가 자기를 등록할 때 쓴다. 소유권은 Scene에 있다.
+	virtual class FPhysXVehicleManager* GetVehicleManager() { return nullptr; }
+
 	// Debug rendering reads the completed simulation, including aggregate actors.
 	virtual void DrawDebugBodies(FLineBatcher* Lines) const = 0;
+
+	//천을 이 물리 세계에 넣는다. 넣은 뒤부터 매 스텝 강체와 같은 FixedStep으로 계산된다
+	//강체와 달리 천은 지워도 자동으로 빠지지 않는다. 천을 지우기 전에 반드시 RemoveCloth를 부른다
+	virtual void AddCloth(const FClothHandle& Handle) = 0;
+	virtual void RemoveCloth(const FClothHandle& Handle) = 0;
 
 	//stat physics용 통계. 마지막으로 끝난 스텝 기준의 값이다
 	const FPhysicsSceneStats& GetStats() const { return Stats; }
