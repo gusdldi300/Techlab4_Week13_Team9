@@ -67,6 +67,43 @@ namespace {
 		return false;
 	}
 
+	class FQueryFilterCallback : public PxQueryFilterCallback
+	{
+	public:
+		FQueryFilterCallback(ECollisionChannel InChannel, const FCollisionQueryParams& InParams)
+			: Channel(InChannel), Params(InParams) {}
+
+		PxQueryHitType::Enum preFilter(const PxFilterData& filterData, const PxShape* shape,
+			const PxRigidActor* actor, PxHitFlags& queryFlags) override
+		{
+		// 바디 컴포넌트들이 무시 목록에 포함되어있다면 필터링
+		if (const FBodyInstance* BodyInstance = static_cast<const FBodyInstance*>(actor->userData))
+		{
+			if (UPrimitiveComponent* BodyComponent = BodyInstance->GetOwnerComponent())
+			{
+				if (Params.IgnoreComponents.Contains(BodyComponent)) return PxQueryHitType::eNONE;
+				if (Params.IgnoreActors.Contains(BodyComponent->GetOwner())) return PxQueryHitType::eNONE;
+			}
+		}
+
+		// 채널&필터링시 필터링
+		PxFilterData QueryData = shape->getQueryFilterData();
+		if ((1u << (uint32)Channel) & QueryData.word1) return PxQueryHitType::eBLOCK;
+		if ((1u << (uint32)Channel) & QueryData.word2) return PxQueryHitType::eTOUCH;
+		return PxQueryHitType::eNONE;
+		}
+
+		// ePOSTFILTER를 켜지 않으므로 호출되지 않는다. 순수 가상 함수여서 정의만 둔다.
+		PxQueryHitType::Enum postFilter(const PxFilterData& filterData, const PxQueryHit& hit) override
+		{
+			return PxQueryHitType::eNONE;
+		}
+
+	private:
+		ECollisionChannel Channel;
+		const FCollisionQueryParams& Params;
+	};
+
 	PxQueryFilterData CreatePxOverlapFilterData(bool bAnyHit) {
 		PxQueryFlags Flags = PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC
 			| PxQueryFlag::ePREFILTER | PxQueryFlag::eNO_BLOCK;
@@ -296,30 +333,4 @@ namespace FPhysicsQuery
 
 		return !OutOverlaps.IsEmpty();
 	}
-}
-
-PxQueryHitType::Enum FQueryFilterCallback::preFilter(const PxFilterData& filterData, const PxShape* shape, 
-	const PxRigidActor* actor, PxHitFlags& queryFlags)
-{
-	// 바디 컴포넌트들이 무시 목록에 포함되어있다면 필터링
-	if (const FBodyInstance* BodyInstance = static_cast<const FBodyInstance*>(actor->userData))
-	{
-		if (UPrimitiveComponent* BodyComponent = BodyInstance->GetOwnerComponent())
-		{
-			if (Params.IgnoreComponents.Contains(BodyComponent)) return PxQueryHitType::eNONE;
-			if (Params.IgnoreActors.Contains(BodyComponent->GetOwner())) return PxQueryHitType::eNONE;
-		}
-	}
-
-	// 채널&필터링시 필터링
-	PxFilterData QueryData = shape->getQueryFilterData();
-	if ((1u << (uint32)Channel) & QueryData.word1) return PxQueryHitType::eBLOCK;
-	if ((1u << (uint32)Channel) & QueryData.word2) return PxQueryHitType::eTOUCH;
-	return PxQueryHitType::eNONE;
-
-}
-
-PxQueryHitType::Enum FQueryFilterCallback::postFilter(const PxFilterData& filterData, const PxQueryHit& hit)
-{
-	return PxQueryHitType::eNONE();
 }
