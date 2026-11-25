@@ -67,6 +67,13 @@ namespace {
 		return false;
 	}
 
+	PxQueryFilterData CreatePxOverlapFilterData(bool bAnyHit) {
+		PxQueryFlags Flags = PxQueryFlag::eSTATIC | PxQueryFlag::eDYNAMIC
+			| PxQueryFlag::ePREFILTER | PxQueryFlag::eNO_BLOCK;
+
+		if (bAnyHit) Flags |= PxQueryFlag::eANY_HIT;
+		return PxQueryFilterData(Flags);
+	}
 }
 
 namespace FPhysicsQuery
@@ -224,18 +231,70 @@ namespace FPhysicsQuery
 
 	}
 
-	bool OverlapAnyTest(UWorld* World,
-		const FVector& Pos, const FQuat& Rot,
+	bool OverlapAnyTest(UWorld* World,	const FVector& Pos, const FQuat& Rot,
 		const FCollisionShape& Shape, ECollisionChannel Channel, const FCollisionQueryParams& Params)
 	{
-		return false;
+		PxGeometryHolder Holder;
+		if (!CreatePxGeometry(Shape, Holder)) return false;
+
+		// 회전 보정
+		PxQuat Rotation = U2PQuat(Rot);
+		if (Shape.Type == ECollisionShape::Sphyl) Rotation = Rotation * PxQuat(-PxHalfPi, PxVec3(0, 1, 0));
+
+		PxTransform PxTrans(U2PVector(Pos), Rotation.getNormalized());
+
+		// 값 셋팅 후 raycast 진행 
+		PxScene* Scene = GetPxScene(World);
+		if (Scene == nullptr) return false;
+
+		FQueryFilterCallback FilterCall(Channel, Params);
+		PxOverlapBuffer OverlapBuffer;
+
+		Scene->overlap(Holder.any(), PxTrans, OverlapBuffer, CreatePxOverlapFilterData(true), &FilterCall);
+
+		return OverlapBuffer.getNbAnyHits() > 0;
 	}
 
-	bool OverlapMulti(UWorld* World, TArray<FOverlapResult>& OutOverlaps,
-		const FVector& Pos, const FQuat& Rot,
+	bool OverlapMulti(UWorld* World, TArray<FOverlapResult>& OutOverlaps, const FVector& Pos, const FQuat& Rot,
 		const FCollisionShape& Shape, ECollisionChannel Channel, const FCollisionQueryParams& Params)
 	{
-		return false;
+		PxGeometryHolder Holder;
+		if (!CreatePxGeometry(Shape, Holder)) return false;
+
+		// 회전 보정
+		PxQuat Rotation = U2PQuat(Rot);
+		if (Shape.Type == ECollisionShape::Sphyl) Rotation = Rotation * PxQuat(-PxHalfPi, PxVec3(0, 1, 0));
+
+		PxTransform PxTrans(U2PVector(Pos), Rotation.getNormalized());
+
+		// 값 셋팅 후 raycast 진행 
+		OutOverlaps.Empty();
+		PxScene* Scene = GetPxScene(World);
+		if (Scene == nullptr) return false;
+
+		// 멀티 설정 
+		PxOverlapHit TouchBuffer[32];
+		FQueryFilterCallback FilterCall(Channel, Params);
+		PxOverlapBuffer OverlapBuffer(TouchBuffer, 32);
+
+		Scene->overlap(Holder.any(), PxTrans, OverlapBuffer, CreatePxOverlapFilterData(false), &FilterCall);
+
+		// 소유 컴포넌트 아는것만 넣자!
+		for (PxU32 i = 0; i < OverlapBuffer.getNbTouches(); ++i) {
+			const PxOverlapHit& Hit = OverlapBuffer.getTouch(i);
+			const FBodyInstance* BodyInstance = static_cast<const FBodyInstance*>(Hit.actor->userData);
+			if (BodyInstance == nullptr) continue;
+
+			UPrimitiveComponent* Component = BodyInstance->GetOwnerComponent();
+			if (Component == nullptr) continue;
+
+			FOverlapResult Result;
+			Result.Component = Component;
+			Result.Actor = Component->GetOwner();
+			OutOverlaps.Add(Result);
+		}
+
+		return !OutOverlaps.IsEmpty();
 	}
 }
 
