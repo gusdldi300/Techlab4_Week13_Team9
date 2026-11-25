@@ -22,7 +22,7 @@ FPhysicsAssetEditor::FPhysicsAssetEditor(UEditorEngine& InEngine, FEditorManager
     Mesh = &InMesh;
 }
 
-FPhysicsAssetEditor::~FPhysicsAssetEditor() { StopSimulation(); }
+FPhysicsAssetEditor::~FPhysicsAssetEditor() { StopSimulation(); CancelGeneration(); }
 
 void FPhysicsAssetEditor::SetSimulationGravity(float Value)
 {
@@ -39,8 +39,23 @@ uint64 FPhysicsAssetEditor::GetSimulationStepCount() const
     return SimulationScene ? SimulationScene->GetStats().NumSteps : 0;
 }
 
+void FPhysicsAssetEditor::SetSimulationPaused(bool Paused)
+{
+    if (Paused && SimulationInstance) SimulationInstance->EndGrab();
+    bSimulationPaused = Paused;
+}
+
+void FPhysicsAssetEditor::SetGrabSettings(const FPhysicsGrabSettings& Settings)
+{
+    if (!std::isfinite(Settings.Stiffness) || !std::isfinite(Settings.Damping)) return;
+    GrabSettings.Stiffness = FMath::Clamp(Settings.Stiffness, 1.0f, 10000.0f);
+    GrabSettings.Damping = FMath::Clamp(Settings.Damping, 0.0f, 500.0f);
+    if (SimulationInstance) SimulationInstance->SetGrabSettings(GrabSettings);
+}
+
 bool FPhysicsAssetEditor::StartSimulation()
 {
+    if (GenerationPreview) return false;
     if (IsPreviewSimulating()) return true;
     SimulationError.clear();
     if (!MeshComponent || !GetPhysicsAsset() || GetPhysicsAsset()->BodySetups.IsEmpty())
@@ -52,7 +67,7 @@ bool FPhysicsAssetEditor::StartSimulation()
     EditModel.Commit(false);
     MeshComponent->RefreshBoneTransformsNow();
     PreSimulationPose = MeshComponent->GetBoneSpaceTransforms();
-    SimulationScene = MakePhysicsScene();
+    SimulationScene = MakePhysicsScene(true);
     SimulationScene->CreatePhysicsScene();
     if (!SimulationScene->SetGravity(FVector(0,0,SimulationGravity)))
     {
@@ -121,6 +136,8 @@ void FPhysicsAssetEditor::AdvanceSimulation(float DeltaTime)
     SimulationScene->StartFrame(DeltaTime);
     SimulationScene->EndFrame();
     SimulationInstance->ApplyToMesh(*MeshComponent);
+    // Overlay validation and skinning must read the same completed physics pose.
+    MeshComponent->RefreshBoneTransformsNow();
 }
 
 void FPhysicsAssetEditor::StepSimulation()
@@ -163,24 +180,43 @@ bool FPhysicsAssetEditor::HasSavedAsset() const
 
 bool FPhysicsAssetEditor::CreateAsset()
 {
+    if (GetPhysicsAsset()) return false;
+    return PreviewGeneration() && ApplyGeneration();
+}
+
+bool FPhysicsAssetEditor::PreviewGeneration()
+{
+    if (!Mesh || IsPreviewSimulating()) return false;
+    CancelViewportInteraction();
+    EditGizmo.SetTarget(nullptr);
+    ShapeSelection = {};
+    CancelGeneration();
+    GenerationPreview = PhysicsAssetBuilder::CreateFromSkeleton(*Mesh, GenerationSettings, FileError);
+    return GenerationPreview != nullptr;
+}
+
+void FPhysicsAssetEditor::CancelGeneration()
+{
+    PhysicsAssetBuilder::DestroyGeneratedAsset(GenerationPreview);
+    GenerationPreview = nullptr;
+}
+
+bool FPhysicsAssetEditor::ApplyGeneration()
+{
+    if (!GenerationPreview || IsPreviewSimulating()) return false;
+    if (!EditModel.ReplaceWithGenerated(*GenerationPreview))
+    { FileError = EditModel.GetError(); return false; }
+    CancelGeneration();
+    ShapeSelection = {};
+    EditTarget = EPhysicsAssetEditTarget::Shape;
     FileError.clear();
-    if (!Mesh || GetPhysicsAsset()) return false;
-    UPhysicsAsset* Asset = NewObject<UPhysicsAsset>(Mesh);
-    if (!PhysicsAssetFile::Write(PhysicsAssetFile::GetDefaultPath(MeshAssetPath), MeshAssetPath,
-        *Mesh, *Asset, FileError, false))
-    {
-        delete Asset;
-        return false;
-    }
-    Mesh->SetPhysicsAsset(Asset);
-    EditModel.ResetHistory();
-    KRS_LOG(Info, "Created Physics Asset for {}", MeshAssetPath);
     return true;
 }
 
 bool FPhysicsAssetEditor::Save()
 {
     FileError.clear();
+    if (GenerationPreview) { FileError = "Apply or cancel the generation preview before saving."; return false; }
     if (!Mesh || !GetPhysicsAsset()) return false;
     EditModel.Commit(false);
     const bool Saved = PhysicsAssetFile::Write(PhysicsAssetFile::GetDefaultPath(MeshAssetPath),
@@ -195,6 +231,7 @@ bool FPhysicsAssetEditor::Save()
 
 bool FPhysicsAssetEditor::Reload()
 {
+    CancelGeneration();
     StopSimulation();
     FileError.clear();
     if (!Mesh) return false;
@@ -209,6 +246,7 @@ bool FPhysicsAssetEditor::Reload()
 
 bool FPhysicsAssetEditor::ConfirmClose()
 {
+    CancelGeneration();
     StopSimulation();
     EditModel.Commit(false);
     if (!IsDirty() || bCloseConfirmed) return true;
@@ -249,7 +287,8 @@ namespace
         const FVector& StartDirection, EConstraintMotion Motion, float LimitDegrees, float Radius, const FVector4& Color)
     {
         if (Motion == EConstraintMotion::Locked) return;
-        const float Angle = Motion == EConstraintMotion::Free ? PI : LimitDegrees * PI / 180.0f;
+        const float Angle = Motion == EConstraintMotion::Free ? PI : std::clamp(LimitDegrees, 0.0f, 179.9f) * PI / 180.0f;
+        const FVector4 Fill(Color.X, Color.Y, Color.Z, Motion == EConstraintMotion::Free ? 0.10f : 0.22f);
         const auto Point = [&](float T) {
             return Frame.Location + Frame.Rotation.RotateVector(
                 FQuat::MakeFromAxisAngle(Axis, T).RotateVector(StartDirection)) * Radius;
@@ -259,15 +298,102 @@ namespace
         for (int I = 1; I <= 48; ++I)
         {
             const FVector Next = Point(-Angle + 2.0f * Angle * I / 48.0f);
+            Lines.AddTriangle(Frame.Location, Previous, Next, Fill);
             Lines.AddLine(Previous, Next, Color);
             Previous = Next;
         }
         if (Motion == EConstraintMotion::Limited) Lines.AddLine(Frame.Location, Previous, Color);
     }
+
+    void DrawConstraintSwing(FLineBatcher& Lines, const FTransform& Frame,
+        const FPhysicsConstraintSettings& Settings, float Radius)
+    {
+        const FVector4 Red(1.0f, 0.2f, 0.2f, 1.0f), Fill(1.0f, 0.2f, 0.2f, 0.20f);
+        const auto Motion1 = Settings.Swing1Motion, Motion2 = Settings.Swing2Motion;
+        const auto WorldPoint = [&](const FVector& Direction) {
+            return Frame.Location + Frame.Rotation.RotateVector(Direction) * Radius;
+        };
+        if (Motion1 == EConstraintMotion::Locked || Motion2 == EConstraintMotion::Locked)
+        {
+            // A locked swing collapses the cone to a planar arc (or to the X axis).
+            if (Motion1 == EConstraintMotion::Locked)
+                DrawConstraintArc(Lines, Frame, FVector(0,0,1), FVector(1,0,0), Motion2,
+                    Settings.Swing2LimitDegrees, Radius, Red);
+            else
+                DrawConstraintArc(Lines, Frame, FVector(0,1,0), FVector(1,0,0), Motion1,
+                    Settings.Swing1LimitDegrees, Radius, Red);
+            return;
+        }
+        if (Motion1 == EConstraintMotion::Free && Motion2 == EConstraintMotion::Free)
+        {
+            // No finite swing boundary exists. Show only an unfilled freedom guide.
+            for (const FVector Axis : { FVector(0,1,0), FVector(0,0,1) })
+            {
+                FVector Previous = WorldPoint(FVector(1,0,0));
+                for (int I = 1; I <= 64; ++I)
+                {
+                    const FVector Next = WorldPoint(FQuat::MakeFromAxisAngle(Axis, 2 * PI * I / 64).RotateVector(FVector(1,0,0)));
+                    Lines.AddLine(Previous, Next, Red);
+                    Previous = Next;
+                }
+            }
+            return;
+        }
+        if (Motion1 == EConstraintMotion::Limited && Motion2 == EConstraintMotion::Limited)
+        {
+            const float Limit1 = std::clamp(Settings.Swing1LimitDegrees, 0.0f, 179.9f) * PI / 180.0f;
+            const float Limit2 = std::clamp(Settings.Swing2LimitDegrees, 0.0f, 179.9f) * PI / 180.0f;
+            const auto Boundary = [&](float T) {
+                // PhysX 4.1 ConeLimitHelperTanLess: ellipse in swing-angle space.
+                // Invert the tan-quarter coordinates to a pure swing quaternion.
+                const float Y = tanf(Limit1 * cosf(T) * 0.25f);
+                const float Z = tanf(Limit2 * sinf(T) * 0.25f);
+                const float Squared = Y * Y + Z * Z;
+                const float Inv = 1.0f / (1.0f + Squared);
+                return WorldPoint(FQuat(0, 2 * Y * Inv, 2 * Z * Inv, (1 - Squared) * Inv).RotateVector(FVector(1,0,0)));
+            };
+            FVector Previous = Boundary(0);
+            for (int I = 1; I <= 96; ++I)
+            {
+                const FVector Next = Boundary(2 * PI * I / 96);
+                Lines.AddTriangle(Frame.Location, Previous, Next, Fill);
+                Lines.AddLine(Previous, Next, Red);
+                if (I % 24 == 0) Lines.AddLine(Frame.Location, Next, Red);
+                Previous = Next;
+            }
+            return;
+        }
+
+        // One free swing: PhysX uses a double-cone limit, not a finite ellipse.
+        // Display its allowed spherical band, with two boundary circles.
+        const bool bLimitY = Motion1 == EConstraintMotion::Limited;
+        const float Degrees = bLimitY ? Settings.Swing1LimitDegrees : Settings.Swing2LimitDegrees;
+        const float Angle = asinf(fabsf(sinf(std::clamp(Degrees, 0.0f, 179.9f) * PI / 180.0f)));
+        const auto BandPoint = [&](int Ring, int Segment) {
+            const float Latitude = -Angle + 2 * Angle * Ring / 12;
+            const float Azimuth = 2 * PI * Segment / 64;
+            const float X = cosf(Latitude) * cosf(Azimuth);
+            const float Free = cosf(Latitude) * sinf(Azimuth);
+            const float Limited = sinf(Latitude);
+            return WorldPoint(bLimitY ? FVector(X, Free, Limited) : FVector(X, Limited, Free));
+        };
+        for (int Ring = 0; Ring < 12; ++Ring)
+            for (int Segment = 0; Segment < 64; ++Segment)
+            {
+                const FVector A = BandPoint(Ring, Segment), B = BandPoint(Ring, Segment + 1);
+                const FVector C = BandPoint(Ring + 1, Segment), D = BandPoint(Ring + 1, Segment + 1);
+                Lines.AddTriangle(A, B, C, Fill);
+                Lines.AddTriangle(B, D, C, Fill);
+                if (Ring == 0) Lines.AddLine(A, B, Red);
+                if (Ring == 11) Lines.AddLine(C, D, Red);
+                if (Segment % 16 == 0) Lines.AddLine(A, C, Red);
+            }
+    }
 }
 
 void FPhysicsAssetEditor::ShutdownResources()
 {
+    CancelGeneration();
     StopSimulation();
     EditGizmo.EndDrag();
     EditGizmo.SetTarget(nullptr);
@@ -277,6 +403,7 @@ void FPhysicsAssetEditor::ShutdownResources()
 
 void FPhysicsAssetEditor::CancelViewportInteraction()
 {
+    if (SimulationInstance) SimulationInstance->EndGrab();
     if (EditGizmo.IsUsing()) EditModel.CancelInteraction();
     EditGizmo.EndDrag();
 }
@@ -390,7 +517,7 @@ bool FPhysicsAssetEditor::ApplyEditFrame(const FTransform& Local)
 TArray<FPhysicsConstraintScreenHandle> FPhysicsAssetEditor::GetConstraintHandles()
 {
     TArray<FPhysicsConstraintScreenHandle> Handles;
-    if (!bShowConstraints || !GetPhysicsAsset() || !ViewportClient || !ViewportWidth || !ViewportHeight ||
+    if (GenerationPreview || !bShowConstraints || !GetPhysicsAsset() || !ViewportClient || !ViewportWidth || !ViewportHeight ||
         ViewportClient->GetWidth() != ViewportWidth || ViewportClient->GetHeight() != ViewportHeight) return Handles;
     const FMatrix VP = ViewportClient->GetViewProjectionMatrix();
     for (const auto* Joint : GetPhysicsAsset()->PhysicsConstraint)
@@ -434,6 +561,7 @@ void FPhysicsAssetEditor::OnBoneSelected()
 
 void FPhysicsAssetEditor::SyncEditGizmo()
 {
+    if (GenerationPreview) { EditGizmo.SetTarget(nullptr); return; }
     if (IsPreviewSimulating()) { EditGizmo.SetTarget(nullptr); return; }
     if (EditGizmo.IsUsing()) return;
     FTransform Local, Bone;
@@ -503,10 +631,52 @@ bool FPhysicsAssetEditor::UpdateEditGizmo()
     return WasUsing || EditGizmo.IsUsing() || EditGizmo.GetHoveredAxis() >= 0;
 }
 
+bool FPhysicsAssetEditor::UpdateSimulationGrab()
+{
+    if (!SimulationInstance) return false;
+    const bool WasGrabbing = IsSimulationGrabbing();
+    // Process release even when input is no longer eligible (closed/detached viewport, resize, focus loss).
+    if (bSimulationPaused || !CanProcessViewportInput() || PointerInput.bCancel || !PointerInput.bMouseDown)
+    {
+        SimulationInstance->EndGrab();
+        return WasGrabbing;
+    }
+    const FVector2 Mouse(PointerInput.MouseUV.X * ViewportWidth, PointerInput.MouseUV.Y * ViewportHeight);
+    const FRay Ray = ViewportClient->DeprojectScreenToWorld(Mouse);
+    const bool WantsGrab = PointerInput.bCtrlDown && PointerInput.bHovered && PointerInput.bMousePressed && !CameraInput.bCaptured;
+    if (WantsGrab)
+    {
+        FPhysicsBodyHit Hit;
+        if (SimulationInstance->RaycastBodies(Ray, Hit))
+        {
+            // Selection cancels existing interactions; do it before creating the grab joint.
+            SelectBone(Hit.Bone);
+            SelectShape(Hit.Type, Hit.ShapeIndex);
+            if (SimulationInstance->BeginGrab(Ray, Hit, GrabSettings))
+            {
+                GrabPlanePoint = Hit.Position;
+                GrabPlaneNormal = ViewportClient->GetViewForward().GetSafeNormal();
+            }
+        }
+    }
+    if (IsSimulationGrabbing())
+    {
+        float Distance = 0;
+        if (RayIntersectsPlane(Ray, GrabPlanePoint, GrabPlaneNormal, Distance) && Distance >= 0 &&
+            std::isfinite(Distance) && Distance <= ViewportClient->GetFarClip())
+            SimulationInstance->UpdateGrabTarget(Ray.PointAt(Distance));
+    }
+    // A Ctrl-click on empty space must not fall through to edit/bone picking.
+    return WantsGrab || WasGrabbing || IsSimulationGrabbing();
+}
+
 void FPhysicsAssetEditor::TickAfterWorld(float DeltaTime)
 {
+    if (GenerationPreview) { EditGizmo.SetTarget(nullptr); return; }
+    const bool GrabConsumedInput = IsPreviewSimulating() && UpdateSimulationGrab();
     if (IsPreviewSimulating() && !bSimulationPaused) AdvanceSimulation(DeltaTime);
     SyncEditGizmo();
+    if (GrabConsumedInput) return;
     if (!EditGizmo.IsUsing() && CanProcessViewportInput() && PointerInput.bHovered && PointerInput.bMousePressed &&
         !PointerInput.bCancel && !CameraInput.bCaptured)
     {
@@ -540,8 +710,9 @@ void FPhysicsAssetEditor::TickAfterWorld(float DeltaTime)
 TArray<FPhysicsPreviewShape> FPhysicsAssetEditor::GatherPreviewShapes()
 {
     TArray<FPhysicsPreviewShape> Shapes;
-    if (!MeshComponent || !GetPhysicsAsset()) return Shapes;
-    for (const UBodySetup* Body : GetPhysicsAsset()->BodySetups)
+    const auto* Asset = GenerationPreview ? GenerationPreview : GetPhysicsAsset();
+    if (!MeshComponent || !Asset) return Shapes;
+    for (const UBodySetup* Body : Asset->BodySetups)
     {
         if (!Body) continue;
         const int Bone = Mesh->FindBoneIndex(Body->BoneName.ToString());
@@ -585,12 +756,21 @@ bool FPhysicsAssetEditor::GetBodyWorldTransform(int32 Bone, FTransform& Transfor
 void FPhysicsAssetEditor::OnRenderLine(FLineBatcher& Lines)
 {
     FSkeletalPreviewEditor::OnRenderLine(Lines);
+    if (IsSimulationGrabbing())
+    {
+        const FVector Point = SimulationInstance->GetGrabPoint();
+        const FVector Target = SimulationInstance->GetGrabTarget();
+        const float Radius = std::max((MeshComponent->CalcBounds().Max-MeshComponent->CalcBounds().Min).Size()*0.006f, 0.01f);
+        Lines.AddLine(Point, Target, FVector4(1, 0.7f, 0.1f, 1));
+        Lines.AddSphere(Point, Radius, FVector4(0.1f, 0.8f, 1, 1));
+        Lines.AddSphere(Target, Radius, FVector4(1, 0.7f, 0.1f, 1));
+    }
     if (IsPreviewSimulating() && bSimulationFloor)
     {
         const FVector Center(0,0,-SimulationFloorHalfExtent.Z);
         Lines.AddBox(FBox{Center-SimulationFloorHalfExtent,Center+SimulationFloorHalfExtent},FVector4(0.5f,0.5f,0.55f,1));
     }
-    if (!MeshComponent || !GetPhysicsAsset()) return;
+    if (!MeshComponent || !GetPhysicsAsset() || GenerationPreview) return;
     if (bShowBodies && EditTarget == EPhysicsAssetEditTarget::Shape)
     {
         FTransform Transform;
@@ -634,10 +814,8 @@ void FPhysicsAssetEditor::OnRenderLine(FLineBatcher& Lines)
         Lines.AddLine(ParentAnchor, ParentAnchor + ParentFrame.Rotation.RotateVector(X) * Radius, XColor);
         Lines.AddLine(ParentAnchor, ParentAnchor + ParentFrame.Rotation.RotateVector(Y) * Radius, YColor);
         Lines.AddLine(ParentAnchor, ParentAnchor + ParentFrame.Rotation.RotateVector(Z) * Radius, ZColor);
-        // Independent angular guides; not an approximation of the solver's coupled swing cone.
-        DrawConstraintArc(Lines, ParentFrame, Y, X, S.Swing1Motion, S.Swing1LimitDegrees, Radius, YColor);
-        DrawConstraintArc(Lines, ParentFrame, Z, X, S.Swing2Motion, S.Swing2LimitDegrees, Radius, ZColor);
-        DrawConstraintArc(Lines, ParentFrame, X, Y, S.TwistMotion, S.TwistLimitDegrees, Radius * 0.8f, XColor);
+        DrawConstraintSwing(Lines, ParentFrame, S, Radius);
+        DrawConstraintArc(Lines, ParentFrame, X, Y, S.TwistMotion, S.TwistLimitDegrees, Radius * 0.8f, YColor);
         const EConstraintMotion Modes[] = { S.XMotion, S.YMotion, S.ZMotion };
         const FVector Axes[] = { X, Y, Z };
         const FVector4 Colors[] = { XColor, YColor, ZColor };

@@ -5,6 +5,7 @@
 #include "PhysicsAssetPreview.h"
 #include "Editor/Gizmo/Gizmo.h"
 #include "Physics/PhysicsAssetInstance.h"
+#include "Physics/PhysicsAssetBuilder.h"
 
 class UPhysicsAsset;
 
@@ -34,6 +35,11 @@ public:
     UPhysicsAsset* GetPhysicsAsset() const;
     const FString& GetMeshAssetPath() const { return MeshAssetPath; }
     bool CreateAsset();
+    bool PreviewGeneration();
+    bool ApplyGeneration();
+    void CancelGeneration();
+    UPhysicsAsset* GetGenerationPreview() const { return GenerationPreview; }
+    PhysicsAssetBuilder::FAutoGenerateSettings& GetGenerationSettings() { return GenerationSettings; }
     bool Save();
     bool Reload();
     bool HasSavedAsset() const;
@@ -70,7 +76,10 @@ public:
     const FString& GetPreviewWarning() const { return PreviewWarning; }
     bool StartSimulation();
     void StopSimulation();
-    void SetSimulationPaused(bool Paused) { bSimulationPaused = Paused; }
+    void SetSimulationPaused(bool Paused);
+    bool IsSimulationGrabbing() const { return SimulationInstance && SimulationInstance->IsGrabbing(); }
+    const FPhysicsGrabSettings& GetGrabSettings() const { return GrabSettings; }
+    void SetGrabSettings(const FPhysicsGrabSettings& Settings);
     void StepSimulation();
     bool IsPreviewSimulating() const { return SimulationInstance != nullptr; }
     bool IsSimulationPaused() const { return bSimulationPaused; }
@@ -86,7 +95,7 @@ protected:
     bool InitializeResources() override;
     void ShutdownResources() override;
     void TickAfterWorld(float DeltaTime) override;
-    bool IsViewportInteractionBusy() const override { return EditGizmo.IsUsing(); }
+    bool IsViewportInteractionBusy() const override { return EditGizmo.IsUsing() || IsSimulationGrabbing(); }
     void OnBoneSelected() override;
     void CancelViewportInteraction() override;
     TUniquePtr<IEditorTab> CreateTab() override;
@@ -95,6 +104,8 @@ private:
     enum class EAction { None, Close, Reload };
     FString MeshAssetPath;
     FString FileError;
+    PhysicsAssetBuilder::FAutoGenerateSettings GenerationSettings;
+    UPhysicsAsset* GenerationPreview = nullptr;
     FPhysicsAssetEditModel EditModel;
     EAction PendingAction = EAction::None;
     bool bCloseConfirmed = false;
@@ -118,6 +129,10 @@ private:
     FQuat DragBoneRotation;
     float BodyOpacity = 0.16f;
     void AdvanceSimulation(float DeltaTime);
+    bool UpdateSimulationGrab();
+    FPhysicsGrabSettings GrabSettings;
+    FVector GrabPlanePoint = FVector::ZeroVector;
+    FVector GrabPlaneNormal = FVector::ZeroVector;
     // Bodies/joints must be released before their owning scene (also in reverse member destruction).
     TUniquePtr<FPhysicsScene> SimulationScene;
     FBodyInstance SimulationFloor;

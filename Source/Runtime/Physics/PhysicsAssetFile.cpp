@@ -174,6 +174,7 @@ namespace
             // Match FName's case-insensitive identity, as used by the runtime body map.
             Require(Bodies.insert(Mesh.GetRefSkeleton()[BoneIndex].Name).second, "Duplicate body bone.");
             ReadInt(B.at("PhysicsType"), 0, 2);
+            if (B.contains("MassOverrideKg")) ReadFloat(B.at("MassOverrideKg"), 0);
             Require(ReadGeometry(B.at("Geometry")).GetElementCount() > 0, "A body must contain a shape.");
             if (!B.at("Material").is_null())
             {
@@ -302,6 +303,7 @@ bool PhysicsAssetFile::ApplyText(const FString& Text, USkeletalMesh& Mesh,
             auto* Body = NewObject<UBodySetup>(Asset);
             Body->BoneName = FName(B.at("Bone").get<FString>());
             Body->PhysicsType = static_cast<EPhysicsType>(B.at("PhysicsType").get<int>());
+            Body->MassOverrideKg = B.contains("MassOverrideKg") ? B.at("MassOverrideKg").get<float>() : 0;
             Body->AggGeom = ReadGeometry(B.at("Geometry"));
             if (!B.at("Material").is_null())
             {
@@ -389,10 +391,12 @@ bool PhysicsAssetFile::ToText(const FString& MeshPath, const USkeletalMesh& Mesh
         for (const auto* B : Asset.BodySetups)
         {
             Require(B != nullptr, "Cannot save an empty body entry.");
+            Require(std::isfinite(B->MassOverrideKg) && B->MassOverrideKg >= 0 && B->MassOverrideKg <= 1e8f, "Invalid body mass override.");
             json Material = nullptr;
             if (B->PhysMaterial) Material = {{"Friction", B->PhysMaterial->GetFriction()}, {"Restitution", B->PhysMaterial->GetRestitution()}, {"Density", B->PhysMaterial->GetDensity()}};
             J["Bodies"].push_back({{"Bone", B->BoneName.ToString()}, {"PhysicsType", static_cast<int>(B->PhysicsType)},
                 {"Geometry", Geometry(B->AggGeom)}, {"Material", Material}});
+            if (B->MassOverrideKg > 0) J["Bodies"].back()["MassOverrideKg"] = B->MassOverrideKg;
         }
         for (const auto* C : Asset.PhysicsConstraint)
         {

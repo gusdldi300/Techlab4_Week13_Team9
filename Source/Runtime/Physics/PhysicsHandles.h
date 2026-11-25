@@ -7,6 +7,14 @@ namespace physx
 	class PxJoint;
 }
 
+namespace nv
+{
+	namespace cloth
+	{
+		class Cloth;
+	}
+}
+
 // 물리 엔진 객체를 가리키는 핸들 모음이다.
 // 핸들은 포인터 하나 크기의 값 타입이고 소유권이 없다. 생성과 해제는 핸들을 들고 있는
 // 엔진 객체(FBodyInstance, FConstraintInstance 등)가 책임진다.
@@ -46,4 +54,17 @@ struct FPhysicsConstraintHandle
 
 	bool operator==(const FPhysicsConstraintHandle& Other) const { return Joint == Other.Joint; }
 	bool operator!=(const FPhysicsConstraintHandle& Other) const { return Joint != Other.Joint; }
+};
+
+// 천 인스턴스(nv::cloth::Cloth) 하나를 가리킨다. 생성과 해제는 천 컴포넌트가 책임진다.
+// 강체 액터와 달리 Cloth를 지워도 Solver에서 자동으로 빠지지 않는다. 지우기 전에 Scene의 RemoveCloth를 먼저 부른다.
+struct FClothHandle
+{
+	nv::cloth::Cloth* Cloth = nullptr;
+
+	bool IsValid() const { return Cloth != nullptr; }
+	void Reset() { Cloth = nullptr; }
+
+	bool operator==(const FClothHandle& Other) const { return Cloth == Other.Cloth; }
+	bool operator!=(const FClothHandle& Other) const { return Cloth != Other.Cloth; }
 };

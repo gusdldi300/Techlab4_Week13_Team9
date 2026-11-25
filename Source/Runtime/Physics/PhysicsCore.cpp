@@ -2,6 +2,8 @@
 #include "PhysicsCore.h"
 #include <PxPhysicsAPI.h>
 #include <vehicle/PxVehicleSDK.h>
+#include <NvCloth/Callbacks.h>
+#include <NvCloth/Factory.h>
 
 // 헤더에서 선언한 static 멤버의 정의. 없으면 exe를 링크할 때 LNK2001이 난다.
 physx::PxFoundation*            FPhysicsCore::gFoundation = nullptr;
@@ -13,6 +15,21 @@ physx::PxPhysics*               FPhysicsCore::gPhysics = nullptr;
 physx::PxDefaultCpuDispatcher*  FPhysicsCore::gDispatcher = nullptr;
 physx::PxMaterial*              FPhysicsCore::gDefaultMaterial = nullptr;
 bool                            FPhysicsCore::bVehicleSDKInitialized = false;
+nv::cloth::Factory* FPhysicsCore::gClothFactory = nullptr;
+
+namespace
+{
+    // NvCloth assert를 엔진 로그로 보낸다. InitializeNvCloth에 넘긴 뒤 프로그램이 끝날 때까지 살아 있어야 하므로 전역에 둔다.
+    struct FClothAssertHandler : nv::cloth::PxAssertHandler
+    {
+        void operator()(const char* Exp, const char* File, int Line, bool& bIgnore) override
+        {
+            KRS_LOG(Error, "[NvCloth] assert {} ({}:{})", Exp, File, Line);
+        }
+    };
+    FClothAssertHandler gClothAssertHandler;
+}
+
 
 physx::PxCpuDispatcher* FPhysicsCore::GetDispatcher()
 {
@@ -22,6 +39,10 @@ physx::PxCpuDispatcher* FPhysicsCore::GetDispatcher()
 bool FPhysicsCore::InitPhysX()
 {
     using namespace physx;
+
+    nv::cloth::InitializeNvCloth(&gAllocator, &gErrorCallback, &gClothAssertHandler, nullptr);
+    gClothFactory = NvClothCreateFactoryCPU();
+    if (!gClothFactory) { KRS_LOG(Error, "[NvCloth] CPU factory 생성 실패"); }
 
     gFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
     if (!gFoundation)
@@ -59,7 +80,7 @@ bool FPhysicsCore::InitPhysX()
     }
 
     // createMaterial(정지 마찰, 운동 마찰, 반발 계수)
-    gDefaultMaterial = gPhysics->createMaterial(0.5f, 0.5f, 0.1f);
+    gDefaultMaterial = gPhysics->createMaterial(DefaultFriction, DefaultFriction, DefaultRestitution);
     if (!gDefaultMaterial)
     {
         KRS_LOG(Error, "[Physics] createMaterial failed");
@@ -102,6 +123,13 @@ void FPhysicsCore::ShutdownPhysX()
         gDispatcher = nullptr; 
     }
 
+
+    // 모든 Scene의 Solver와 천이 지워진 뒤에 해제한다. 남은 Cloth·Solver의 소멸자가 Factory 자원을 쓸 수 있다.
+    if (gClothFactory)
+    {
+        NvClothDestroyFactory(gClothFactory);
+        gClothFactory = nullptr;
+    }
 
     // Vehicle SDK는 PxPhysics에 등록된 확장이므로 Physics보다 먼저 닫는다.
     if (bVehicleSDKInitialized)

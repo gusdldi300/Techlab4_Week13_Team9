@@ -1,5 +1,7 @@
 local ProjectRoot = path.getabsolute("../..", _SCRIPT_DIR)
 
+newoption { trigger = "physics-grab-checks", description = "Generate the headless physics grab regression/tuning executable" }
+
 -- Build events run in Build/Projects. Keep their paths relative: cmd.exe
 -- misreads the line after one that holds a non-ASCII (e.g. Korean) path,
 -- which breaks multi-line build events when the engine lives in such a folder.
@@ -47,7 +49,8 @@ premake.override(vstudio.vc2010.elements, "projectReferences", function(base, pr
 	local calls = base(prj, ref)
 	if prj.kind ~= "StaticLib" and ref.name == "KurisuEngine" then
 		table.insert(calls, function()
-			vstudio.vc2010.element("UseLibraryDependencyInputs", nil, "true")
+			-- Headless checks link only referenced runtime objects; launch objects require an application entry point.
+			vstudio.vc2010.element("UseLibraryDependencyInputs", nil, prj.name == "PhysicsAssetGrabChecks" and "false" or "true")
 		end)
 	end
 	return calls
@@ -108,6 +111,36 @@ function LinkPhysX()
 	filter {}
 end
 
+-- 천 시뮬레이션은 NvCloth 1.1.6(공유 라이브러리, /MD·/MDd, CPU 솔버만 빌드)을 쓴다.
+-- CUDA 10.0이 RTX 50 계열을 지원하지 않아 CUDA·DX11 솔버는 끄고 빌드했다. PxShared 헤더는 PhysX 4.1 것을 함께 쓴다.
+local NvClothRoot = path.join(ProjectRoot, "Source/ThirdParty/NvCloth")
+local NvClothFiles = { debug = "NvClothDEBUG_x64", release = "NvCloth_x64" }
+if _ACTION then
+	if not os.isfile(path.join(NvClothRoot, "include/NvCloth/Factory.h")) then
+		error("Bundled NvCloth file is missing: include/NvCloth/Factory.h")
+	end
+	for SdkConfig, Name in pairs(NvClothFiles) do
+		for _, Ext in ipairs({ ".lib", ".dll" }) do
+			if not os.isfile(path.join(NvClothRoot, "lib/x64", SdkConfig, Name .. Ext)) then
+				error("Bundled NvCloth file is missing: lib/x64/" .. SdkConfig .. "/" .. Name .. Ext)
+			end
+		end
+	end
+end
+
+-- LinkPhysX와 같은 이유로 exe 프로젝트에서만 호출한다.
+function LinkNvCloth()
+	for Config, SdkConfig in pairs(PhysXConfigMap) do
+		local SdkLibDir = path.join(NvClothRoot, "lib/x64", SdkConfig)
+		local Name = NvClothFiles[SdkConfig]
+		filter ("configurations:" .. Config)
+			libdirs { SdkLibDir }
+			links { Name .. ".lib" }
+			postbuildcommands { '{COPYFILE} "' .. ProjectRelative(path.join(SdkLibDir, Name .. ".dll")) .. '" "%{cfg.targetdir}"' }
+	end
+	filter {}
+end
+
 IncludeDir = {}
 IncludeDir["ImGui"] = ProjectRoot .. "/Source/ThirdParty/ImGui"
 IncludeDir["ImGuiNodeEditor"] = ProjectRoot .. "/Source/ThirdParty/ImGuiNodeEditor"
@@ -118,6 +151,7 @@ IncludeDir["lua"]   = ProjectRoot .. "/Source/ThirdParty/lua/src"
 IncludeDir["sol2"]  = ProjectRoot .. "/Source/ThirdParty/sol2/include"
 IncludeDir["miniaudio"]  = ProjectRoot .. "/Source/ThirdParty/miniaudio"
 IncludeDir["PhysX"] = PhysXRoot .. "/include"
+IncludeDir["NvCloth"] = NvClothRoot .. "/include"
 
 -- premake의 filter는 project()를 만나면 초기화된다.
 -- 두 프로젝트가 같은 런타임(/MDd vs /MD)으로 컴파일되지 않으면 링크가 실패하므로
@@ -237,6 +271,7 @@ project "KurisuEngine"
 		"%{IncludeDir.lua}",
 		"%{IncludeDir.sol2}",
 		"%{IncludeDir.PhysX}",
+		"%{IncludeDir.NvCloth}",
 	}
 
 	-- Lua는 엔진에 포함한다. 인터프리터/컴파일러 실행 파일의 main은 제외한다.
@@ -293,6 +328,7 @@ project "KurisuEditor"
 	filter {}
 
 	LinkPhysX()
+	LinkNvCloth()
 
 	pchheader "EnginePCH.h"
 	pchsource (ProjectRoot .. "/Source/Editor/EditorPCH.cpp")
@@ -355,6 +391,7 @@ project "KurisuEditor"
 		"%{IncludeDir.lua}",
 		"%{IncludeDir.sol2}",
 		"%{IncludeDir.PhysX}",
+		"%{IncludeDir.NvCloth}",
 	}
 
 	links
@@ -387,6 +424,7 @@ function ConfigureGameRuntime()
 
 	links { "KurisuEngine" }
 	LinkPhysX()
+	LinkNvCloth()
 
 	-- 에디터와 같은 이유로 엔진 .obj를 직접 링크한다. 게임 코드는 라이트 액터 등을 직접 참조하지 않아 특히 빠지기 쉽다.
 	ConfigureSourceLink()
@@ -409,6 +447,7 @@ function ConfigureGameRuntime()
 		"%{IncludeDir.lua}",
 		"%{IncludeDir.sol2}",
 		"%{IncludeDir.PhysX}",
+		"%{IncludeDir.NvCloth}",
 	}
 
 	links
@@ -486,3 +525,17 @@ project "Shaders"
 	filter {}
 
 
+-- Opt-in regression harness: premake5 --file=Setup/Build/premake5.lua --physics-grab-checks vs2026
+if _OPTIONS["physics-grab-checks"] then
+    project "PhysicsAssetGrabChecks"
+        location (ProjectRoot .. "/Build/Projects")
+        kind "ConsoleApp"
+        CommonSettings()
+        files { ProjectRoot .. "/Setup/Tests/PhysicsAssetGrabChecks.cpp" }
+        includedirs {
+            ProjectRoot .. "/Source/Runtime", GeneratedDir .. "/Runtime",
+            IncludeDir.stb, IncludeDir.json, IncludeDir.lua, IncludeDir.sol2, IncludeDir.PhysX,
+        }
+        links { "KurisuEngine", "d3d11.lib", "dxgi.lib", "dxguid.lib", "d3dcompiler.lib" }
+        LinkPhysX()
+end

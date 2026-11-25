@@ -55,6 +55,11 @@ public:
 	// Debug rendering reads the completed simulation, including aggregate actors.
 	virtual void DrawDebugBodies(FLineBatcher* Lines) const = 0;
 
+	//천을 이 물리 세계에 넣는다. 넣은 뒤부터 매 스텝 강체와 같은 FixedStep으로 계산된다
+	//강체와 달리 천은 지워도 자동으로 빠지지 않는다. 천을 지우기 전에 반드시 RemoveCloth를 부른다
+	virtual void AddCloth(const FClothHandle& Handle) = 0;
+	virtual void RemoveCloth(const FClothHandle& Handle) = 0;
+
 	//stat physics용 통계. 마지막으로 끝난 스텝 기준의 값이다
 	const FPhysicsSceneStats& GetStats() const { return Stats; }
 
@@ -71,4 +76,5 @@ private:
 // 사용할 물리 엔진의 FPhysicsScene 구현을 만들어 돌려준다.
 // 정의는 구현 쪽 .cpp(PhysicsScene_PhysX.cpp)에 있어서, 호출하는 UWorld는 어떤 구현인지 모른다.
 // 물리 엔진을 바꿀 때는 이 함수의 정의만 바꾼다.
-std::unique_ptr<FPhysicsScene> MakePhysicsScene();
+// Temporal solving improves convergence for preview ragdolls pulled through an extremity.
+std::unique_ptr<FPhysicsScene> MakePhysicsScene(bool bUseTemporalSolver = false);
