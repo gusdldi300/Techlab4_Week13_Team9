@@ -20,6 +20,8 @@ public:
 	~UBodySetup() override;
 
 	float CalculateMass() const;
+	// Zero preserves density/volume mass. Positive values specify mass at unit scale.
+	float MassOverrideKg = 0;
 
 	// 모양(AggGeom)과 PhysicsType을 저장·복원한다. 맨 앞에 형식 버전을 써서 옛 파일을 구분한다.
 	// PhysMaterial은 저장하지 않는다. 재질 에셋을 경로로 찾는 체계가 생기면 그때 경로를 함께 저장한다.

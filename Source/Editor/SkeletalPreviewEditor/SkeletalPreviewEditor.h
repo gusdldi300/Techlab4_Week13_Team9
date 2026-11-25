@@ -35,6 +35,7 @@ struct FViewportPointerInput
 	bool bFocused = false;
 	bool bMousePressed = false;
 	bool bMouseDown = false;
+	bool bCtrlDown = false;
 	bool bCancel = false;
 };
 

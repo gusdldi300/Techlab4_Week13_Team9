@@ -449,6 +449,7 @@ void FSkeletalPreviewViewportPanel::DrawContent()
         .bFocused = bFocused && !IO.AppFocusLost,
         .bMousePressed = bHovered && !bCameraDragging && ImGui::IsMouseClicked(ImGuiMouseButton_Left),
         .bMouseDown = bMouseDown,
+        .bCtrlDown = IO.KeyCtrl,
         .bCancel = ImGui::IsKeyPressed(ImGuiKey_Escape, false),
     };
 

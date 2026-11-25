@@ -6,6 +6,7 @@
 #include "RenderResourceManager.h"
 
 #include "UObject/UObjectIterator.h"
+#include <algorithm>
 
 FLineBatcher::~FLineBatcher()
 {
@@ -49,6 +50,18 @@ void FLineBatcher::BeginFrame()
 {
 	VertexBufferPtr = VertexBufferBase;
 	VertexCount = 0;
+	Triangles.Reset();
+	TriangleVertices.Reset();
+}
+
+void FLineBatcher::AddTriangle(const FVector& A, const FVector& B, const FVector& C, const FVector4& Color)
+{
+	if (static_cast<uint32>(Triangles.Num() + 1) * 3 > MaxVertices) return;
+	FDebugTriangle Triangle;
+	Triangle.Vertices[0] = { A, FVector2(), Color };
+	Triangle.Vertices[1] = { B, FVector2(), Color };
+	Triangle.Vertices[2] = { C, FVector2(), Color };
+	Triangles.Add(Triangle);
 }
 
 void FLineBatcher::AddLine(const FVector& A, const FVector& B, const FVector4& Color)
@@ -184,14 +197,41 @@ void FLineBatcher::Flush()
 
 void FLineBatcher::OnRender(const FMatrix& ViewProjection)
 {
-	if (VertexCount == 0)
+	if (VertexCount == 0 && Triangles.IsEmpty())
 	{
 		return;
 	}
 
 	FMatrix VP = ViewProjection;
-	RenderCommand::UpdateBufferData(VertexBuffer.get(), VertexBufferBase, sizeof(FLineBatchVertex) * VertexCount);
 	RenderCommand::UpdateBufferData(CB.get(), &VP, sizeof(FMatrix));
+	if (!Triangles.IsEmpty())
+	{
+		// Back-to-front faces avoid submission-order-dependent alpha blending.
+		const auto Depth = [&](const FDebugTriangle& Triangle) {
+			const FVector Center = (Triangle.Vertices[0].Position + Triangle.Vertices[1].Position + Triangle.Vertices[2].Position) / 3.0f;
+			const FVector4 Clip = VP.TransformFVector4(FVector4(Center, 1.0f));
+			return Clip.Z / std::max(Clip.W, 0.00001f);
+		};
+		std::stable_sort(Triangles.begin(), Triangles.end(), [&](const FDebugTriangle& A, const FDebugTriangle& B) {
+			return Depth(A) > Depth(B);
+		});
+		TriangleVertices.Reset();
+		for (const auto& Triangle : Triangles)
+			for (const auto& Vertex : Triangle.Vertices) TriangleVertices.Add(Vertex);
+		FPipelineState Faces = PipelineState;
+		Faces.Topology = EPrimitiveTopology::TriangleList;
+		Faces.RasterizerState = ERasterizerState::SolidNone;
+		Faces.BlendState = EBlendState::AlphaBlend;
+		Faces.DepthStencilState = PipelineState.DepthStencilState == EDepthStencilState::Disabled
+			? EDepthStencilState::Disabled : EDepthStencilState::ReadOnly;
+		RenderCommand::UpdateBufferData(VertexBuffer.get(), TriangleVertices.GetData(), sizeof(FLineBatchVertex) * TriangleVertices.Num());
+		RenderCommand::BindPipelineState(Faces);
+		RenderCommand::BindVertexBuffer(VertexBuffer.get());
+		RenderCommand::BindConstantBuffer(0, CB.get(), EShaderBindFlagBits::Vertex);
+		RenderCommand::Draw(static_cast<uint32>(TriangleVertices.Num()), 0);
+	}
+	if (VertexCount == 0) return;
+	RenderCommand::UpdateBufferData(VertexBuffer.get(), VertexBufferBase, sizeof(FLineBatchVertex) * VertexCount);
 
 	Flush();
 }

@@ -46,9 +46,9 @@ namespace
     FAssetCollisionFilter AssetCollisionFilter;
 }
 
-std::unique_ptr<FPhysicsScene> MakePhysicsScene()
+std::unique_ptr<FPhysicsScene> MakePhysicsScene(bool bUseTemporalSolver)
 {
-    return std::make_unique<FPhysicsScene_PhysX>();
+    return std::make_unique<FPhysicsScene_PhysX>(bUseTemporalSolver);
 }
 
 FPhysicsScene_PhysX::~FPhysicsScene_PhysX()
@@ -83,6 +83,7 @@ void FPhysicsScene_PhysX::CreatePhysicsScene()
     Desc.cpuDispatcher = FPhysicsCore::Get().GetDispatcher();  
     Desc.filterShader = AssetFilterShader;
     Desc.filterCallback = &AssetCollisionFilter;
+    Desc.solverType = bUseTemporalSolver ? PxSolverType::eTGS : PxSolverType::ePGS;
 
     Desc.flags |= PxSceneFlag::eENABLE_ACTIVE_ACTORS;
 

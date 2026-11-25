@@ -13,7 +13,7 @@ namespace nv { namespace cloth { class Solver; } }
 class FPhysicsScene_PhysX : public FPhysicsScene
 {
 public:
-	FPhysicsScene_PhysX() = default;
+	explicit FPhysicsScene_PhysX(bool InUseTemporalSolver = false) : bUseTemporalSolver(InUseTemporalSolver) {}
 	~FPhysicsScene_PhysX();
 	FPhysicsScene_PhysX(const FPhysicsScene_PhysX&) = delete;
 	FPhysicsScene_PhysX& operator=(const FPhysicsScene_PhysX&) = delete;
@@ -31,6 +31,7 @@ public:
 
 
 private:
+	bool bUseTemporalSolver = false;
 	// 한 스텝을 시작한다. simulate 후 bSimulating이 true가 된다.
 	void BeginStep();
 	// 이 Scene의 천을 FixedStep만큼 진행한다. PhysX가 워커 스레드에서 강체를 계산하는 동안 게임 스레드에서 돈다.
