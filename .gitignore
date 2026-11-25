@@ -501,3 +501,6 @@ Tools/SnowMountain/build_snow_mountain.py
 !/Source/ThirdParty/NvCloth/lib/x64/debug/*.dll
 !/Source/ThirdParty/NvCloth/lib/x64/release/*.lib
 !/Source/ThirdParty/NvCloth/lib/x64/release/*.dll
+
+# GitHub 100MB 제한을 넘는 쿠킹 결과물(쓰지 않는 DriveCity 맵)
+DefaultProject/Content/FBX/DriveCity/DriveCity_Static.fbx.bin
