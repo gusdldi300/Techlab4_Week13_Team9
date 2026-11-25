@@ -19,6 +19,8 @@ public:
 
 
 	void AddLine(const FVector& A, const FVector& B, const FVector4& Color);
+	// Translucent, double-sided debug faces are drawn before the line overlay.
+	void AddTriangle(const FVector& A, const FVector& B, const FVector& C, const FVector4& Color);
 	void AddBox(FBox BoundingBox, FVector4 Color);
 
 	// 로컬 AABB의 모서리를 각각 월드로 옮겨 그린다. 회전이 살아있는 OBB가 된다.
@@ -36,6 +38,13 @@ public:
 	void SetDepthTest(bool bEnable) { PipelineState.DepthStencilState = bEnable ? EDepthStencilState::Default : EDepthStencilState::Disabled; }
 
 private:
+	struct FDebugTriangle
+	{
+		FLineBatchVertex Vertices[3];
+	};
+	TArray<FDebugTriangle> Triangles;
+	TArray<FLineBatchVertex> TriangleVertices;
+
 	FRenderer* Renderer;
 
 	UWorld* World;
