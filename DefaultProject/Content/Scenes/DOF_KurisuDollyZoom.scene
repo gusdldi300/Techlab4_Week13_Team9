@@ -1,0 +1,2666 @@
+{
+  "Version": 4,
+  "World": {
+    "Properties": {},
+    "PersistentLevel": {
+      "Properties": {},
+      "Actors": [
+        {
+          "Class": "ACameraActor",
+          "Name": "DZ_Kurisu_UpperBody_Camera",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "CameraComponent",
+          "Properties": {
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "UCameraComponent",
+              "Name": "CameraComponent",
+              "DefaultSubobjectName": "CameraComponent",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "Z": 1.8,
+                    "Y": -1.65,
+                    "X": 2.5
+                  },
+                  "Rotation": {
+                    "Yaw": 0,
+                    "Roll": 0,
+                    "Pitch": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "FieldOfView": 8.075421241954247,
+                "LensSettings": {
+                  "bUseFocalLength": true,
+                  "FocalLengthMm": 170.0,
+                  "SensorHeightMm": 24.0
+                },
+                "DepthOfFieldSettings": {
+                  "bEnabled": true,
+                  "FStop": 5.6,
+                  "MinFStop": 1.2,
+                  "ApertureBladeCount": 9,
+                  "FocalDistanceMeters": 6.0,
+                  "DepthBlurKmFor50Percent": 0.0,
+                  "DepthBlurRadiusFractionOfHeight": 0.0
+                },
+                "bExternalInputManaged": true,
+                "bAutoFocusEnabled": true,
+                "AutoFocusTargetActorName": "SS_Focus_Kurisu_ExistingCharacter",
+                "AutoFocusTargetBoneName": "Bip001-Head",
+                "AutoFocusTargetOffset": {
+                  "Z": 0.04,
+                  "Y": 0.0,
+                  "X": -0.06
+                },
+                "AutoFocusFallbackOffset": {
+                  "Z": 1.42,
+                  "Y": 0.0,
+                  "X": 0.0
+                },
+                "AutoFocusInterpSpeed": 0.0,
+                "bUsePawnControlRotation": false
+              }
+            },
+            {
+              "Class": "UScriptComponent",
+              "Name": "DollyZoomScript",
+              "DefaultSubobjectName": "",
+              "Parent": "",
+              "Properties": {
+                "ScriptPath": "Content/Scripts/KurisuDollyZoom.lua"
+              }
+            }
+          ]
+        },
+        {
+          "Class": "AActor",
+          "Name": "SS_Focus_Kurisu_ExistingCharacter",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 8.5,
+                    "Y": -1.65,
+                    "Z": 0.4
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 174,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "USkeletalMeshComponent",
+              "Name": "SkeletalMeshComponent",
+              "DefaultSubobjectName": "SkeletalMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 0.01,
+                    "Y": 0.01,
+                    "Z": 0.01
+                  }
+                },
+                "SkeletalMesh": "FBX/Kurisu/Kurisu.fbx.bin",
+                "AnimBlueprintPath": "",
+                "AnimInstance": null,
+                "BlendSpaceInput": 0.0,
+                "bAutoActivate": true,
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "BonePose": [],
+              "OverrideMaterials": [],
+              "SingleAnimation": {
+                "Asset": "FBX/Kurisu_Idle/Kurisu_Idle.anim.bin",
+                "Looping": true,
+                "PlayRate": 0.65
+              }
+            }
+          ]
+        },
+        {
+          "Class": "AAmbientLightActor",
+          "Name": "SS_SoftSkyFill",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "USkyLightComponent",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0.0,
+                    "Y": 0.0,
+                    "Z": 0.0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1.0,
+                    "Y": 1.0,
+                    "Z": 1.0
+                  }
+                },
+                "bVisible": false
+              }
+            },
+            {
+              "Class": "UAmbientLightComponent",
+              "Name": "USkyLightComponent",
+              "DefaultSubobjectName": "USkyLightComponent",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 12
+                  },
+                  "Rotation": {
+                    "Pitch": 38,
+                    "Yaw": 28,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "Intensity": 0.55,
+                "LightColor": 4291684317,
+                "bCastShadows": false,
+                "bVisible": true,
+                "bHiddenInGame": false
+              }
+            },
+            {
+              "Class": "UBillboardComponent",
+              "Name": "UBillboardComponent",
+              "DefaultSubobjectName": "UBillboardComponent",
+              "Parent": "USkyLightComponent",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0.0,
+                    "Y": 0.0,
+                    "Z": 0.0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1.0,
+                    "Y": 1.0,
+                    "Z": 1.0
+                  }
+                },
+                "bVisible": false,
+                "bHiddenInGame": true
+              }
+            }
+          ]
+        },
+        {
+          "Class": "ADirectionalLightActor",
+          "Name": "SS_WarmAfternoonSun",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "UDirectionalLightComponent",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0.0,
+                    "Y": 0.0,
+                    "Z": 0.0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1.0,
+                    "Y": 1.0,
+                    "Z": 1.0
+                  }
+                },
+                "bVisible": false
+              }
+            },
+            {
+              "Class": "UDirectionalLightComponent",
+              "Name": "UDirectionalLightComponent",
+              "DefaultSubobjectName": "UDirectionalLightComponent",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 12
+                  },
+                  "Rotation": {
+                    "Pitch": 38,
+                    "Yaw": 28,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "Intensity": 1.65,
+                "LightColor": 4291096063,
+                "bCastShadows": true,
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "AngularRadiusDegrees": 1.2,
+                "DynamicShadowDistanceMovableLight": 65.0,
+                "DynamicShadowCascades": 4
+              }
+            },
+            {
+              "Class": "UBillboardComponent",
+              "Name": "UBillboardComponent",
+              "DefaultSubobjectName": "UBillboardComponent",
+              "Parent": "UDirectionalLightComponent",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0.0,
+                    "Y": 0.0,
+                    "Z": 0.0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1.0,
+                    "Y": 1.0,
+                    "Z": 1.0
+                  }
+                },
+                "bVisible": false,
+                "bHiddenInGame": true
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UArrowComponent",
+              "DefaultSubobjectName": "UArrowComponent",
+              "Parent": "UDirectionalLightComponent",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0.0,
+                    "Y": 0.0,
+                    "Z": 0.0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1.0,
+                    "Y": 1.0,
+                    "Z": 1.0
+                  }
+                },
+                "StaticMesh": "Arrow",
+                "bVisible": false,
+                "bHiddenInGame": true,
+                "bCastShadow": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Meadow_Ground",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Meadow_Ground.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Track_BallastAndStones",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Track_BallastAndStones.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Track_SteelRailsAndSleepers",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Track_SteelRailsAndSleepers.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Platform_TimberStructure",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Platform_TimberStructure.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Platform_WeatheredBoards",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Platform_WeatheredBoards.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Background_BenchAndTimetable",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Dolly_BenchWithoutTimetable.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Meadow_GrassPatch_01",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Meadow_GrassPatch_01.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Meadow_GrassPatch_02",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Meadow_GrassPatch_02.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Meadow_GrassPatch_03",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Meadow_GrassPatch_03.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Meadow_GrassPatch_04",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Meadow_GrassPatch_04.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Meadow_GrassPatch_05",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Meadow_GrassPatch_05.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Meadow_GrassPatch_06",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Meadow_GrassPatch_06.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Meadow_OrangeCosmos_LeftBank",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Meadow_OrangeCosmos_LeftBank.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Foreground_SoftFlowersAndTallGrass",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Foreground_SoftFlowersAndTallGrass.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Meadow_SunlitDewHighlights",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Meadow_SunlitDewHighlights.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Garden_LeafyHedge_01",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Garden_LeafyHedge_01.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Garden_LeafyHedge_02",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Garden_LeafyHedge_02.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Garden_LeafyHedge_03",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Garden_LeafyHedge_03.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Garden_LeafyHedge_04",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Garden_LeafyHedge_04.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Forest_BacklitTree_01",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Forest_BacklitTree_01.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Forest_BacklitTree_02",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Forest_BacklitTree_02.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Forest_BacklitTree_03",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Forest_BacklitTree_03.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Forest_BacklitTree_04",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Forest_BacklitTree_04.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Forest_BacklitTree_05",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Forest_BacklitTree_05.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Forest_BacklitTree_06",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Forest_BacklitTree_06.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Forest_BacklitTree_07",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Forest_BacklitTree_07.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Forest_BacklitTree_08",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Forest_BacklitTree_08.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Forest_BacklitTree_09",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Forest_BacklitTree_09.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Forest_BacklitTree_10",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Forest_BacklitTree_10.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Forest_BacklitTree_11",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Forest_BacklitTree_11.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Forest_DistantHillsAndSky",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Forest_DistantHillsAndSky.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        },
+        {
+          "Class": "AStaticMeshActor",
+          "Name": "SS_Background_BlueCreamLocalTrain",
+          "ParentActor": "",
+          "ParentComponent": "",
+          "RootComponentName": "DefaultSceneRoot",
+          "Properties": {
+            "ScriptPath": "",
+            "bActorEnableCollision": false
+          },
+          "Components": [
+            {
+              "Class": "USceneComponent",
+              "Name": "DefaultSceneRoot",
+              "DefaultSubobjectName": "DefaultSceneRoot",
+              "Parent": "",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                }
+              }
+            },
+            {
+              "Class": "UStaticMeshComponent",
+              "Name": "UStaticMeshComponent",
+              "DefaultSubobjectName": "UStaticMeshComponent",
+              "Parent": "DefaultSceneRoot",
+              "Properties": {
+                "Transform": {
+                  "Location": {
+                    "X": 0,
+                    "Y": 0,
+                    "Z": 0
+                  },
+                  "Rotation": {
+                    "Pitch": 0,
+                    "Yaw": 0,
+                    "Roll": 0
+                  },
+                  "Scale": {
+                    "X": 1,
+                    "Y": 1,
+                    "Z": 1
+                  }
+                },
+                "StaticMesh": "Meshes/SunlitStation/Background_BlueCreamLocalTrain.obj",
+                "bVisible": true,
+                "bHiddenInGame": false,
+                "bCastShadow": true,
+                "bReceiveShadow": true,
+                "bBlockComponent": false,
+                "bGenerateOverlapEvents": false
+              },
+              "OverrideMaterials": []
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

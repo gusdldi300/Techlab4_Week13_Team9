@@ -13,6 +13,8 @@ foreach ($source in $sources) {
     if ($null -eq $outputScene) { $outputScene = $scene }
     foreach ($actor in $scene.World.PersistentLevel.Actors) {
         if ($source.Offset -ne 0 -and $actor.Class -ne 'AStaticMeshActor') { continue }
+        if ($source.Prefix -eq 'Lab_Focus_' -and
+            $actor.Name -eq 'DOF_ContinuousFocus_DepthRuler') { continue }
         $actor.Name = if ($actor.Class -eq 'ADefaultPawn') {
             'DOF_InteractiveLab_Camera'
         } else {
