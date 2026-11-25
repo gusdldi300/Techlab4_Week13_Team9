@@ -3,8 +3,26 @@
 #include "Input/InputSystem.h"
 #include "../Collision/Ray.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Camera/CameraOptics.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/World.h"
+#include "Engine/Level.h"
+#include "UObject/Property.h"
+
+void UCameraComponent::PostEditChangeProperty(const FProperty& Property)
+{
+    Super::PostEditChangeProperty(Property);
+
+    // FOV를 직접 편집하면 FOV 기준으로 전환한다.
+    if (Property.Name == "FieldOfView")
+        LensSettings.bUseFocalLength = false;
+
+    SanitizeDepthOfFieldSettings(DepthOfFieldSettings);
+    ResolveCameraLens(LensSettings, FieldOfView);
+    FinalizeCameraOptics(LensSettings, DepthOfFieldSettings, FieldOfView);
+}
 
 // 외부 입력 관리 시 기본 입력을 생략해 ViewportLayout와 카메라의 중복 갱신을 막는다.
 void UCameraComponent::TickComponent(float DeltaTime)
@@ -124,10 +142,20 @@ FMatrix UCameraComponent::GetViewMatrix() const
     return InverseTranslation * InverseRotation;
 }
 
+// 편집 원본을 유지하면서 렌즈 기준 모드를 해석한다.
+float UCameraComponent::GetEffectiveFieldOfView() const
+{
+    // 렌즈 설정을 반영한 화각을 구하되 편집 원본은 유지한다.
+    FCameraLensSettings ResolvedLens = LensSettings;
+    float EffectiveFov = FieldOfView;
+    ResolveCameraLens(ResolvedLens, EffectiveFov);
+    return EffectiveFov;
+}
+
 // 시야각·종횡비·클리핑 거리로 원근 행렬을 만든다.
 FMatrix UCameraComponent::GetPerspectiveMatrix() const
 {
-	const float HalfFOV = FMath::DegreesToRadians(FieldOfView) * 0.5f;
+	const float HalfFOV = FMath::DegreesToRadians(GetEffectiveFieldOfView()) * 0.5f;
 
 	const float YScale = 1.0f / tan(HalfFOV);
 	const float XScale = YScale / AspectRatio;
@@ -198,4 +226,68 @@ void UCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& OutPOV) 
     OutPOV.NearClip = NearClipPlane;
     OutPOV.FarClip = FarClipPlane;
     OutPOV.bIsOrthogonal = bIsOrthogonal;
+
+    // 시점 전환에 사용할 사본을 준비한다.
+    OutPOV.LensSettings = LensSettings;
+    OutPOV.DepthOfFieldSettings = DepthOfFieldSettings;
+    SanitizeDepthOfFieldSettings(OutPOV.DepthOfFieldSettings);
+    ResolveCameraLens(OutPOV.LensSettings, OutPOV.FOV);
+
+    // 위치만 전달하고 초점 깊이는 CameraManager의 최종 시점에서 계산한다.
+    OutPOV.AutoFocus = FCameraAutoFocusViewInfo{};
+    if (bAutoFocusEnabled && GetWorld() && GetWorld()->IsGameWorld())
+    {
+        OutPOV.AutoFocus.bEnabled = true;
+        OutPOV.AutoFocus.CameraUUID = GetUUID();
+        OutPOV.AutoFocus.InterpSpeed = AutoFocusInterpSpeed;
+        OutPOV.AutoFocus.bHasTarget = ResolveAutoFocusTarget(OutPOV.AutoFocus.TargetLocation);
+    }
+}
+
+bool UCameraComponent::ResolveAutoFocusTarget(FVector& OutLocation) const
+{
+    UWorld* World = GetWorld();
+    if (!World || AutoFocusTargetActorName.empty())
+        return false;
+
+    const FName TargetActorName(AutoFocusTargetActorName);
+
+    // 포인터를 보관하지 않아 대상 파괴·레벨 재로드에도 이전 월드를 참조하지 않는다.
+    for (ULevel* Level : World->GetLevels())
+    {
+        if (!Level)
+            continue;
+
+        for (AActor* Target : Level->GetActors())
+        {
+            if (!Target || Target->GetFName() != TargetActorName
+                || World->IsPendingDestroy(Target))
+                continue;
+
+            FVector TargetLocation = Target->GetActorLocation() + AutoFocusFallbackOffset;
+            if (!AutoFocusTargetBoneName.empty())
+            {
+                for (UActorComponent* Component : Target->GetComponents())
+                {
+                    const auto* SkeletalMesh = Cast<USkeletalMeshComponent>(Component);
+                    if (!SkeletalMesh || !SkeletalMesh->IsRegistered())
+                        continue;
+
+                    const int32 BoneIndex = SkeletalMesh->FindBoneIndex(AutoFocusTargetBoneName);
+                    if (BoneIndex < 0
+                        || BoneIndex >= SkeletalMesh->GetComponentSpaceTransform().Num())
+                        continue;
+
+                    TargetLocation = SkeletalMesh->GetBoneWorldMatrix(BoneIndex)
+                        .TransformPosition(FVector::ZeroVector);
+                    break;
+                }
+            }
+
+            OutLocation = TargetLocation + AutoFocusTargetOffset;
+            return std::isfinite(OutLocation.X) && std::isfinite(OutLocation.Y)
+                && std::isfinite(OutLocation.Z);
+        }
+    }
+    return false;
 }

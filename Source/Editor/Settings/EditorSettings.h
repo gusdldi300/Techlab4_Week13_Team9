@@ -5,6 +5,9 @@
 #include "Math/Quat.h"
 #include "Math/Vector.h"
 #include "Render/RenderEnums.h"
+#include "Camera/CameraLensSettings.h"
+#include "Camera/DepthOfFieldSettings.h"
+#include "Render/PostProcess/DepthOfFieldViewSettings.h"
 
 class UWorld;
 
@@ -27,6 +30,8 @@ struct FEditorSettings
 	bool bDrawBatchLine = true;
 	bool bDrawCascadeBounds = false;
 	bool bEnableFXAA = false;
+	bool bEnableDepthOfField = true;
+	FDepthOfFieldViewSettings DepthOfField;
 	bool bDrawDecals = true;
 	bool bDecalCulling = true;
 	bool bDecalNarrowCulling = true;
@@ -49,6 +54,8 @@ struct FEditorSettings
 
     // 미저장 표식은 초기 카메라 값을 유지한다. 위치·회전은 저장하지 않는다.
     float ViewFov[4]{};
+    FCameraLensSettings ViewLensSettings[4]{};
+    FDepthOfFieldSettings ViewDepthOfFieldSettings[4]{};
     float ViewOrthoWidth[4]{};
     int32 ViewPreset[4]{-1,-1,-1,-1};
     int32 ViewMode[4]{-1,-1,-1,-1};

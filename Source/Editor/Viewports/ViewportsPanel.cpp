@@ -330,7 +330,8 @@ void FViewportsPanel::OnRender() {
 		if (ViewIndex != ActiveViewIndex)
 			continue;
 		FEditorViewportClient *Client = ViewportClients[ViewIndex].get();
-		if (!Client || !Client->IsActive() || Client->IsLightCulling())
+		if (!Client || !Client->IsActive()
+			|| (Client->IsLightCulling() && !FStatOverlay::IsEnabled(EStatFlags::DepthOfField)))
 			continue;
 		DrawStatOverlay(DrawList, { ContentOrigin.x + Client->GetRect().X, ContentOrigin.y + Client->GetRect().Y }, Client);
 	}
@@ -398,8 +399,9 @@ void FViewportsPanel::DrawStatOverlay(ImDrawList* DrawList, const ImVec2& ViewMi
 		}
 	}
 
-	if (const FCycleStatData *PickingData =
-					FStatRegistry::Find(EditorStats::STAT_PickingTime)) {
+	if (const FCycleStatData* PickingData =
+			FStatRegistry::Find(EditorStats::STAT_PickingTime);
+		FStatOverlay::IsEnabled(EStatFlags::Profile) && PickingData) {
 		ProfileLines.Add({"Picking", TitleColor});
 		FProfileStatLine Line{"  Time (ms)", ValueColor};
 		Line.Values[0] = std::format("Last: {:.2f}", PickingData->GetLastMs());
@@ -410,6 +412,14 @@ void FViewportsPanel::DrawStatOverlay(ImDrawList* DrawList, const ImVec2& ViewMi
 
 FSceneRenderData& RenderData = Client->GetRenderData();
 const FRenderStats& Stats = RenderData.RenderStats;
+	// PIE는 게임 UI 패스가 플레이 카메라의 스냅샷을 직접 표시한다.
+	const bool bGameViewport = GameViewportClient && Client->GetViewIndex() == GameViewportIndex;
+	if (FStatOverlay::IsEnabled(EStatFlags::DepthOfField) && !bGameViewport)
+	{
+		Lines.Add({ "Depth of Field", TitleColor });
+		for (const FString& Line : FStatOverlay::GetDepthOfFieldLines(RenderData.DepthOfFieldStats))
+			Lines.Add({ Line, ValueColor });
+	}
 	if (FStatOverlay::IsEnabled(EStatFlags::Light)) {
 		Lines.Add({ "Light", TitleColor });
 		Lines.Add({ std::format("  Total Lights {} ", Stats.DirectionalCount + Stats.PointCount + Stats.SpotCount), ValueColor });

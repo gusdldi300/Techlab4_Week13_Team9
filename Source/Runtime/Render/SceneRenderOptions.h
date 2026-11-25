@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Render/RenderEnums.h"
+#include "Render/PostProcess/DepthOfFieldViewSettings.h"
 
 // 뷰 하나의 씬 렌더링 옵션. 에디터와 게임 뷰포트가 같은 설정을 전달한다.
 struct FSceneRenderOptions
@@ -11,6 +12,9 @@ struct FSceneRenderOptions
 	bool bCacheShadows = true; // r.Shadow.CacheWholeSceneShadows: 바뀌지 않은 그림자 타일은 다시 그리지 않는다
 	bool bEnableFog = true;
 	bool bEnableFXAA = false;
+	// 뷰의 표시 정책으로 카메라 설정과 함께 검사한다.
+	bool bEnableDepthOfField = true;
+	FDepthOfFieldViewSettings DepthOfField;
 	ELightCullingMode LightCullingMode = ELightCullingMode::Tiled;
 	bool bShowSceneDepth = false;
 	bool bShowCascade = false;

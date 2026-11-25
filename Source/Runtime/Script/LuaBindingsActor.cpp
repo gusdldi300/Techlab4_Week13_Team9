@@ -11,6 +11,7 @@
 #include "Camera/PlayerCameraManager.h"
 #include "GameFramework/PlayerController.h"
 #include "Camera/CameraComponent.h"
+#include "Camera/CameraOptics.h"
 #include "Components/AudioComponent.h"
 
 namespace
@@ -298,6 +299,34 @@ namespace LuaBindingsDetail
 					throw sol::error("IsCameraBlending: camera manager is unavailable.");
 
 				return PCM->IsBlending();
+			});
+		Lua.set_function("SetCameraOptics",
+			[](const FLuaActorRef& Ref, float FocalLengthMm,
+				float FocusDistanceMeters, float FStop, bool bDepthOfFieldEnabled)
+			{
+				for (UActorComponent* Component : Deref(Ref).GetComponents())
+				{
+					UCameraComponent* Camera = Cast<UCameraComponent>(Component);
+					if (!Camera) continue;
+
+					// 화각과 DOF가 같은 프레임의 렌즈 값을 사용하도록 함께 갱신한다.
+					FCameraLensSettings Lens = Camera->GetLensSettings();
+					FDepthOfFieldSettings DepthOfField = Camera->GetDepthOfFieldSettings();
+					Lens.bUseFocalLength = true;
+					Lens.FocalLengthMm = FocalLengthMm;
+					DepthOfField.bEnabled = bDepthOfFieldEnabled;
+					DepthOfField.FocalDistanceMeters = FocusDistanceMeters;
+					DepthOfField.FStop = FStop;
+					SanitizeDepthOfFieldSettings(DepthOfField);
+					float VerticalFov = Camera->GetFieldOfView();
+					ResolveCameraLens(Lens, VerticalFov);
+					FinalizeCameraOptics(Lens, DepthOfField, VerticalFov);
+					Camera->SetFieldOfView(VerticalFov);
+					Camera->SetLensSettings(Lens);
+					Camera->SetDepthOfFieldSettings(DepthOfField);
+					return;
+				}
+				throw sol::error("SetCameraOptics: Actor has no camera component.");
 			});
 		Lua.set_function("SetCameraRelativeTransform",
 			[](const FLuaActorRef& Ref,

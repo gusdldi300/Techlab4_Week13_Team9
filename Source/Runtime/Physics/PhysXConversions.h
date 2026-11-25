@@ -9,6 +9,7 @@
 #include <PxPhysicsAPI.h>
 #include "Math/Vector.h"
 #include "Math/Quat.h"
+#include "Physics/PhysicsFiltering.h"
 
 inline physx::PxVec3 U2PVector(const FVector& V)
 {
@@ -34,4 +35,8 @@ inline FQuat P2UQuat(const physx::PxQuat& Q)
 inline physx::PxTransform U2PTransform(const FVector& Location, const FQuat& Rotation)
 {
 	return physx::PxTransform(U2PVector(Location), U2PQuat(Rotation).getNormalized());
+}
+
+inline physx::PxFilterData U2PFilterData(const FCollisionFilterData &D) {
+	return physx::PxFilterData(D.Word0, D.Word1, D.Word2, D.Word3);
 }

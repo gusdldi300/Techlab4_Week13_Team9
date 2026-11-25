@@ -66,6 +66,8 @@ struct FRenderGraphComputePassDesc // compute pass용
 	std::string Name;
 	std::vector<ID3D11Resource*> ReadResources;
 	std::vector<ID3D11Resource*> WriteResources;
+	// 실행 시 생성되는 임시 텍스처도 컴퓨트 입력 의존성으로 선언한다.
+	std::vector<FRenderGraphTextureRef> ReadTextures;
 };
 
 struct FRenderGraphTextureDesc
@@ -76,12 +78,12 @@ struct FRenderGraphTextureDesc
 	ETextureBindFlags BindFlags = ETextureBindFlags::RenderTarget | ETextureBindFlags::ShaderResource;
 };
 
-// 1단계: 외부 텍스처와 순차 래스터 패스만 지원한다.
-// 실행 함수는 RTV를 유지하고, DSV는 선언된 DepthAttachments 내에서만 전환한다.
+// 패스를 등록 순서대로 실행하며 입출력 자원과 뷰포트를 관리한다.
+// 그래프와 텍스처 풀은 렌더 스레드에서 순차적으로 사용한다.
 class FRenderGraphBuilder
 {
 public:
-	FRenderGraphBuilder() = default;
+	FRenderGraphBuilder();
 	~FRenderGraphBuilder();
 	FRenderGraphBuilder(const FRenderGraphBuilder&) = delete;
 	FRenderGraphBuilder& operator=(const FRenderGraphBuilder&) = delete;
@@ -89,6 +91,9 @@ public:
 	FRenderGraphTextureRef ImportTexture(FTexture2D* Texture, const char* Name);
 	FRenderGraphTextureRef CreateTexture(const FRenderGraphTextureDesc& Desc, const char* Name);
 	FTexture2D* Resolve(FRenderGraphTextureRef Ref) const;
+	bool GetTextureDesc(FRenderGraphTextureRef Ref, FRenderGraphTextureDesc& OutDesc) const;
+	// 모든 그래프 소멸 후 디바이스 종료 전에 호출한다.
+	static bool ReleaseTexturePool();
 
 	bool AddRasterPass(FRenderGraphRasterPassDesc Desc, std::function<void()> Execute);
 	bool AddComputePass(FRenderGraphComputePassDesc Desc, std::function<void()> Execute);

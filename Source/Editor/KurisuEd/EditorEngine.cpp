@@ -983,6 +983,8 @@ void UEditorEngine::Tick(const float DeltaTime)
 					CamCom->SetRelativeLocation(ActiveClient->GetViewLocation());
 					CamCom->SetRelativeRotation(ActiveClient->GetViewRotation());
 					CamCom->SetFieldOfView(ActiveClient->GetViewFOV());
+					CamCom->SetLensSettings(ActiveClient->GetLensSettings());
+					// 자유 카메라의 DOF 토글은 씬 카메라에 반영하지 않는다.
 					CamCom->SetOrthoWidth(ActiveClient->GetOrthoWidth());
 					CamCom->SetNearZ(ActiveClient->GetNearClip());
 					CamCom->SetFarZ(ActiveClient->GetFarClip());
@@ -1074,6 +1076,8 @@ void UEditorEngine::Tick(const float DeltaTime)
 					const FEditorSettings& S = EditorSettings->GetSettings();
 					FSceneRenderOptions& ShowFlags = Context->GameViewport->EngineShowFlags;
 					ShowFlags.bEnableFXAA = S.bEnableFXAA;
+					ShowFlags.bEnableDepthOfField = S.bEnableDepthOfField;
+					ShowFlags.DepthOfField = S.DepthOfField;
 					ShowFlags.bCacheShadows = S.bCacheShadows;
 					ShowFlags.PcfMode = S.PcfMode;
 					ShowFlags.LightingModel = S.LightingModel;
@@ -2086,6 +2090,8 @@ void UEditorEngine::SaveProjectThumbnail()
 	Capture.SetViewLocation(View->GetViewLocation());
 	Capture.SetViewRotation(View->GetViewRotation());
 	Capture.SetViewFOV(View->GetViewFOV());
+	Capture.SetLensSettings(View->GetLensSettings());
+	Capture.SetDepthOfFieldSettings(View->GetDepthOfFieldSettings());
 	Capture.SetClipPlanes(View->GetNearClip(), View->GetFarClip());
 	Capture.Resize(444, 396); // 카드의 148:132 비율, 3배 해상도
 	Capture.SetOrthoWidth(View->GetOrthoWidth());

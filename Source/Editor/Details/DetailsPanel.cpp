@@ -3,6 +3,8 @@
 #include "Editor/EditorUI/EditorStyle.h"
 #include "Editor/Details/DetailsPanel.h"
 #include "Editor/Details/PropertyEditor.h"
+#include "Camera/CameraComponent.h"
+#include "Editor/Details/DepthOfFieldWidgets.h"
 #include "Core/Misc/Paths.h"
 
 #include <filesystem>
@@ -52,6 +54,27 @@
 
 namespace
 {
+	bool DrawDepthOfFieldStruct(UObject* Owner, void* StructPtr, const UScriptStruct& Struct, const FPropertyMeta& OuterMeta, ImFont* CustomFont)
+	{
+		auto& Settings = *static_cast<FDepthOfFieldSettings*>(StructPtr);
+		return DepthOfFieldWidgets::DrawSettings(Settings);
+	}
+
+	bool DrawCameraLensStruct(UObject* Owner, void* StructPtr, const UScriptStruct& Struct, const FPropertyMeta& OuterMeta, ImFont* CustomFont)
+	{
+		UCameraComponent* Camera = Cast<UCameraComponent>(Owner);
+		if (!Camera)
+			return false;
+
+		auto& Lens = *static_cast<FCameraLensSettings*>(StructPtr);
+		float VerticalFov = Camera->GetFieldOfView();
+		const bool bChanged = DepthOfFieldWidgets::DrawLensSettings(Lens, VerticalFov, false);
+		if (bChanged)
+			Camera->SetFieldOfView(VerticalFov);
+
+		return bChanged;
+	}
+
 	float GDetailsNameColumnRatio = 0.42f;
 	int32 GPropertyGridDepth = 0;
 	int32 GStructIndentLevel = 0;
@@ -3112,6 +3135,9 @@ namespace FPropertyEditor
 
 bool FDetailsPanel::Init()
 {
+	FPropertyEditor::RegisterStructDrawer(FDepthOfFieldSettings::StaticStruct(), &DrawDepthOfFieldStruct);
+	FPropertyEditor::RegisterStructDrawer(FCameraLensSettings::StaticStruct(), &DrawCameraLensStruct);
+
 	ImGuiIO& io = ImGui::GetIO();
 
 	// 기본 폰트도 배율에 맞춰 다시 래스터화할 수 있도록 벡터 폰트를 명시한다.

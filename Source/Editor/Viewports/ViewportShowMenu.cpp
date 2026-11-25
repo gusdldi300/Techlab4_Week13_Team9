@@ -3,11 +3,12 @@
 #include "Editor/Viewports/ViewportsPanel.h"
 #include "Editor/Settings/EditorSettings.h"
 #include "Editor/Viewports/ViewportToolbarWidgets.h"
+#include "Editor/Details/DepthOfFieldWidgets.h"
 #include "Components/SkinnedMeshComponent.h"
 #include "Core/StatOverlay.h"
 
 // UE의 표시(Show) 메뉴: 기본값 복원, 뷰포트 통계, 표시 플래그 체크 목록.
-// 보이기/숨기기만 둔다. 품질·성능 옵션은 Render 메뉴가 맡는다. 모든 에디터 뷰에 함께 적용된다.
+// 표시 여부와 진단 뷰를 둔다. 품질·성능 옵션은 Render 메뉴가 맡는다.
 void FViewportsPanel::DrawShowMenu()
 {
     if (!EditorSettings) return;
@@ -30,6 +31,10 @@ void FViewportsPanel::DrawShowMenu()
         Settings.bShowPhysicsConstraints = Defaults.bShowPhysicsConstraints;
         Settings.bShowVignette = Defaults.bShowVignette;
         Settings.bShowCameraOverlay = Defaults.bShowCameraOverlay;
+        Settings.bEnableDepthOfField = Defaults.bEnableDepthOfField;
+        Settings.DepthOfField.DebugView = Defaults.DepthOfField.DebugView;
+        Settings.DepthOfField.DebugRadiusFullResolutionPixels = Defaults.DepthOfField.DebugRadiusFullResolutionPixels;
+        Settings.DepthOfField.bDrawFocusPlane = Defaults.DepthOfField.bDrawFocusPlane;
     }
 
     // 뷰포트 통계: 콘솔의 stat 명령과 같은 상태를 켜고 끈다.
@@ -65,11 +70,46 @@ void FViewportsPanel::DrawShowMenu()
                 { X - EditorStyle::Scale(4.0f), CenterY + IconSize() * 0.5f }, { 0, 0 }, { 1, 1 }, EditorColor::TextSecondary);
     }
 
+    if (ImGui::BeginMenu("Visualize"))
+    {
+        auto& DepthOfField = Settings.DepthOfField;
+        const char* DebugViews[] =
+        {
+            "None",
+            "Depth of Field Layers",
+            "DOF Lens Radius",
+            "DOF Additional Blur",
+            "DOF Effective Radius"
+        };
+        static_assert(IM_ARRAYSIZE(DebugViews) == static_cast<int>(EDepthOfFieldDebugView::Count));
+
+        SectionHeader("Depth of Field");
+        for (int Index = 0; Index < IM_ARRAYSIZE(DebugViews); ++Index)
+        {
+            const auto DebugView = static_cast<EDepthOfFieldDebugView>(Index);
+            if (IconMenuItem(nullptr, DebugViews[Index], DepthOfField.DebugView == DebugView, EIndicator::Radio))
+                DepthOfField.DebugView = DebugView;
+        }
+
+        ImGui::Separator();
+        ImGui::Checkbox("Focus Plane", &DepthOfField.bDrawFocusPlane);
+        ImGui::PushItemWidth(EditorStyle::Scale(120.0f));
+        ImGui::DragFloat("Debug Radius (full-res px)", &DepthOfField.DebugRadiusFullResolutionPixels, 0.5f, 0.5f, 256.0f, "%.1f", ImGuiSliderFlags_AlwaysClamp);
+        ImGui::PopItemWidth();
+        ImGui::TextDisabled("Near green / Focus black / Far blue");
+        ImGui::TextDisabled("Radius: grayscale / Additional blur: yellow");
+        ImGui::TextDisabled("Invalid depth or CoC: magenta");
+        ImGui::TextDisabled("Enable Depth of Field in Show to visualize.");
+        SanitizeDepthOfFieldViewSettings(DepthOfField);
+        ImGui::EndMenu();
+    }
+
     auto Flag = [](const char* Icon, const char* Label, bool& bValue)
     {
         if (IconMenuItem(Icon, Label, bValue, EIndicator::Check)) bValue = !bValue;
     };
     SectionHeader("Common Show Flags");
+    Flag(nullptr, "Depth of Field", Settings.bEnableDepthOfField);
     Flag("Bounds", "Bounding Boxes", Settings.bDrawBoundingBox);
     Flag("Decals", "Decals", Settings.bDrawDecals);
     Flag("Grid", "Grid", Settings.bDrawBatchLine);
@@ -124,6 +164,25 @@ void FViewportsPanel::DrawRenderMenu()
     ImGui::BeginDisabled(!Settings.bGammaCorrection);
     ImGui::SliderFloat("Display Gamma", &Settings.DisplayGamma, 1.0f, 3.0f, "%.2f", ImGuiSliderFlags_AlwaysClamp);
     ImGui::EndDisabled();
+
+    ImGui::SeparatorText("Depth of Field");
+    auto& DepthOfField = Settings.DepthOfField;
+    ImGui::Checkbox("Override Camera DOF", &DepthOfField.bOverrideCamera);
+
+    if (DepthOfField.bOverrideCamera)
+    {
+        ImGui::TextDisabled("Replaces DOF settings in the rendered view.");
+        DepthOfFieldWidgets::DrawSettings(DepthOfField.OverrideSettings);
+    }
+
+    if (ImGui::Button("Reset DOF View Settings"))
+        DepthOfField = FDepthOfFieldViewSettings{};
+
+    ImGui::SameLine();
+    if (ImGui::Button("Save Settings"))
+        EditorSettings->SaveSettings();
+
+    SanitizeDepthOfFieldViewSettings(DepthOfField);
 
     ImGui::SeparatorText("Performance");
     const char* Decals[] = { "Off", "Linear AABB", "BVH" };

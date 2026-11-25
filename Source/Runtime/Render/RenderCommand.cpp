@@ -137,6 +137,11 @@ void RenderCommand::BindMesh(UStaticMesh* Mesh)
 	BindIndexBuffer(Mesh->GetIndexBuffer());
 }
 
+void RenderCommand::DrawInstanced(uint32 VertexCountPerInstance, uint32 InstanceCount)
+{
+	RenderDevice->GetContext()->DrawInstanced(VertexCountPerInstance, InstanceCount, 0, 0);
+}
+
 void RenderCommand::Draw(uint32 VertexCount, uint32 StartIndexLocation)
 {
 	RenderDevice->GetContext()->Draw(VertexCount, StartIndexLocation);

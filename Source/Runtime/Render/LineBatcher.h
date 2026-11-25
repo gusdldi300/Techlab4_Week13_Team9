@@ -34,6 +34,7 @@ public:
 
 	void Flush();
 	void OnRender(const FMatrix& ViewProjection);
+	void DrawTranslucentQuad(const FVector4 (&WorldCorners)[4], const FMatrix& ViewProjection, const FVector4& Color);
 	// 꺼 두면 다른 물체에 가려지지 않고 항상 위에 그린다 (디버그 표시용)
 	void SetDepthTest(bool bEnable) { PipelineState.DepthStencilState = bEnable ? EDepthStencilState::Default : EDepthStencilState::Disabled; }
 

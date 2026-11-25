@@ -5,8 +5,11 @@
 #include "PhysicsDebugDraw.h"
 #include "BodyInstance.h"
 #include "Physics/PhysicsStats.h"
+#include "PhysicsFilterShader.h"
+#include "Engine/World.h"
 #include <NvCloth/Factory.h> 
 #include <NvCloth/Solver.h>
+#include "PhysXConversions.h"
 
 using namespace physx;
 
@@ -17,7 +20,7 @@ namespace
     {
         const bool TaggedA = FA.word3 == FBodyInstance::AssetCollisionFilterTag;
         const bool TaggedB = FB.word3 == FBodyInstance::AssetCollisionFilterTag;
-        if (!TaggedA && !TaggedB) return PxDefaultSimulationFilterShader(A,FA,B,FB,Pairs,Constants,Size);
+        if (!TaggedA && !TaggedB) return SimulationFilterShader(A,FA,B,FB,Pairs,Constants,Size);
         if (PxFilterObjectIsTrigger(A) || PxFilterObjectIsTrigger(B))
         {
             Pairs = PxPairFlag::eTRIGGER_DEFAULT;
@@ -44,6 +47,65 @@ namespace
         bool statusChange(PxU32&, PxPairFlags&, PxFilterFlags&) override { return false; }
     };
     FAssetCollisionFilter AssetCollisionFilter;
+
+    class FPhysicsEventCallback final : public PxSimulationEventCallback {
+    public:
+        void onConstraintBreak(PxConstraintInfo* constraints, PxU32 count) override {}  // 관절 끊어지기
+
+        void onWake(PxActor** actors, PxU32 count) override {}  // 깨어나기
+
+        void onSleep(PxActor** actors, PxU32 count) override {} // 멈추기
+
+        void onAdvance(const PxRigidBody* const* bodyBuffer, const PxTransform* poseBuffer, const PxU32 count) override {}
+
+        void onContact(const PxContactPairHeader& pairHeader, const PxContactPair* pairs, PxU32 nbPairs) override {
+            // 닿거나 닿아있거나 떨어졌을때
+            
+            // PxContactPair : shape 쌍들의 배열이 어떻게 닿았는가? 
+            FBodyInstance* AInstance = static_cast<FBodyInstance*>(pairHeader.actors[0]->userData);
+            if (!AInstance) return;
+            UPrimitiveComponent* AComponent = AInstance->GetOwnerComponent();
+            if (!AComponent) return;
+
+            FBodyInstance* BInstance = static_cast<FBodyInstance*>(pairHeader.actors[1]->userData);
+            if (!BInstance) return;
+            UPrimitiveComponent* BComponent = BInstance->GetOwnerComponent();
+            if (!BComponent) return;
+
+            for (PxU32 i = 0; i < nbPairs; i++) {
+                if (pairs[i].events & PxPairFlag::eNOTIFY_TOUCH_FOUND) {
+                    // 처음 닿은 경우(eNOTIFY_TOUCH_FOUND)에만 HitResult 발생 
+                    PxContactPairPoint Points[8];
+                    const PxU32 Count = pairs[i].extractContacts(Points, 8);
+                    if (Count == 0) continue;
+
+                    FHitResult AHitResult;
+                    AHitResult.ImpactPoint = P2UVector(Points[0].position);
+                    AHitResult.Location = P2UVector(Points[0].position);
+                    AHitResult.ImpactNormal = P2UVector(Points[0].normal);
+                    AHitResult.Normal = P2UVector(Points[0].normal);
+                    AHitResult.PenetrationDepth = (-Points[0].separation);
+                    AHitResult.bBlockingHit = true;
+                    AHitResult.HitComponent = BComponent;
+                    AHitResult.Distance = 0;
+                    AHitResult.Time = 0;
+
+                    FHitResult BHitResult = AHitResult;
+                    BHitResult.ImpactNormal = -P2UVector(Points[0].normal);
+                    BHitResult.Normal = -P2UVector(Points[0].normal);
+                    BHitResult.HitComponent = AComponent;
+
+                    // 각 컴포넌트에 FHitResult로 알리기
+                    AComponent->DispatchHit(BComponent, AHitResult);
+                    BComponent->DispatchHit(AComponent, BHitResult);
+
+                }
+            }
+     
+        }    
+        void onTrigger(PxTriggerPair* pairs, PxU32 count) override {}   // 트리거로 지정한 shape가 들어오거나 나갔을때
+    };
+    FPhysicsEventCallback PhysicsEventCallback;
 }
 
 std::unique_ptr<FPhysicsScene> MakePhysicsScene(bool bUseTemporalSolver)
@@ -84,6 +146,7 @@ void FPhysicsScene_PhysX::CreatePhysicsScene()
     Desc.filterShader = AssetFilterShader;
     Desc.filterCallback = &AssetCollisionFilter;
     Desc.solverType = bUseTemporalSolver ? PxSolverType::eTGS : PxSolverType::ePGS;
+    Desc.simulationEventCallback = &PhysicsEventCallback;
 
     Desc.flags |= PxSceneFlag::eENABLE_ACTIVE_ACTORS;
 
@@ -265,6 +328,11 @@ void FPhysicsScene_PhysX::AddActor(const FPhysicsActorHandle& Handle)
 
     PxSceneWriteLock WriteLock(*PhysXScene);
     PhysXScene->addActor(*Handle.Actor);
+}
+
+physx::PxScene* FPhysicsScene_PhysX::GetNativeScene() const
+{
+    return PhysXScene;
 }
 
 void FPhysicsScene_PhysX::DrawDebugBodies(FLineBatcher* Lines) const

@@ -9,6 +9,9 @@
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Camera/CameraOptics.h"
+#include "Collision/Ray.h"
+#include "Math/Vector4.h"
 #include <cmath>
 #include "Math/Frustum.h"
 #include "Render/RenderCommand.h"
@@ -16,6 +19,9 @@
 #include "UI/UIRenderer.h"
 #include "Render/Renderer.h"
 #include "Render/SceneRenderer.h"
+#include "Core/StatOverlay.h"
+#include "Asset/AssetManager.h"
+#include "Text/Font.h"
 
 FGameViewportClient::FGameViewportClient()
 {
@@ -40,6 +46,8 @@ void FGameViewportClient::MouseMove(FViewport* Viewport, int32 X, int32 Y)
 
 bool FGameViewportClient::InputKey(FViewport* Viewport, int32 Key, bool bDown)
 {
+	if (DepthOfFieldTest.InputKey(Key, bDown))
+		return true;
 	if (HandleUIKey(Key, bDown))
 		return true;
 
@@ -56,6 +64,8 @@ bool FGameViewportClient::InputKey(FViewport* Viewport, int32 Key, bool bDown)
 
 bool FGameViewportClient::InputAxis(FViewport* Viewport, int32 ControllerId, EGameInputAxis AxisKey, float Delta, float DeltaTime)
 {
+	if (DepthOfFieldTest.IsEnabled())
+		return true;
 	if (HandleUIAxis(AxisKey, Delta))
 		return true;
 
@@ -79,34 +89,43 @@ void FGameViewportClient::LostFocus()
 	}
 }
 
-bool FGameViewportClient::ScreenToWorldRay(
-	float X, float Y, FRay* OutRay)
+bool FGameViewportClient::ScreenToWorldRay(float X, float Y, FRay* OutRay)
 {
-	assert(OutRay);
-
-	const FRect& Rect = GetRect();
-
-	if (!CameraComponent ||
-		Rect.Width <= 0.0f || Rect.Height <= 0.0f ||
-		Width == 0 || Height == 0)
+	const FRect& DisplayRect = GetRect();
+	if (!OutRay || !bHasRenderedView || DisplayRect.Width <= 0.0f || DisplayRect.Height <= 0.0f)
 	{
 		return false;
 	}
 
-	if (X < 0.0f || Y < 0.0f ||
-		X >= Rect.Width || Y >= Rect.Height)
+	if (!(X >= 0.0f && Y >= 0.0f && X < DisplayRect.Width && Y < DisplayRect.Height))
 	{
 		return false;
 	}
 
-	const float RenderX = X * Width / Rect.Width;
-	const float RenderY = Y * Height / Rect.Height;
+	// 표시 영역을 NDC로 변환하고 최종 렌더링 뷰로 역투영한다.
+	const float NdcX = 2.0f * X / DisplayRect.Width - 1.0f;
+	const float NdcY = 1.0f - 2.0f * Y / DisplayRect.Height;
+	const FMatrix InverseViewProjection = LastRenderedView.ViewProjectionMatrix.Inverse();
+	FVector4 NearPoint = FVector4(NdcX, NdcY, 0.0f, 1.0f) * InverseViewProjection;
+	FVector4 InteriorPoint = FVector4(NdcX, NdcY, 0.5f, 1.0f) * InverseViewProjection;
+	if (!std::isfinite(NearPoint.W) || !std::isfinite(InteriorPoint.W) || NearPoint.W == 0.0f || InteriorPoint.W == 0.0f)
+	{
+		return false;
+	}
 
-	*OutRay = CameraComponent->DeProjection(
-		FVector2(RenderX, RenderY),
-		static_cast<float>(Width),
-		static_cast<float>(Height));
+	NearPoint /= NearPoint.W;
+	InteriorPoint /= InteriorPoint.W;
+	const FVector NearWorld(NearPoint.X, NearPoint.Y, NearPoint.Z);
+	const FVector Direction = FVector(InteriorPoint.X, InteriorPoint.Y, InteriorPoint.Z) - NearWorld;
+	const float DirectionLengthSquared = Direction.SizeSquared();
+	if (!std::isfinite(DirectionLengthSquared) || DirectionLengthSquared <= 0.0f)
+	{
+		return false;
+	}
 
+	// 원근은 카메라 위치, 직교는 픽셀별 Near 위치에서 출발한다.
+	OutRay->Origin = LastRenderedView.bIsPerspective ? LastRenderedView.ViewLocation : NearWorld;
+	OutRay->Direction = Direction / std::sqrt(DirectionLengthSquared);
 	return true;
 }
 
@@ -126,9 +145,11 @@ UCameraComponent* FGameViewportClient::FindPlayerCamera() const
 void FGameViewportClient::SetWorld(UWorld* InWorld)
 {
 	if (World == InWorld) return;
+	bHasRenderedView = false;
 	LostFocus();
 	RenderData.ResetScene();
 	CameraComponent = nullptr;
+	DepthOfFieldTest = {};
 	World = InWorld;
 }
 
@@ -172,6 +193,8 @@ FSceneView FGameViewportClient::CalcSceneView(const FRect& InViewRect)
 			OutView.ViewProjectionMatrix = OutView.ViewMatrix * OutView.ProjectionMatrix;
 			// 렌즈 값
 			OutView.FieldOfView = POV.FOV;
+			OutView.LensSettings = POV.LensSettings;
+			OutView.DepthOfFieldSettings = POV.DepthOfFieldSettings;
 			OutView.AspectRatio = Aspect;
 			OutView.NearClip = POV.NearClip;
 			OutView.FarClip = POV.FarClip;
@@ -195,36 +218,38 @@ FSceneView FGameViewportClient::CalcSceneView(const FRect& InViewRect)
 		}
 	}
 
+	FMinimalViewInfo POV{};
 	if (CameraComponent)
 	{
 		CameraComponent->SetAspectRatio(Aspect);
-
-		OutView.ViewLocation = CameraComponent->GetWorldLocation();
-		OutView.ViewRotation = CameraComponent->GetWorldRotation();
-		OutView.ViewForward = OutView.ViewRotation.Quaternion().GetForwardVector();
-		OutView.ViewMatrix = CameraComponent->GetViewMatrix();
-		OutView.ProjectionMatrix = CameraComponent->GetProjectionMatrix();
-		OutView.ViewProjectionMatrix = CameraComponent->GetViewProjectionMatrix();
-		OutView.FieldOfView = CameraComponent->GetFieldOfView();
-		OutView.AspectRatio = Aspect;
-		OutView.NearClip = CameraComponent->GetNearZ();
-		OutView.FarClip = CameraComponent->GetFarZ();
-		OutView.OrthoWidth = CameraComponent->GetOrthoWidth();
-		OutView.bIsPerspective = !CameraComponent->GetIsOrthogonal();
-		OutView.bIsWireframe = false;
+		CameraComponent->GetCameraView(0.0f, POV);
 	}
 	else
 	{
-		OutView.ViewLocation = FVector(-5.0f, -10.0f, 10.0f);
-		OutView.ViewRotation = FRotator(30.0f, 45.0f, 0.0f);
-		OutView.ViewForward = OutView.ViewRotation.Quaternion().GetForwardVector();
-		OutView.FieldOfView = 60.0f;
-		OutView.AspectRatio = Aspect;
-		OutView.NearClip = 0.1f;
-		OutView.FarClip = 1000.0f;
-		OutView.bIsPerspective = true;
-		OutView.bIsWireframe = false;
+		// 카메라가 없어도 기본 시점으로 행렬을 생성한다.
+		POV.Location = FVector(-5.0f, -10.0f, 10.0f);
+		POV.Rotation = FRotator(30.0f, 45.0f, 0.0f);
+		POV.FarClip = 1000.0f;
 	}
+
+	POV.AspectRatio = Aspect;
+	SanitizeDepthOfFieldSettings(POV.DepthOfFieldSettings);
+	FinalizeCameraOptics(POV.LensSettings, POV.DepthOfFieldSettings, POV.FOV);
+	OutView.ViewLocation = POV.Location;
+	OutView.ViewRotation = POV.Rotation;
+	OutView.ViewForward = POV.Rotation.Quaternion().GetForwardVector();
+	OutView.ViewMatrix = POV.CalculateViewMatrix();
+	OutView.ProjectionMatrix = POV.CalculateProjectionMatrix();
+	OutView.ViewProjectionMatrix = OutView.ViewMatrix * OutView.ProjectionMatrix;
+	OutView.FieldOfView = POV.FOV;
+	OutView.AspectRatio = POV.AspectRatio;
+	OutView.NearClip = POV.NearClip;
+	OutView.FarClip = POV.FarClip;
+	OutView.OrthoWidth = POV.OrthoWidth;
+	OutView.bIsPerspective = !POV.bIsOrthogonal;
+	OutView.bIsWireframe = false;
+	OutView.LensSettings = POV.LensSettings;
+	OutView.DepthOfFieldSettings = POV.DepthOfFieldSettings;
 
 	OutView.Frustum = ExtractFrustumPlanes(OutView.ViewProjectionMatrix);
 	OutView.FrustumCorners = GenerateFrustumCorners(OutView.ViewProjectionMatrix.Inverse());
@@ -243,25 +268,48 @@ bool FGameViewportClient::Draw(FRenderer* Renderer, FUIRenderer* UIRenderer)
 
 	// 카메라를 뷰·투영 행렬로 바꾼다.
 	const FRect ViewRect{ 0.0f, 0.0f, static_cast<float>(Width), static_cast<float>(Height) };
-	const FSceneView SceneView = CalcSceneView(ViewRect);
+	FSceneView SceneView = CalcSceneView(ViewRect);
+	DepthOfFieldTest.Initialize(World->GetPlayerPawn() ? World->GetPlayerPawn()->GetName() : "");
+	FSceneRenderOptions ViewOptions = EngineShowFlags;
+	DepthOfFieldTest.Apply(SceneView, ViewOptions);
+
+	// 돌리 줌의 동적 초점은 전역 DOF 시험 값으로 덮어쓰지 않는다.
+	// 활성 카메라를 기준으로 옵션 사본만 바꿔 다른 씬과 저장 설정을 유지한다.
+	if (APlayerController* PlayerController = World->GetPlayerController())
+	{
+		if (APlayerCameraManager* CameraManager = PlayerController->GetCameraManager())
+		{
+			const FViewTarget& ViewTarget = CameraManager->GetViewTarget();
+			if (CameraManager->IsActorAlive(ViewTarget.Target, ViewTarget.TargetUUID)
+				&& ViewTarget.Target->GetName() == "DZ_Kurisu_UpperBody_Camera")
+			{
+				ViewOptions.DepthOfField.bOverrideCamera = false;
+			}
+		}
+	}
 
 	// 보이는 물체와 라이트를 모은 뒤 패스를 순서대로 실행해 ViewTargets에 그린다.
 	FSceneRenderer SceneRenderer(World, SceneView, RenderData);
-	SceneRenderer.InitViews(Renderer, EngineShowFlags);
-	return SceneRenderer.Render(Renderer, ViewTargets, EngineShowFlags,
+	SceneRenderer.InitViews(Renderer, ViewOptions);
+	const bool bRendered = SceneRenderer.Render(Renderer, ViewTargets, ViewOptions,
 		[this, UIRenderer, &SceneView](FScenePassCallbacks& Callbacks)
 		{
 			// 게임 UI는 씬 위에 그려야 하므로 그 시점에 불릴 함수로 등록한다.
-			Callbacks.Overlays.GameUI = [this, UIRenderer]
+			Callbacks.Overlays.GameUI = [this, UIRenderer, &SceneView]
 				{
 					if (!UIRenderer) return;
 					PaintUI(UIDrawList);
+					DepthOfFieldTest.Paint(UIDrawList, SceneView, RenderData.DepthOfFieldStats, Width, Height);
 					UIRenderer->Render(UIDrawList, Width, Height);
 				};
 
 			// 에디터가 등록해 둔 디버그 요소가 있으면 같이 등록한다.
 			if (DebugDrawDelegate) DebugDrawDelegate(SceneView, Callbacks.Overlays);
 		});
+	bHasRenderedView = bRendered;
+	if (bRendered)
+		LastRenderedView = SceneView;
+	return bRendered;
 }
 
 void FGameViewportClient::Resize(uint32 InWidth, uint32 InHeight)
@@ -271,6 +319,7 @@ void FGameViewportClient::Resize(uint32 InWidth, uint32 InHeight)
 		return;
 	}
 
+	bHasRenderedView = false;
 	Width = InWidth;
 	Height = InHeight;
 
@@ -285,6 +334,7 @@ void FGameViewportClient::Resize(uint32 InWidth, uint32 InHeight)
 
 void FGameViewportClient::Reset()
 {
+	bHasRenderedView = false;
 	// PIE가 끝나면 화면에 남은 위젯을 정리한다.
 	ClearViewportWidgets();
 
@@ -294,6 +344,7 @@ void FGameViewportClient::Reset()
 	GameInstance = nullptr;
 	Engine = nullptr;
 	CameraComponent = nullptr;
+	DepthOfFieldTest = {};
 
 	ViewTargets.Reset();
 	Width = 0;
@@ -353,6 +404,39 @@ void FGameViewportClient::PaintUI(FUIDrawList& DrawList)
 	{
 		Widget->Arrange(Screen);
 		Widget->Paint(DrawList, 1.0f);
+	}
+
+	// 게임 UI는 후처리 뒤에 그려져 DOF 디버그 보기에서도 읽을 수 있다.
+	// 이 경로는 뷰포트 안의 PIE와 별도 PIE 창에서 동일하게 동작한다.
+	if (FStatOverlay::IsEnabled(EStatFlags::DepthOfField))
+	{
+		UFont* Font = UAssetManager::GetAssetByPath<UFont>("Engine/Fonts/Pretendard.json");
+		if (!Font) return;
+
+		TArray<FString> Lines;
+		Lines.Add("Depth of Field");
+		for (const FString& Line : FStatOverlay::GetDepthOfFieldLines(RenderData.DepthOfFieldStats))
+			Lines.Add(Line);
+
+		constexpr float FontSize = 16.0f;
+		constexpr float Padding = 6.0f;
+		constexpr float Margin = 8.0f;
+		const float LineHeight = FUIDrawList::MeasureText("Ag", *Font, FontSize).Y;
+		float TextWidth = 0.0f;
+		for (const FString& Line : Lines)
+			TextWidth = std::max(TextWidth, FUIDrawList::MeasureText(Line, *Font, FontSize).X);
+		const float PanelX = Margin;
+		const float PanelY = DepthOfFieldTest.IsEnabled() ? 90.0f : Margin;
+
+		DrawList.AddRect({ PanelX, PanelY, TextWidth + Padding * 2.0f,
+			LineHeight * Lines.Num() + Padding * 2.0f }, FLinearColor(0.0f, 0.0f, 0.0f, 0.75f));
+		for (int32 Index = 0; Index < Lines.Num(); ++Index)
+		{
+			const FLinearColor Color = Index == 0
+				? FLinearColor(1.0f, 0.85f, 0.2f, 1.0f) : FLinearColor(1.0f, 1.0f, 1.0f, 1.0f);
+			DrawList.AddText({ PanelX + Padding, PanelY + Padding + LineHeight * Index,
+				TextWidth, LineHeight }, Lines[Index], *Font, FontSize, Color, 0);
+		}
 	}
 }
 

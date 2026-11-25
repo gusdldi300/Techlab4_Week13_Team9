@@ -137,7 +137,8 @@ void UGameEngine::DispatchInput(FGameViewportClient& Viewport, float DeltaTime)
 		return;
 	}
 
-	DispatchGameKeyboardInput([&](int32 Key, bool bDown) { Viewport.InputKey(nullptr, Key, bDown); });
+	DispatchGameKeyboardInput([&](int32 Key, bool bDown) { Viewport.InputKey(nullptr, Key, bDown); },
+		Viewport.IsDepthOfFieldTestEnabled());
 	if (FInputSystem::IsKeyPressed(EKeyCode::Escape)) Viewport.InputKey(nullptr, static_cast<int32>(EKeyCode::Escape), true);
 	if (FInputSystem::IsKeyReleased(EKeyCode::Escape)) Viewport.InputKey(nullptr, static_cast<int32>(EKeyCode::Escape), false);
 

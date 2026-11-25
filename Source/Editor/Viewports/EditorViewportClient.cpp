@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "Input/InputSystem.h"
 #include "Camera/ViewportCameraMovement.h"
+#include "Camera/CameraOptics.h"
 #include "Math/EngineMath.h"
 #include "Render/RenderCommand.h"
 #include "Editor/AssetEditor/FPreviewScene.h"
@@ -40,7 +41,7 @@ void FEditorViewportClient::SetWorld(UWorld* InWorld) {
 void FEditorViewportClient::FocusOnBounds(const FBoxSphereBounds& Bounds, bool bSmooth) {
   const float Radius = FMath::Max(FMath::Max(Bounds.SphereRadius, Bounds.BoxExtent.Size()), 0.1f);
   const float Aspect = FMath::Max(AspectRatio, 0.01f);
-  const float HalfFOV = FMath::DegreesToRadians(FMath::Clamp(ViewFOV, 1.0f, 179.0f)) * 0.5f;
+  const float HalfFOV = FMath::DegreesToRadians(GetEffectiveViewFOV()) * 0.5f;
   const float LimitingHalfFOV = atanf(tanf(HalfFOV) * FMath::Min(Aspect, 1.0f));
   const float Distance = FMath::Max(Radius * 1.1f / sinf(LimitingHalfFOV), Radius + NearClip);
 
@@ -156,9 +157,18 @@ FMatrix FEditorViewportClient::GetViewMatrix() const {
   return InverseTranslation * InverseRotation;
 }
 
+// 투영·피킹·프레이밍이 같은 유효 화각을 사용한다.
+float FEditorViewportClient::GetEffectiveViewFOV() const
+{
+    FCameraLensSettings ResolvedLens = LensSettings;
+    float EffectiveFov = ViewFOV;
+    ResolveCameraLens(ResolvedLens, EffectiveFov);
+    return EffectiveFov;
+}
+
 // 원근 투영 행렬
 FMatrix FEditorViewportClient::GetPerspectiveMatrix() const {
-  const float HalfFOV = FMath::DegreesToRadians(ViewFOV) * 0.5f;
+  const float HalfFOV = FMath::DegreesToRadians(GetEffectiveViewFOV()) * 0.5f;
 
   const float YScale = 1.0f / tan(HalfFOV);
   const float XScale = YScale / AspectRatio;
@@ -217,7 +227,13 @@ FSceneView FEditorViewportClient::CalcSceneView(const FRect &InViewRect) const {
     OutView.Frustum = ExtractFrustumPlanes(OutView.ViewProjectionMatrix);
     OutView.FrustumCorners = GenerateFrustumCorners(OutView.ViewProjectionMatrix.Inverse());
     OutView.ViewRect = InViewRect;
-    OutView.FieldOfView = ViewFOV;
+    OutView.FieldOfView = GetEffectiveViewFOV();
+    OutView.LensSettings = LensSettings;
+    OutView.DepthOfFieldSettings = DepthOfFieldSettings;
+    // 실제 투영과 같은 화각으로 렌더용 설정을 확정한다.
+    ResolveCameraLens(OutView.LensSettings, OutView.FieldOfView);
+    SanitizeDepthOfFieldSettings(OutView.DepthOfFieldSettings);
+    FinalizeCameraOptics(OutView.LensSettings, OutView.DepthOfFieldSettings, OutView.FieldOfView);
     OutView.AspectRatio = AspectRatio;
     OutView.NearClip = NearClip;
     OutView.FarClip = FarClip;
@@ -354,7 +370,7 @@ FRay FEditorViewportClient::DeprojectScreenToWorld(
   const FVector Up = Rotation.GetUpVector();
 
   if (bIsPerspective) {
-    const float Tangent = tanf(FMath::DegreesToRadians(ViewFOV) * 0.5f);
+    const float Tangent = tanf(FMath::DegreesToRadians(GetEffectiveViewFOV()) * 0.5f);
     const FVector Direction =
         (Forward + Right * (NdcX * Tangent * Aspect) + Up * (NdcY * Tangent))
             .Normalized();

@@ -1089,11 +1089,17 @@ void UWorld::UpdateOverlaps()
 				A->BeginComponentOverlap(B);
 				B->BeginComponentOverlap(A);
 
-				// 지금은 “처음 막혔을 때 한 번” Hit를 보내는 정책
-				if (A->bBlockComponent && B->bBlockComponent)
+				// 처음 막혔을 때 한 번 Hit 보내기
+				const bool bHasPhysicsBody =
+					A->GetBodyInstance().IsValidBodyInstance() ||
+					B->GetBodyInstance().IsValidBodyInstance();
+
+				if (!bHasPhysicsBody && A->bBlockComponent && B->bBlockComponent)
 				{
-					A->DispatchHit(B);
-					B->DispatchHit(A);
+					FHitResult HitResult;
+					HitResult.bBlockingHit = true;
+					A->DispatchHit(B, HitResult);
+					B->DispatchHit(A, HitResult);
 				}
 			}
 			// true -> false: 분리

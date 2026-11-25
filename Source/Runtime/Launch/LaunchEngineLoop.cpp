@@ -19,6 +19,7 @@
 #include "Render/RenderCommand.h"
 #include "Render/RenderDevice.h"
 #include "Render/RenderResourceManager.h"
+#include "Render/RenderGraph/RenderGraph.h"
 #include "Render/Renderer.h"
 #include "Render/Swapchain.h"
 #include "Render/Texture2D.h"
@@ -331,6 +332,11 @@ void FEngineLoop::Exit()
 	DepthBuffer.reset();
 	Swapchain.reset();
 	Renderer.reset();
+	// 디바이스가 살아 있을 때 그래프 풀의 GPU 자원을 정리한다.
+	if (!FRenderGraphBuilder::ReleaseTexturePool())
+	{
+		KRS_LOG(Error, "Render graph is still alive during texture pool shutdown.");
+	}
 
 	if (RenderDevice)
 	{
