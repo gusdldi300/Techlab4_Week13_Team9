@@ -273,6 +273,21 @@ bool FGameViewportClient::Draw(FRenderer* Renderer, FUIRenderer* UIRenderer)
 	FSceneRenderOptions ViewOptions = EngineShowFlags;
 	DepthOfFieldTest.Apply(SceneView, ViewOptions);
 
+	// 돌리 줌의 동적 초점은 전역 DOF 시험 값으로 덮어쓰지 않는다.
+	// 활성 카메라를 기준으로 옵션 사본만 바꿔 다른 씬과 저장 설정을 유지한다.
+	if (APlayerController* PlayerController = World->GetPlayerController())
+	{
+		if (APlayerCameraManager* CameraManager = PlayerController->GetCameraManager())
+		{
+			const FViewTarget& ViewTarget = CameraManager->GetViewTarget();
+			if (CameraManager->IsActorAlive(ViewTarget.Target, ViewTarget.TargetUUID)
+				&& ViewTarget.Target->GetName() == "DZ_Kurisu_UpperBody_Camera")
+			{
+				ViewOptions.DepthOfField.bOverrideCamera = false;
+			}
+		}
+	}
+
 	// 보이는 물체와 라이트를 모은 뒤 패스를 순서대로 실행해 ViewTargets에 그린다.
 	FSceneRenderer SceneRenderer(World, SceneView, RenderData);
 	SceneRenderer.InitViews(Renderer, ViewOptions);

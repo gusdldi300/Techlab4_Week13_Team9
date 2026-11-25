@@ -984,7 +984,7 @@ void UEditorEngine::Tick(const float DeltaTime)
 					CamCom->SetRelativeRotation(ActiveClient->GetViewRotation());
 					CamCom->SetFieldOfView(ActiveClient->GetViewFOV());
 					CamCom->SetLensSettings(ActiveClient->GetLensSettings());
-					CamCom->SetDepthOfFieldSettings(ActiveClient->GetDepthOfFieldSettings());
+					// 자유 카메라의 DOF 토글은 씬 카메라에 반영하지 않는다.
 					CamCom->SetOrthoWidth(ActiveClient->GetOrthoWidth());
 					CamCom->SetNearZ(ActiveClient->GetNearClip());
 					CamCom->SetFarZ(ActiveClient->GetFarClip());

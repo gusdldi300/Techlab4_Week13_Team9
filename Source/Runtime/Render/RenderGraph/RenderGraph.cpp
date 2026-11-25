@@ -352,6 +352,17 @@ bool FRenderGraphBuilder::AddComputePass(FRenderGraphComputePassDesc Desc, std::
 	if (bExecuted || !Execute || Desc.Name.empty() || Desc.WriteResources.empty()) return false;
 	for (ID3D11Resource* Resource : Desc.ReadResources)
 		if (!Resource) return false;
+	for (FRenderGraphTextureRef Ref : Desc.ReadTextures)
+	{
+		FRenderGraphTextureDesc TextureDesc{};
+		if (!GetTextureDesc(Ref, TextureDesc) ||
+			!HasFlag(TextureDesc.BindFlags, ETextureBindFlags::ShaderResource))
+			return false;
+		FTexture2D* Texture = Resolve(Ref);
+		if (Texture && std::find(Desc.WriteResources.begin(), Desc.WriteResources.end(),
+			Texture->GetRawPtr()) != Desc.WriteResources.end())
+			return false;
+	}
 	for (ID3D11Resource* Resource : Desc.WriteResources)
 	{
 		if (!Resource || std::find(Desc.ReadResources.begin(), Desc.ReadResources.end(), Resource)
@@ -387,7 +398,14 @@ bool FRenderGraphBuilder::Execute() // 등록되어 있던
 		if (Pass.bCompute)
 		{
 			RenderCommand::EndRenderPass();
-			UnbindConflictingViews(Context, Pass.ComputeDesc.ReadResources); // 이전 패스에서 같은 리소스가 UAV(쓰기)로 묶여 있으면 해제
+			std::vector<ID3D11Resource*> ReadResources = Pass.ComputeDesc.ReadResources;
+			for (FRenderGraphTextureRef Ref : Pass.ComputeDesc.ReadTextures)
+			{
+				FTexture2D* Texture = Resolve(Ref);
+				if (!Texture) return false;
+				ReadResources.push_back(Texture->GetRawPtr());
+			}
+			UnbindConflictingViews(Context, ReadResources);
 			UnbindConflictingViews(Context, Pass.ComputeDesc.WriteResources); // 같은 리소스가 이전 패스의 SRV(읽기) 또는 UAV(쓰기)로 묶여 있으면 해제
 			Pass.Execute(); 
 			ID3D11UnorderedAccessView* NullUAVs[D3D11_PS_CS_UAV_REGISTER_COUNT]{};

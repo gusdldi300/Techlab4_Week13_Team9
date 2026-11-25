@@ -8,10 +8,12 @@
 #include "Render/PostProcess/DepthOfFieldViewSettings.h"
 
 #include <array>
+#include <memory>
 #include <initializer_list>
 #include <vector>
 
 inline constexpr uint32 DOFPyramidLevelCount = 9;
+struct FDepthOfFieldSmallLightResources;
 
 struct FDepthOfFieldQualitySettings
 {
@@ -19,6 +21,9 @@ struct FDepthOfFieldQualitySettings
     float MaxBlurRadiusFullResolutionPixels = 64.0f;
     uint32 NearSampleCount = 64;
     uint32 FarSampleCount = 64;
+    // 0이면 기존 DOF만 사용한다. 광원 후보와 후보당 픽셀 수에 각각 상한을 둔다.
+    uint32 MaxSmallLightCount = 32;
+    uint32 SmallLightMaxDiameterPixels = 32;
 };
 
 struct FDepthOfFieldPassResources
@@ -82,10 +87,28 @@ private:
     static bool CreateResources(FRenderGraphBuilder& Graph, uint32 Width, uint32 Height, FDepthOfFieldPassResources& OutResources);
     static FDepthOfFieldData BuildData(const FSceneView& View, uint32 Width, uint32 Height, const FDepthOfFieldQualitySettings& Quality);
 
-    bool AddStage(FRenderGraphBuilder& Graph, EPass Stage, const FDepthOfFieldData& Data, std::vector<FRenderGraphTextureRef> Inputs, std::initializer_list<FRenderGraphTextureRef> Outputs);
+    bool AddStage(FRenderGraphBuilder& Graph, EPass Stage, const FDepthOfFieldData& Data,
+        std::vector<FRenderGraphTextureRef> Inputs,
+        std::initializer_list<FRenderGraphTextureRef> Outputs,
+        std::shared_ptr<FDepthOfFieldSmallLightResources> SmallLights = {},
+        const FVector4& SmallLightParameters = {});
+
+    bool AddSmallLightDetection(FRenderGraphBuilder& Graph, const FDepthOfFieldData& Data,
+        FRenderGraphTextureRef SceneHDR, const FDepthOfFieldPassResources& Resources,
+        const FDepthOfFieldQualitySettings& Quality,
+        std::shared_ptr<FDepthOfFieldSmallLightResources>& OutSmallLights,
+        FVector4& OutParameters);
+    bool AddSmallLightScatter(FRenderGraphBuilder& Graph, const FDepthOfFieldData& Data,
+        FRenderGraphTextureRef SceneHDR, const FDepthOfFieldPassResources& Resources,
+        std::shared_ptr<FDepthOfFieldSmallLightResources> SmallLights,
+        const FVector4& Parameters, bool bNear);
 
     std::array<FPipelineState, PassCount> Pipelines;
     TUniquePtr<FConstantBuffer> ConstantBuffer;
     FPipelineState DebugPipeline;
     TUniquePtr<FConstantBuffer> DebugConstantBuffer;
+    TUniquePtr<FComputeShader> SmallLightDetector;
+    TUniquePtr<FConstantBuffer> SmallLightConstantBuffer;
+    std::array<FPipelineState, 2> SmallLightPipelines;
+    std::shared_ptr<FDepthOfFieldSmallLightResources> SmallLightResources;
 };

@@ -108,20 +108,27 @@ float4 ComputeDOFBokeh(FDepthOfFieldVertexOutput Input)
 
     const float2 RadiusUV = ConvertDOFRadiusHalfToUV(SearchRadiusHalf);
     uint SelectedLevel = 0;
-    int2 FirstPixel = int2(0, 0);
-    int2 LastPixel = int2(0, 0);
 
-    // 전체 영역을 훑을 수 있는 단계로 낮춰 점 샘플 사이의 누락을 줄인다.
+    // 같은 반경은 격자 안의 위치와 무관하게 같은 단계를 선택한다.
+    // 길이가 L인 구간이 닿는 셀 수의 최댓값은 ceil(L) + 1이다.
+    // 현재 픽셀의 실제 경계로 고르면 8x8/8x9처럼 개수가 번갈아 달라져
+    // 단계와 경계 필터 폭까지 격자 모양으로 바뀔 수 있다.
     [loop]
     for (uint Level = 0; Level < 10; ++Level)
     {
-        GetDOFSampleBounds(CenterUV, RadiusUV, Level, FirstPixel, LastPixel);
-        const int2 SampleCount = LastPixel - FirstPixel + int2(1, 1);
+        const int2 CandidateSize = GetDOFLayerSize(Level);
+        const float2 SearchDiameterTexels = 2.0f * RadiusUV * float2(CandidateSize);
+        const int2 MaximumSampleCount = min(
+            int2(ceil(SearchDiameterTexels)) + int2(1, 1), CandidateSize);
         SelectedLevel = Level;
-        if (SampleCount.x * SampleCount.y <= int(SampleBudget))
+        if (MaximumSampleCount.x * MaximumSampleCount.y <= int(SampleBudget))
             break;
     }
 
+    // 샘플링할 실제 영역은 단계 선택을 마친 뒤에만 계산한다.
+    int2 FirstPixel;
+    int2 LastPixel;
+    GetDOFSampleBounds(CenterUV, RadiusUV, SelectedLevel, FirstPixel, LastPixel);
     const int2 LayerSize = GetDOFLayerSize(SelectedLevel);
     const float2 CellSizeFull = FullSizeAndInvSize.xy / float2(LayerSize);
     const float CellAreaFull = CellSizeFull.x * CellSizeFull.y;

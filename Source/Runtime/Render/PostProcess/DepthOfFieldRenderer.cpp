@@ -3,12 +3,28 @@
 #include "Render/PostProcess/DepthOfFieldRenderer.h"
 #include "Render/RenderCommand.h"
 #include "Render/RenderResourceManager.h"
+#include "Render/RenderUtil.h"
+#include "Render/Texture2D.h"
 #include "Camera/CameraOptics.h"
 
 #include <algorithm>
 #include <iterator>
 #include <string>
 #include <utility>
+
+struct FDepthOfFieldSmallLightResources
+{
+    TUniquePtr<FStructuredBuffer> Regions;
+    TUniquePtr<FStructuredBuffer> Count;
+    TUniquePtr<FStructuredBuffer> Mask;
+};
+
+namespace
+{
+    constexpr uint32 MaximumSmallLightCount = 128;
+    constexpr uint32 SmallLightRegionStride = 32; // HLSL의 uint4 Bounds + float4 Parameters.
+    constexpr uint32 SmallLightPixelsPerRegion = 256;
+}
 
 bool FDepthOfFieldRenderer::Init()
 {
@@ -42,6 +58,19 @@ bool FDepthOfFieldRenderer::Init()
     DebugPipeline = Pipelines[static_cast<size_t>(EPass::CoC)];
     DebugPipeline.Shader = FRenderResourceManager::FindShaderProgram("EngineResources/Shaders/DepthOfField/DebugCoC.hlsl");
     DebugConstantBuffer = RenderCommand::CreateConstantBuffer(sizeof(FVector4));
+
+    SmallLightConstantBuffer = RenderCommand::CreateConstantBuffer(sizeof(FVector4));
+    SmallLightDetector = RenderCommand::CreateComputeShader(RenderUtil::CompileShader(
+        "EngineResources/Shaders/DepthOfField/DetectSmallLights.hlsl",
+        "mainCS", EShaderType::Compute));
+    SmallLightPipelines[0] = Pipelines[static_cast<size_t>(EPass::FarBokeh)];
+    SmallLightPipelines[1] = Pipelines[static_cast<size_t>(EPass::NearBokeh)];
+    SmallLightPipelines[0].Shader = FRenderResourceManager::FindShaderProgram(
+        "EngineResources/Shaders/DepthOfField/FarSmallLight.hlsl");
+    SmallLightPipelines[1].Shader = FRenderResourceManager::FindShaderProgram(
+        "EngineResources/Shaders/DepthOfField/NearSmallLight.hlsl");
+    for (FPipelineState& Pipeline : SmallLightPipelines)
+        Pipeline.BlendState = EBlendState::Additive;
 
     return IsReady();
 }
@@ -144,7 +173,143 @@ bool FDepthOfFieldRenderer::CreateResources(FRenderGraphBuilder& Graph, uint32 W
         OutResources.NearBokeh && OutResources.FarBokeh && OutResources.CompositeHDR;
 }
 
-bool FDepthOfFieldRenderer::AddStage(FRenderGraphBuilder& Graph, EPass Stage, const FDepthOfFieldData& Data, std::vector<FRenderGraphTextureRef> Inputs, std::initializer_list<FRenderGraphTextureRef> Outputs)
+bool FDepthOfFieldRenderer::AddSmallLightDetection(FRenderGraphBuilder& Graph,
+    const FDepthOfFieldData& Data, FRenderGraphTextureRef SceneHDR,
+    const FDepthOfFieldPassResources& Resources, const FDepthOfFieldQualitySettings& Quality,
+    std::shared_ptr<FDepthOfFieldSmallLightResources>& OutSmallLights,
+    FVector4& OutParameters)
+{
+    OutSmallLights.reset();
+    OutParameters = {};
+    const uint32 LightLimit = std::min(Quality.MaxSmallLightCount, MaximumSmallLightCount);
+    const auto IsPipelineReady = [](const FPipelineState& Pipeline)
+    {
+        return Pipeline.Shader && Pipeline.Shader->VertexShader &&
+            Pipeline.Shader->PixelShader && Pipeline.Shader->VertexShader->IsValid() &&
+            Pipeline.Shader->PixelShader->IsValid();
+    };
+    // 분리 경로가 준비되지 않으면 광원을 제거하지 않고 기존 DOF를 그대로 사용한다.
+    if (!LightLimit || Data.DepthBlurParameters.Z < 2.0f ||
+        !SmallLightConstantBuffer || !SmallLightConstantBuffer->GetBuffer() ||
+        !SmallLightDetector || !SmallLightDetector->IsValid() ||
+        !IsPipelineReady(SmallLightPipelines[0]) || !IsPipelineReady(SmallLightPipelines[1]))
+        return true;
+
+    const uint32 Width = static_cast<uint32>(Data.FullSizeAndInvSize.X);
+    const uint32 Height = static_cast<uint32>(Data.FullSizeAndInvSize.Y);
+    const uint64 PixelCount = static_cast<uint64>(Width) * Height;
+    if (!PixelCount || PixelCount > UINT32_MAX / sizeof(uint32))
+        return true;
+
+    if (!SmallLightResources ||
+        SmallLightResources->Mask->GetCapacity() < static_cast<uint32>(PixelCount))
+    {
+        auto NewResources = std::make_shared<FDepthOfFieldSmallLightResources>();
+        NewResources->Regions = RenderCommand::CreateRWStructuredBuffer(
+            SmallLightRegionStride, MaximumSmallLightCount);
+        NewResources->Count = RenderCommand::CreateRWStructuredBuffer(sizeof(uint32), 1);
+        NewResources->Mask = RenderCommand::CreateRWStructuredBuffer(
+            sizeof(uint32), static_cast<uint32>(PixelCount));
+        const auto IsBufferReady = [](const TUniquePtr<FStructuredBuffer>& Buffer)
+        {
+            return Buffer && Buffer->GetBuffer() && Buffer->GetSRV() && Buffer->GetUAV();
+        };
+        if (!IsBufferReady(NewResources->Regions) || !IsBufferReady(NewResources->Count) ||
+            !IsBufferReady(NewResources->Mask))
+            return true;
+        SmallLightResources = std::move(NewResources);
+    }
+
+    const auto Lights = SmallLightResources;
+    const FVector4 Parameters(static_cast<float>(LightLimit),
+        static_cast<float>(std::clamp(Quality.SmallLightMaxDiameterPixels, 2u, 32u)),
+        4.0f, 0.01f);
+    FRenderGraphComputePassDesc Pass;
+    Pass.Name = "DOF.DetectSmallLights";
+    Pass.ReadTextures = { SceneHDR, Resources.CoCAndDepthBlur, Resources.LinearDepth };
+    Pass.WriteResources = { Lights->Regions->GetBuffer(),
+        Lights->Count->GetBuffer(), Lights->Mask->GetBuffer() };
+    FComputeShader* Shader = SmallLightDetector.get();
+    FConstantBuffer* Constants = ConstantBuffer.get();
+    FConstantBuffer* LightConstants = SmallLightConstantBuffer.get();
+    const auto CoC = Resources.CoCAndDepthBlur;
+    const auto Depth = Resources.LinearDepth;
+    auto Execute = [&Graph, Lights, Shader, Constants, LightConstants, Data,
+        Parameters, SceneHDR, CoC, Depth, Width, Height]()
+    {
+        // 같은 버퍼를 다음 뷰/프레임에 재사용해도 이전 추출 마스크는 남기지 않는다.
+        RenderCommand::ClearUnorderedAccess(Lights->Count.get());
+        RenderCommand::ClearUnorderedAccess(Lights->Mask.get());
+        RenderCommand::UpdateBufferData(Constants, &Data, sizeof(Data));
+        RenderCommand::UpdateBufferData(LightConstants, &Parameters, sizeof(Parameters));
+        RenderCommand::BindComputeShader(Shader);
+        RenderCommand::BindConstantBuffer(0, Constants, EShaderBindFlagBits::Compute);
+        RenderCommand::BindConstantBuffer(1, LightConstants, EShaderBindFlagBits::Compute);
+        RenderCommand::BindShaderResource(0, Graph.Resolve(SceneHDR), EShaderBindFlagBits::Compute);
+        RenderCommand::BindShaderResource(1, Graph.Resolve(CoC), EShaderBindFlagBits::Compute);
+        RenderCommand::BindShaderResource(2, Graph.Resolve(Depth), EShaderBindFlagBits::Compute);
+        RenderCommand::BindUnorderedAccess(0, Lights->Regions.get());
+        RenderCommand::BindUnorderedAccess(1, Lights->Count.get());
+        RenderCommand::BindUnorderedAccess(2, Lights->Mask.get());
+        RenderCommand::Dispatch((Width + 15) / 16, (Height + 15) / 16, 1);
+        RenderCommand::UnbindUnorderedAccess(0);
+        RenderCommand::UnbindUnorderedAccess(1);
+        RenderCommand::UnbindUnorderedAccess(2);
+        RenderCommand::UnbindShaderResources(0, 3, EShaderBindFlagBits::Compute);
+        RenderCommand::BindConstantBuffer(0, nullptr, EShaderBindFlagBits::Compute);
+        RenderCommand::BindConstantBuffer(1, nullptr, EShaderBindFlagBits::Compute);
+        RenderCommand::BindComputeShader(nullptr);
+    };
+    if (!Graph.AddComputePass(std::move(Pass), std::move(Execute)))
+        return false;
+    OutSmallLights = Lights;
+    OutParameters = Parameters;
+    return true;
+}
+
+bool FDepthOfFieldRenderer::AddSmallLightScatter(FRenderGraphBuilder& Graph,
+    const FDepthOfFieldData& Data, FRenderGraphTextureRef SceneHDR,
+    const FDepthOfFieldPassResources& Resources,
+    std::shared_ptr<FDepthOfFieldSmallLightResources> SmallLights,
+    const FVector4& Parameters, bool bNear)
+{
+    if (!SmallLights)
+        return true;
+    FRenderGraphRasterPassDesc Pass;
+    Pass.Name = bNear ? "DOF.NearSmallLights" : "DOF.FarSmallLights";
+    Pass.ReadTextures = { SceneHDR, Resources.CoCAndDepthBlur, Resources.LinearDepth };
+    // 기존 면적 블러를 유지하고 추출한 광원의 RGB만 가산한다.
+    Pass.ColorAttachments.push_back({ bNear ? Resources.NearBokeh : Resources.FarBokeh,
+        ERenderGraphLoadAction::Load, {} });
+    const FPipelineState Pipeline = SmallLightPipelines[bNear ? 1 : 0];
+    FConstantBuffer* Constants = ConstantBuffer.get();
+    FConstantBuffer* LightConstants = SmallLightConstantBuffer.get();
+    auto Execute = [Pipeline, Constants, LightConstants, Data, Parameters, SmallLights]()
+    {
+        constexpr auto ShaderStages = EShaderBindFlagBits::Vertex | EShaderBindFlagBits::Pixel;
+        RenderCommand::BindPipelineState(Pipeline);
+        RenderCommand::BindVertexBuffer(nullptr);
+        RenderCommand::UpdateBufferData(Constants, &Data, sizeof(Data));
+        RenderCommand::UpdateBufferData(LightConstants, &Parameters, sizeof(Parameters));
+        RenderCommand::BindConstantBuffer(0, Constants, ShaderStages);
+        RenderCommand::BindConstantBuffer(1, LightConstants, ShaderStages);
+        RenderCommand::BindShaderResource(3, SmallLights->Regions.get(), EShaderBindFlagBits::Vertex);
+        RenderCommand::BindShaderResource(4, SmallLights->Count.get(), EShaderBindFlagBits::Vertex);
+        RenderCommand::BindShaderResource(5, SmallLights->Mask.get(), EShaderBindFlagBits::Vertex);
+        const uint32 InstanceCount = static_cast<uint32>(Parameters.X) * SmallLightPixelsPerRegion;
+        RenderCommand::DrawInstanced(6, InstanceCount);
+        RenderCommand::UnbindShaderResources(3, 3, EShaderBindFlagBits::Vertex);
+        RenderCommand::BindConstantBuffer(1, nullptr, ShaderStages);
+        RenderCommand::BindConstantBuffer(0, nullptr, EShaderBindFlagBits::Vertex);
+    };
+    return Graph.AddRasterPass(std::move(Pass), std::move(Execute));
+}
+
+bool FDepthOfFieldRenderer::AddStage(FRenderGraphBuilder& Graph, EPass Stage,
+    const FDepthOfFieldData& Data, std::vector<FRenderGraphTextureRef> Inputs,
+    std::initializer_list<FRenderGraphTextureRef> Outputs,
+    std::shared_ptr<FDepthOfFieldSmallLightResources> SmallLights,
+    const FVector4& SmallLightParameters)
 {
     static constexpr const char* PassNames[] =
     {
@@ -172,9 +337,13 @@ bool FDepthOfFieldRenderer::AddStage(FRenderGraphBuilder& Graph, EPass Stage, co
 
     const FPipelineState Pipeline = Pipelines[PassIndex];
     FConstantBuffer* Constants = ConstantBuffer.get();
+    FConstantBuffer* LightConstants = SmallLightConstantBuffer.get();
+    const bool bReadSmallLightMask = Stage == EPass::Downsample || Stage == EPass::Composite;
+    const uint32 MaskSlot = Stage == EPass::Downsample ? 3u : 5u;
 
     // 뷰별 데이터와 PSO를 값으로 캡처한다. 텍스처 바인딩은 Graph가 담당한다.
-    auto ExecutePass = [Pipeline, Constants, Data]()
+    auto ExecutePass = [Pipeline, Constants, Data, LightConstants,
+        bReadSmallLightMask, MaskSlot, SmallLights, SmallLightParameters]()
     {
         RenderCommand::BindPipelineState(Pipeline);
         RenderCommand::BindVertexBuffer(nullptr);
@@ -182,7 +351,21 @@ bool FDepthOfFieldRenderer::AddStage(FRenderGraphBuilder& Graph, EPass Stage, co
         RenderCommand::BindSamplerState(1, ESamplerState::LinearClamp, EShaderBindFlagBits::Pixel);
         RenderCommand::UpdateBufferData(Constants, &Data, sizeof(Data));
         RenderCommand::BindConstantBuffer(0, Constants, EShaderBindFlagBits::Pixel);
+        if (bReadSmallLightMask)
+        {
+            if (LightConstants)
+                RenderCommand::UpdateBufferData(
+                    LightConstants, &SmallLightParameters, sizeof(SmallLightParameters));
+            RenderCommand::BindConstantBuffer(1, LightConstants, EShaderBindFlagBits::Pixel);
+            RenderCommand::BindShaderResource(MaskSlot,
+                SmallLights ? SmallLights->Mask.get() : nullptr, EShaderBindFlagBits::Pixel);
+        }
         RenderCommand::Draw(3);
+        if (bReadSmallLightMask)
+        {
+            RenderCommand::UnbindShaderResources(MaskSlot, 1, EShaderBindFlagBits::Pixel);
+            RenderCommand::BindConstantBuffer(1, nullptr, EShaderBindFlagBits::Pixel);
+        }
     };
 
     return Graph.AddRasterPass(std::move(Pass), std::move(ExecutePass));
@@ -284,7 +467,15 @@ bool FDepthOfFieldRenderer::AddPasses(FRenderGraphBuilder& Graph, const FSceneVi
         return false;
 
     // 원본 샘플별 분류 후 Near/Far 색상과 메타데이터를 축소한다.
-    if (!AddStage(Graph, EPass::Downsample, Data, { SceneHDR, Resources.LinearDepth, Resources.CoCAndDepthBlur }, { Resources.NearColor, Resources.FarColor, Resources.NearParams, Resources.FarParams }))
+    std::shared_ptr<FDepthOfFieldSmallLightResources> SmallLights;
+    FVector4 SmallLightParameters{};
+    if (!AddSmallLightDetection(Graph, Data, SceneHDR, Resources, Quality,
+        SmallLights, SmallLightParameters))
+        return false;
+    if (!AddStage(Graph, EPass::Downsample, Data,
+        { SceneHDR, Resources.LinearDepth, Resources.CoCAndDepthBlur },
+        { Resources.NearColor, Resources.FarColor, Resources.NearParams, Resources.FarParams },
+        SmallLights, SmallLightParameters))
         return false;
 
     FRenderGraphTextureRef PreviousNearColor = Resources.NearColor;
@@ -340,8 +531,17 @@ bool FDepthOfFieldRenderer::AddPasses(FRenderGraphBuilder& Graph, const FSceneVi
     if (!AddStage(Graph, EPass::NearBokeh, Data, std::move(NearInputs), { Resources.NearBokeh }))
         return false;
 
+    if (!AddSmallLightScatter(Graph, Data, SceneHDR, Resources,
+        SmallLights, SmallLightParameters, false) ||
+        !AddSmallLightScatter(Graph, Data, SceneHDR, Resources,
+            SmallLights, SmallLightParameters, true))
+        return false;
+
     // t0~t4는 Composite.hlsl의 입력 선언 순서와 일치한다.
-    if (!AddStage(Graph, EPass::Composite, Data, { SceneHDR, Resources.LinearDepth, Resources.CoCAndDepthBlur, Resources.FarBokeh, Resources.NearBokeh }, { Resources.CompositeHDR }))
+    if (!AddStage(Graph, EPass::Composite, Data,
+        { SceneHDR, Resources.LinearDepth, Resources.CoCAndDepthBlur,
+            Resources.FarBokeh, Resources.NearBokeh }, { Resources.CompositeHDR },
+        SmallLights, SmallLightParameters))
         return false;
 
     // 원본과 다른 HDR 텍스처로 출력해 읽기·쓰기 충돌을 피한다.

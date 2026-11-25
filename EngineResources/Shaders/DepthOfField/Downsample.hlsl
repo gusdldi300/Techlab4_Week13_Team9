@@ -1,8 +1,9 @@
-#include "DepthOfFieldCommon.hlsli"
+#include "SmallLightCommon.hlsli"
 
 Texture2D<float4> SceneHDRTexture : register(t0);
 Texture2D<float> LinearDepthTexture : register(t1);
 Texture2D<float2> CoCAndDepthBlurTexture : register(t2);
+StructuredBuffer<uint> SmallLightMask : register(t3);
 
 struct FDownsampleOutput
 {
@@ -94,14 +95,30 @@ FDownsampleOutput mainPS(FDepthOfFieldVertexOutput Input)
                 continue;
 
             const float2 CoCData = CoCAndDepthBlurTexture.Load(int3(SourcePixel, 0));
-            const float3 SampleColor = SceneHDRTexture.Load(int3(SourcePixel, 0)).rgb;
+            float3 SampleColor = SceneHDRTexture.Load(int3(SourcePixel, 0)).rgb;
             if (!all(isfinite(CoCData)) || !all(isfinite(SampleColor)))
                 continue;
+
+            [branch]
+            if (SmallLightParameters.x > 0.0f)
+            {
+                const uint MaskIndex = SourcePixel.y * uint(FullSize.x) + SourcePixel.x;
+                if (SmallLightMask[MaskIndex] != 0)
+                    SampleColor = 0.0f;
+            }
 
             // 분류에는 렌즈 CoC의 원래 부호를 사용한다.
             const bool bNear = CoCData.x < 0.0f;
             const float AdditionalRadius = max(CoCData.y, 0.0f);
             const float FullRadius = min(max(abs(CoCData.x), AdditionalRadius), DepthBlurParameters.z);
+
+            // 합성의 블러 전환이 시작되는 0.5px 이하 샘플은 원본에만 남긴다.
+            // 축소 전에 RGB와 커버리지를 함께 제외해야 초점 색상이 이웃 배경의
+            // 최대 반경을 물려받아 퍼지거나, 색만 빠져 검은 테두리가 생기지 않는다.
+            // 추가 거리 블러가 켜져 있으면 위에서 결합한 실제 반경을 기준으로 한다.
+            if (FullRadius <= 0.5f)
+                continue;
+
             const float HalfRadius = ConvertDOFRadiusFullToHalf(FullRadius);
 
             if (bNear)

@@ -1,10 +1,11 @@
-#include "DepthOfFieldCommon.hlsli"
+#include "SmallLightCommon.hlsli"
 
 Texture2D<float4> SceneHDRTexture : register(t0);
 Texture2D<float> LinearDepthTexture : register(t1);
 Texture2D<float2> CoCAndDepthBlurTexture : register(t2);
 Texture2D<float4> FarBokehTexture : register(t3);
 Texture2D<float4> NearBokehTexture : register(t4);
+StructuredBuffer<uint> SmallLightMask : register(t5);
 
 FDepthOfFieldVertexOutput mainVS(uint VertexID : SV_VertexID)
 {
@@ -94,9 +95,18 @@ void UpsampleDOFLayers(float2 UV, float TargetDepth, out float4 FarLayer, out fl
 float4 mainPS(FDepthOfFieldVertexOutput Input) : SV_Target0
 {
     const int2 FullPixel = int2(Input.Position.xy);
-    const float4 OriginalColor = SceneHDRTexture.Load(int3(FullPixel, 0));
+    float4 OriginalColor = SceneHDRTexture.Load(int3(FullPixel, 0));
     if (!all(isfinite(OriginalColor)))
         return float4(0.0f, 0.0f, 0.0f, 1.0f);
+
+    // 분리한 광원이 원본 잔여분과 산란 패스에서 이중 합산되지 않게 한다.
+    [branch]
+    if (SmallLightParameters.x > 0.0f)
+    {
+        const uint MaskIndex = FullPixel.y * uint(FullSizeAndInvSize.x) + FullPixel.x;
+        if (SmallLightMask[MaskIndex] != 0)
+            OriginalColor.rgb = 0.0f;
+    }
 
     const float TargetDepth = LinearDepthTexture.Load(int3(FullPixel, 0));
     const float2 CoCData = CoCAndDepthBlurTexture.Load(int3(FullPixel, 0));

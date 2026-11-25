@@ -66,6 +66,8 @@ struct FRenderGraphComputePassDesc // compute pass용
 	std::string Name;
 	std::vector<ID3D11Resource*> ReadResources;
 	std::vector<ID3D11Resource*> WriteResources;
+	// 실행 시 생성되는 임시 텍스처도 컴퓨트 입력 의존성으로 선언한다.
+	std::vector<FRenderGraphTextureRef> ReadTextures;
 };
 
 struct FRenderGraphTextureDesc

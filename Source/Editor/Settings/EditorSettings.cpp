@@ -105,7 +105,8 @@ bool FEditorSettingsManager::SaveSettings() const
         File << Prefix << "LensUseFocalLength=" << Lens.bUseFocalLength << "\n";
         File << Prefix << "LensFocalLengthMm=" << Lens.FocalLengthMm << "\n";
         File << Prefix << "LensSensorHeightMm=" << Lens.SensorHeightMm << "\n";
-        File << Prefix << "DOFEnabled=" << DepthOfField.bEnabled << "\n";
+        // 자유 카메라의 DOF 활성화는 현재 세션에만 적용한다.
+        File << Prefix << "DOFEnabled=0\n";
         File << Prefix << "DOFFStop=" << DepthOfField.FStop << "\n";
         File << Prefix << "DOFMinFStop=" << DepthOfField.MinFStop << "\n";
         File << Prefix << "DOFApertureBladeCount=" << DepthOfField.ApertureBladeCount << "\n";
@@ -157,7 +158,8 @@ bool FEditorSettingsManager::LoadSettings()
 	{
 		Settings.bViewLocationSaved[Index] = false;
 		Settings.bViewRotationSaved[Index] = false;
-		// 새 키가 없는 파일을 다시 읽어도 이전 로드 값이 남지 않는다.
+		// 자유 카메라는 저장된 활성화 값과 무관하게 DOF를 끈 상태로 시작한다.
+		// 렌즈와 DOF의 나머지 값은 아래에서 복원한다.
 		Settings.ViewLensSettings[Index] = FCameraLensSettings{};
 		Settings.ViewDepthOfFieldSettings[Index] = FDepthOfFieldSettings{};
 	}
@@ -235,7 +237,6 @@ bool FEditorSettingsManager::LoadSettings()
                     else if (Key == Prefix + "LensUseFocalLength" && (Value == 0.0f || Value == 1.0f)) Lens.bUseFocalLength = Value != 0.0f;
                     else if (Key == Prefix + "LensFocalLengthMm" && Value > 0.0f) Lens.FocalLengthMm = Value;
                     else if (Key == Prefix + "LensSensorHeightMm" && Value > 0.0f) Lens.SensorHeightMm = Value;
-                    else if (Key == Prefix + "DOFEnabled" && (Value == 0.0f || Value == 1.0f)) DepthOfField.bEnabled = Value != 0.0f;
                     else if (Key == Prefix + "DOFFStop" && Value > 0.0f) DepthOfField.FStop = Value;
                     else if (Key == Prefix + "DOFMinFStop" && Value > 0.0f) DepthOfField.MinFStop = Value;
                     else if (Key == Prefix + "DOFApertureBladeCount" && Value >= 3.0f && Value <= 16.0f && Value == std::floor(Value)) DepthOfField.ApertureBladeCount = static_cast<int32>(Value);
