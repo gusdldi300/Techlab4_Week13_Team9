@@ -67,6 +67,13 @@ public:
 	// 정지 위치 기준 서스펜션 압축량(m). 양수면 위로 눌렸다.
 	float GetSuspensionOffset() const { return CurrentSuspensionOffset; }
 	bool IsInAir() const { return bCurrentInAir; }
+	// 타이어 미끄러짐. 종방향은 (바퀴 둘레 속도 - 지면 속도) / 지면 속도 비율, 횡방향은 진행 방향과 바퀴 방향 사이 각(rad)이다.
+	// 0이면 바퀴가 구르는 대로 간다. 크면 헛돌거나(가속) 잠기거나(제동) 옆으로 밀린다(코너).
+	float GetLongitudinalSlip() const { return CurrentLongSlip; }
+	float GetLateralSlip() const { return CurrentLatSlip; }
+	// 바퀴 레이가 맞은 지면 점과 법선(월드). 공중이면 의미 없다.
+	const FVector& GetContactPoint() const { return CurrentContactPoint; }
+	const FVector& GetContactNormal() const { return CurrentContactNormal; }
 
 	// 차체(루트 컴포넌트) 기준 바퀴 위치와 회전. 바퀴 메시를 옮길 때 쓴다.
 	const FVector& GetLocalLocation() const { return LocalLocation; }
@@ -79,6 +86,10 @@ private:
 	float CurrentRotationDegrees = 0.0f;
 	float CurrentSuspensionOffset = 0.0f;
 	bool  bCurrentInAir = true;
+	float CurrentLongSlip = 0.0f;
+	float CurrentLatSlip = 0.0f;
+	FVector CurrentContactPoint = FVector::ZeroVector;
+	FVector CurrentContactNormal = FVector(0.0f, 0.0f, 1.0f);
 	FVector LocalLocation = FVector::ZeroVector;
 	FQuat   LocalRotation = FQuat::Identity();
 };

@@ -71,7 +71,7 @@ bool FPhysicsCore::InitPhysX()
         return false;
     }
 
-    gDispatcher = PxDefaultCpuDispatcherCreate(2);
+    gDispatcher = PxDefaultCpuDispatcherCreate(4);
     if (!gDispatcher)
     {
         KRS_LOG(Error, "[Physics] PxDefaultCpuDispatcherCreate failed");

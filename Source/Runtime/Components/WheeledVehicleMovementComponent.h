@@ -74,6 +74,23 @@ public:
 	UPROPERTY(EditAnywhere)
 	float WheelMass = 20.0f;
 
+	// ---- 뒷바퀴가 앞바퀴와 다를 때 (bSeparateRearWheels가 true일 때만 쓴다) ----
+	// false면 뒷바퀴도 WheelHalfTrack·WheelCenterZ·WheelRadius·WheelWidth를 쓴다.
+	UPROPERTY(EditAnywhere)
+	bool bSeparateRearWheels = false;
+
+	UPROPERTY(EditAnywhere)
+	float RearWheelHalfTrack = 0.642f;
+
+	UPROPERTY(EditAnywhere)
+	float RearWheelCenterZ = -0.402f;
+
+	UPROPERTY(EditAnywhere)
+	float RearWheelRadius = 0.262f;
+
+	UPROPERTY(EditAnywhere)
+	float RearWheelWidth = 0.22f;
+
 	UPROPERTY(EditAnywhere)
 	float MaxSteerAngle = 45.0f;             // 앞바퀴 최대 조향각(도)
 
@@ -107,6 +124,9 @@ public:
 
 	// 차체 기준 바퀴 중심(정지 위치). 4륜 순서(앞왼, 앞오, 뒤왼, 뒤오)로 채운다. 액터가 바퀴 메시 초기 위치에도 쓴다.
 	virtual void ComputeWheelOffsets(TArray<FVector>& OutOffsets) const;
+	// 바퀴 번호(4륜 순서)의 반지름·폭. 2·3번(뒷바퀴)은 bSeparateRearWheels면 Rear* 값을 쓴다.
+	float GetWheelRadius(int32 WheelIndex) const;
+	float GetWheelWidth(int32 WheelIndex) const;
 
 	// ---- FPhysXVehicleManager가 부른다 ----
 	physx::PxVehicleWheels* GetPhysXVehicle() const { return PVehicle; }

@@ -18,6 +18,10 @@ namespace
 	// 가 되어, 윗변이 어깨에 매달리고 등 뒤로 세로로 늘어진 망토가 된다.
 	// 위 세 축을 열로 둔 회전 행렬 [0 0 −1; 1 0 0; 0 −1 0]을 쿼터니언(x, y, z, w)으로 바꾼 값이다.
 	const FQuat CapeBaseRotation(-0.5f, -0.5f, 0.5f, 0.5f);
+
+	// 망토 메시. Blender에서 캐릭터 축(X 앞, Y 오른쪽, Z 위)으로 만들었고 원점이 윗변 가운데라 회전이 필요 없다.
+	// 윗줄 정점이 빨간 정점 색이라 어깨선에 고정된다. 임포트 전이면 격자 망토로 대체한다.
+	const char* CapeMeshPath = "FBX/SonicCape/SonicCape_Static.fbx.bin";
 }
 
 ASonicCapeCharacter::ASonicCapeCharacter()
@@ -38,6 +42,7 @@ ASonicCapeCharacter::ASonicCapeCharacter()
 	CapeComponent = CreateDefaultSubobject<UClothComponent>("CapeComponent");
 	CapeComponent->SetupAttachment(CapsuleComponent);
 	CapeComponent->SetRelativeLocationAndRotation(FVector(-0.25f, 0.0f, 0.5f), CapeBaseRotation.ToFRotator());
+	CapeComponent->SourceMeshPath = CapeMeshPath;
 	CapeComponent->bFlagLayout = false;
 	CapeComponent->NumX = 11;            // 가로 정점 수 → 0.5m
 	CapeComponent->NumY = 13;            // 세로 정점 수 → 0.6m
@@ -77,6 +82,10 @@ void ASonicCapeCharacter::BeginPlay()
 		Instance->RunAnimationPath = RunAnimationPath;
 		SkeletalMeshComponent->SetAnimInstance(Instance);
 	}
+
+	// 메시 망토는 캐릭터 축으로 만들었으니 회전 없이, 격자 망토(대체)는 커튼 배치를 세우는 회전으로 붙인다.
+	// 씬 파일에 저장된 상대 회전이 생성자 값을 덮으므로 여기서 다시 맞춘다. 아직 시작 전이라 관성 튐이 없다.
+	CapeComponent->SetRelativeRotation((CapeComponent->IsMeshCloth() ? FQuat::Identity() : CapeBaseRotation).ToFRotator());
 
 	FindCapeBone();
 	UpdateCape();

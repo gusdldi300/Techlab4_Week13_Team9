@@ -7,17 +7,15 @@
 #include "Components/StaticMeshComponent.h"
 #include "Components/VehicleWheel.h"
 #include "Components/WheeledVehicleMovementComponent4W.h"
+#include "Components/SkidMarkComponent.h"
 #include "Asset/AssetManager.h"
 #include "Input/KeyCode.h"
 #include <string>
 
 namespace
 {
-	// Blender에서 차체와 바퀴를 나눠 Import한 Cutlass 모델. 차체 중심, 바퀴 중심이 각 메시의 원점이다.
-	// 임포터는 파일마다 FBX/<이름>/<이름>_Static.fbx.bin으로 저장한다.
-	constexpr const char* BodyMeshPath   = "FBX/Cutlass_Body/Cutlass_Body_Static.fbx.bin";
-	constexpr const char* WheelLMeshPath = "FBX/Cutlass_WheelL/Cutlass_WheelL_Static.fbx.bin";
-	constexpr const char* WheelRMeshPath = "FBX/Cutlass_WheelR/Cutlass_WheelR_Static.fbx.bin";
+	// 모델은 Blender에서 차체와 바퀴를 나눠 Import한다. 차체 중심, 바퀴 중심이 각 메시의 원점이다.
+	// 임포터는 파일마다 FBX/<이름>/<이름>_Static.fbx.bin으로 저장한다. 경로는 헤더의 BodyMeshPath·WheelMeshPaths.
 	// FBX 임포터는 cm로 가져오고 엔진은 m를 쓴다. 캐릭터 메시와 같은 배율이다.
 	constexpr float ModelScale = 0.01f;
 	constexpr float DegToRad = 0.0174532925f;
@@ -41,6 +39,9 @@ AWheeledVehicle::AWheeledVehicle()
 	}
 
 	VehicleMovement = CreateDefaultSubobject<UWheeledVehicleMovementComponent4W>("VehicleMovement");
+
+	SkidMarks = CreateDefaultSubobject<USkidMarkComponent>("SkidMarks");
+	SkidMarks->SetVehicleMovement(VehicleMovement);
 
 	// 차 뒤 위에서 따라가는 카메라. 차가 기울어도 화면이 같이 구르지 않게 Yaw만 따른다.
 	SpringArm = CreateDefaultSubobject<USpringArmComponent>("SpringArm");
@@ -66,18 +67,22 @@ AWheeledVehicle::AWheeledVehicle()
 void AWheeledVehicle::SetupMeshes()
 {
 	UStaticMesh* Body = UAssetManager::GetAssetByPath<UStaticMesh>(BodyMeshPath);
-	UStaticMesh* WheelL = UAssetManager::GetAssetByPath<UStaticMesh>(WheelLMeshPath);
-	UStaticMesh* WheelR = UAssetManager::GetAssetByPath<UStaticMesh>(WheelRMeshPath);
-	bUsingModelMeshes = Body && WheelL && WheelR;
+	UStaticMesh* Wheels[4] = {};
+	bUsingModelMeshes = Body != nullptr;
+	for (int32 i = 0; i < 4; ++i)
+	{
+		Wheels[i] = UAssetManager::GetAssetByPath<UStaticMesh>(WheelMeshPaths[i]);
+		bUsingModelMeshes = bUsingModelMeshes && Wheels[i];
+	}
 
 	if (bUsingModelMeshes)
 	{
 		ChassisMesh->SetStaticMesh(Body);
 		// PhysX 4륜 순서: 0 앞왼, 1 앞오, 2 뒤왼, 3 뒤오. 모델 바퀴는 바깥면이 있어 좌우 메시가 다르다.
-		WheelMeshes[0]->SetStaticMesh(WheelL);
-		WheelMeshes[1]->SetStaticMesh(WheelR);
-		WheelMeshes[2]->SetStaticMesh(WheelL);
-		WheelMeshes[3]->SetStaticMesh(WheelR);
+		for (int32 i = 0; i < 4; ++i)
+		{
+			WheelMeshes[i]->SetStaticMesh(Wheels[i]);
+		}
 		return;
 	}
 
@@ -108,8 +113,6 @@ void AWheeledVehicle::ApplyDimensions()
 	const float H = VehicleMovement->ChassisHeight;
 	CollisionBox->BoxExtent = FVector(L * 0.5f, W * 0.5f, H * 0.5f);
 
-	const float R = VehicleMovement->WheelRadius;
-	const float WW = VehicleMovement->WheelWidth;
 	if (bUsingModelMeshes)
 	{
 		// 모델은 이미 실제 크기다. cm → m 배율만 주고, 차체 중심이 원점이므로 위치는 그대로 둔다.
@@ -127,6 +130,8 @@ void AWheeledVehicle::ApplyDimensions()
 	const FRotator BaseRot = GetWheelMeshBaseRotation().ToFRotator();
 	for (int32 i = 0; i < 4 && i < Rest.Num(); ++i)
 	{
+		const float R = VehicleMovement->GetWheelRadius(i);
+		const float WW = VehicleMovement->GetWheelWidth(i);
 		const FVector Scale = bUsingModelMeshes ? FVector(ModelScale, ModelScale, ModelScale) : FVector(R, R, WW);   // 원통은 반지름 1, 높이 1
 		WheelMeshes[i]->SetRelativeScale3D(Scale);
 		WheelMeshes[i]->SetRelativeLocationAndRotation(Rest[i], BaseRot);

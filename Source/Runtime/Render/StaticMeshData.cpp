@@ -89,14 +89,29 @@ void FStaticMeshData::OptimizeTriangleOrderForVertexCache()
 
 		const uint32 TriangleCount = Section.IndexCount / 3;
 		const uint32* Source = Indices.GetData() + Section.StartIndex;
-		std::vector<std::vector<uint32>> Adjacent(VertexCount);
-		std::vector<uint32> Remaining(VertexCount, 0);
+
+		// 정점별 작업 배열은 이 섹션이 실제로 쓰는 정점 번호 범위 [MinVertex, MaxVertex]만큼만 만든다.
+		// 메시 전체 정점 수로 만들면 섹션 수 × 전체 정점 수만큼 할당·초기화가 일어난다.
+		// (예: 섹션 7,560개 × 정점 210만 개 → Debug 빌드에서 약 73분)
+		uint32 MinVertex = UINT32_MAX;
+		uint32 MaxVertex = 0;
+		for (uint32 I = 0; I < Section.IndexCount; ++I)
+		{
+			const uint32 V = Source[I];
+			if (V >= VertexCount) return;
+			MinVertex = std::min(MinVertex, V);
+			MaxVertex = std::max(MaxVertex, V);
+		}
+		const uint32 LocalVertexCount = MaxVertex - MinVertex + 1;
+		const auto Local = [MinVertex](uint32 V) { return V - MinVertex; };
+
+		std::vector<std::vector<uint32>> Adjacent(LocalVertexCount);
+		std::vector<uint32> Remaining(LocalVertexCount, 0);
 		for (uint32 T = 0; T < TriangleCount; ++T)
 		{
 			for (uint32 Corner = 0; Corner < 3; ++Corner)
 			{
-				const uint32 V = Source[T * 3 + Corner];
-				if (V >= VertexCount) return;
+				const uint32 V = Local(Source[T * 3 + Corner]);
 				Adjacent[V].push_back(T);
 				++Remaining[V];
 			}
@@ -104,7 +119,7 @@ void FStaticMeshData::OptimizeTriangleOrderForVertexCache()
 
 		std::vector<uint8> Emitted(TriangleCount, 0);
 		std::vector<uint32> Seen(TriangleCount, 0);
-		std::vector<int32> CachePosition(VertexCount, -1);
+		std::vector<int32> CachePosition(LocalVertexCount, -1);   // 캐시는 로컬 정점 번호를 담는다
 		std::vector<uint32> Cache;
 		Cache.reserve(CacheSize);
 		std::vector<uint32> Reordered;
@@ -126,7 +141,7 @@ void FStaticMeshData::OptimizeTriangleOrderForVertexCache()
 					float Score = 0.0f;
 					for (uint32 Corner = 0; Corner < 3; ++Corner)
 					{
-						const uint32 V = Source[T * 3 + Corner];
+						const uint32 V = Local(Source[T * 3 + Corner]);
 						const int32 Position = CachePosition[V];
 						if (Position >= 0)
 						{
@@ -153,8 +168,9 @@ void FStaticMeshData::OptimizeTriangleOrderForVertexCache()
 			Emitted[Best] = 1;
 			for (uint32 Corner = 0; Corner < 3; ++Corner)
 			{
-				const uint32 V = Source[Best * 3 + Corner];
-				Reordered.push_back(V);
+				const uint32 Global = Source[Best * 3 + Corner];
+				const uint32 V = Local(Global);
+				Reordered.push_back(Global);
 				--Remaining[V];
 				const auto It = std::find(Cache.begin(), Cache.end(), V);
 				if (It != Cache.end()) Cache.erase(It);

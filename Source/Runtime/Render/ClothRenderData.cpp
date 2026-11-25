@@ -9,47 +9,41 @@
 FClothRenderData::FClothRenderData() = default;
 FClothRenderData::~FClothRenderData() = default;
 
-void FClothRenderData::Build(int32 InCountX, int32 InCountY, const TArray<uint32>& Indices, bool bFlagUV)
+void FClothRenderData::Build(const TArray<FVector2>& UVs, const TArray<uint32>& InRenderToParticle, const TArray<uint32>& RenderIndices)
 {
-	CountX = InCountX;
-	CountY = InCountY;
-	NumParticles = static_cast<uint32>(CountX * CountY);
-	bFlagLayoutUV = bFlagUV;
-	FrontIndices = Indices;
+	NumRenderVertices = static_cast<uint32>(UVs.Num());
+	RenderToParticle = InRenderToParticle;
+	FrontIndices = RenderIndices;
 	IndexCount = 0;
+	NumParticles = 0;
 	VertexBuffer.reset();
 	IndexBuffer.reset();
 	VertexFactory.Init(nullptr, nullptr);
 
-	if (CountX < 2 || CountY < 2 || Indices.Num() < 3) return;
+	if (NumRenderVertices < 3 || RenderToParticle.Num() != UVs.Num() || RenderIndices.Num() < 3) return;
+	for (uint32 Particle : RenderToParticle) NumParticles = std::max(NumParticles, Particle + 1);
 
-	// UV와 색은 격자가 같으면 변하지 않으므로 여기서 한 번만 채운다.
-	Vertices.SetNum(static_cast<int32>(NumParticles * 2));
-	for (int32 Y = 0; Y < CountY; ++Y)
+	// UV와 색은 구성이 같으면 변하지 않으므로 여기서 한 번만 채운다.
+	Vertices.SetNum(static_cast<int32>(NumRenderVertices * 2));
+	for (uint32 i = 0; i < NumRenderVertices; ++i)
 	{
-		for (int32 X = 0; X < CountX; ++X)
-		{
-			const float U = bFlagUV ? static_cast<float>(Y) / (CountY - 1) : static_cast<float>(X) / (CountX - 1);
-			const float V = bFlagUV ? static_cast<float>(X) / (CountX - 1) : static_cast<float>(Y) / (CountY - 1);
-			const uint32 I = static_cast<uint32>(Y * CountX + X);
-			Vertices[I].UV = FVector2(U, V);
-			Vertices[I + NumParticles].UV = FVector2(U, V);
-		}
+		Vertices[i].UV = UVs[i];
+		Vertices[i + NumRenderVertices].UV = UVs[i];
 	}
 
 	// 뒷면은 같은 삼각형을 감기 순서만 바꿔서 붙인다 (a, b, c) → (a', c', b').
 	TArray<uint32> AllIndices;
-	AllIndices.Reserve(Indices.Num() * 2);
-	for (uint32 Index : Indices) AllIndices.Add(Index);
-	for (int32 i = 0; i + 2 < Indices.Num(); i += 3)
+	AllIndices.Reserve(RenderIndices.Num() * 2);
+	for (uint32 Index : RenderIndices) AllIndices.Add(Index);
+	for (int32 i = 0; i + 2 < RenderIndices.Num(); i += 3)
 	{
-		AllIndices.Add(Indices[i] + NumParticles);
-		AllIndices.Add(Indices[i + 2] + NumParticles);
-		AllIndices.Add(Indices[i + 1] + NumParticles);
+		AllIndices.Add(RenderIndices[i] + NumRenderVertices);
+		AllIndices.Add(RenderIndices[i + 2] + NumRenderVertices);
+		AllIndices.Add(RenderIndices[i + 1] + NumRenderVertices);
 	}
 
 	IndexBuffer = RenderCommand::CreateStaticIndexBuffer(AllIndices.GetData(), static_cast<uint32>(AllIndices.Num()));
-	VertexBuffer = RenderCommand::CreateDynamicVertexBuffer(sizeof(FVertex) * NumParticles * 2, sizeof(FVertex));
+	VertexBuffer = RenderCommand::CreateDynamicVertexBuffer(sizeof(FVertex) * NumRenderVertices * 2, sizeof(FVertex));
 	if (!IndexBuffer || !VertexBuffer)
 	{
 		KRS_LOG(Error, "[Cloth] render buffer creation failed");
@@ -63,58 +57,71 @@ void FClothRenderData::Build(int32 InCountX, int32 InCountY, const TArray<uint32
 
 void FClothRenderData::Update(const TArray<FVector>& InPositions, const FVector& InvScale)
 {
-	if (!IsValid() || static_cast<uint32>(InPositions.Num()) != NumParticles) return;
+	if (!IsValid() || static_cast<uint32>(InPositions.Num()) < NumParticles) return;
 
-	Positions.SetNum(static_cast<int32>(NumParticles));
-	for (uint32 i = 0; i < NumParticles; ++i)
+	// 1. 위치: 렌더 정점마다 대응하는 입자 위치를 가져와 스케일을 상쇄한다.
+	for (uint32 i = 0; i < NumRenderVertices; ++i)
 	{
-		const FVector& P = InPositions[i];
-		Positions[i] = FVector(P.X * InvScale.X, P.Y * InvScale.Y, P.Z * InvScale.Z);
+		const FVector& P = InPositions[RenderToParticle[i]];
+		Vertices[i].Position = FVector(P.X * InvScale.X, P.Y * InvScale.Y, P.Z * InvScale.Z);
 	}
 
-	// 노멀: 정점에 닿은 삼각형 면 노멀을 더해 정규화한다. 엔진 규칙은 Cross(B - A, C - A)가 앞면 방향이다.
-	Normals.SetNum(static_cast<int32>(NumParticles));
-	for (FVector& N : Normals) N = FVector(0.0f, 0.0f, 0.0f);
+	// 2. 노멀: 입자에 닿은 삼각형 면 노멀을 더해 정규화한다. 엔진 규칙은 Cross(B - A, C - A)가 앞면 방향이다.
+	//    입자 기준으로 모으므로 UV 경계에서 쪼개진 렌더 정점도 같은 노멀을 받아 이음매가 보이지 않는다.
+	// 3. 탄젠트: 삼각형마다 UV 변화량으로 U·V 방향을 구해 렌더 정점에 모은다(UV 경계 양쪽은 UV가 다르므로 따로 모은다).
+	ParticleNormals.SetNum(static_cast<int32>(NumParticles));
+	Tangents.SetNum(static_cast<int32>(NumRenderVertices));
+	Bitangents.SetNum(static_cast<int32>(NumRenderVertices));
+	for (FVector& N : ParticleNormals) N = FVector(0.0f, 0.0f, 0.0f);
+	for (FVector& T : Tangents) T = FVector(0.0f, 0.0f, 0.0f);
+	for (FVector& B : Bitangents) B = FVector(0.0f, 0.0f, 0.0f);
+
 	for (int32 i = 0; i + 2 < FrontIndices.Num(); i += 3)
 	{
 		const uint32 A = FrontIndices[i], B = FrontIndices[i + 1], C = FrontIndices[i + 2];
-		const FVector FaceNormal = FVector::Cross(Positions[B] - Positions[A], Positions[C] - Positions[A]);
-		Normals[A] += FaceNormal;
-		Normals[B] += FaceNormal;
-		Normals[C] += FaceNormal;
+		const FVector& PA = Vertices[A].Position;
+		const FVector E1 = Vertices[B].Position - PA;
+		const FVector E2 = Vertices[C].Position - PA;
+		const FVector FaceNormal = FVector::Cross(E1, E2);
+		ParticleNormals[RenderToParticle[A]] += FaceNormal;
+		ParticleNormals[RenderToParticle[B]] += FaceNormal;
+		ParticleNormals[RenderToParticle[C]] += FaceNormal;
+
+		const FVector2 D1 = Vertices[B].UV - Vertices[A].UV;
+		const FVector2 D2 = Vertices[C].UV - Vertices[A].UV;
+		const float Det = D1.X * D2.Y - D2.X * D1.Y;
+		if (std::abs(Det) < 1e-12f) continue;   // UV가 한 점·한 선으로 뭉친 삼각형은 방향을 정할 수 없다
+		const float R = 1.0f / Det;
+		const FVector T = (E1 * D2.Y - E2 * D1.Y) * R;
+		const FVector Bt = (E2 * D1.X - E1 * D2.X) * R;
+		Tangents[A] += T; Tangents[B] += T; Tangents[C] += T;
+		Bitangents[A] += Bt; Bitangents[B] += Bt; Bitangents[C] += Bt;
 	}
 
-	// 탄젠트는 U가 커지는 격자 방향, 비탄젠트 부호는 V가 커지는 방향으로 정한다.
-	const auto Index = [this](int32 X, int32 Y) { return static_cast<uint32>(Y * CountX + X); };
-	for (int32 Y = 0; Y < CountY; ++Y)
+	for (uint32 i = 0; i < NumRenderVertices; ++i)
 	{
-		for (int32 X = 0; X < CountX; ++X)
+		FVector N = ParticleNormals[RenderToParticle[i]];
+		N = N.Length() > 1e-8f ? N.Normalized() : FVector(0.0f, 0.0f, 1.0f);
+
+		// 노멀에 수직이 되게 U 방향을 다듬는다. UV가 없으면 노멀에 수직인 아무 축이나 쓴다.
+		FVector T = Tangents[i] - N * N.Dot(Tangents[i]);
+		if (T.Length() <= 1e-8f)
 		{
-			const uint32 I = Index(X, Y);
-			FVector N = Normals[I];
-			N = N.Length() > 1e-8f ? N.Normalized() : FVector(0.0f, 0.0f, 1.0f);
-
-			// 깃발 배치는 U가 격자 Y, V가 격자 X 방향이다.
-			const FVector AlongX = Positions[Index(std::min(X + 1, CountX - 1), Y)] - Positions[Index(std::max(X - 1, 0), Y)];
-			const FVector AlongY = Positions[Index(X, std::min(Y + 1, CountY - 1))] - Positions[Index(X, std::max(Y - 1, 0))];
-			const FVector UDir = bFlagLayoutUV ? AlongY : AlongX;
-			const FVector VDir = bFlagLayoutUV ? AlongX : AlongY;
-
-			FVector T = UDir - N * N.Dot(UDir);
-			T = T.Length() > 1e-8f ? T.Normalized() : FVector(1.0f, 0.0f, 0.0f);
-			const float Handedness = FVector::Cross(N, T).Dot(VDir) < 0.0f ? -1.0f : 1.0f;
-
-			FVertex& Front = Vertices[I];
-			Front.Position = Positions[I];
-			Front.Normal = N;
-			Front.Tangent = FVector4(T.X, T.Y, T.Z, Handedness);
-
-			// 뒷면: 노멀을 뒤집으면 Cross(N, T)도 뒤집히므로 비탄젠트 방향을 지키려고 부호도 뒤집는다.
-			FVertex& Back = Vertices[I + NumParticles];
-			Back.Position = Positions[I];
-			Back.Normal = N * -1.0f;
-			Back.Tangent = FVector4(T.X, T.Y, T.Z, -Handedness);
+			const FVector Axis = std::abs(N.Z) < 0.9f ? FVector(0.0f, 0.0f, 1.0f) : FVector(1.0f, 0.0f, 0.0f);
+			T = FVector::Cross(Axis, N);
 		}
+		T = T.Normalized();
+		const float Handedness = FVector::Cross(N, T).Dot(Bitangents[i]) < 0.0f ? -1.0f : 1.0f;
+
+		FVertex& Front = Vertices[i];
+		Front.Normal = N;
+		Front.Tangent = FVector4(T.X, T.Y, T.Z, Handedness);
+
+		// 뒷면: 노멀을 뒤집으면 Cross(N, T)도 뒤집히므로 비탄젠트 방향을 지키려고 부호도 뒤집는다.
+		FVertex& Back = Vertices[i + NumRenderVertices];
+		Back.Position = Front.Position;
+		Back.Normal = N * -1.0f;
+		Back.Tangent = FVector4(T.X, T.Y, T.Z, -Handedness);
 	}
 
 	void* Dst = RenderCommand::MapWriteDiscard(VertexBuffer.get());

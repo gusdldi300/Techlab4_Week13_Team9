@@ -62,14 +62,29 @@ void UWheeledVehicleMovementComponent::ComputeWheelOffsets(TArray<FVector>& OutO
 	// 위치는 모델에서 잰 값(FrontAxleX 등)을 쓴다. 모델 바퀴 메시와 물리 바퀴가 같은 자리에 있어야 바퀴가 뜨거나 묻히지 않는다.
 	const float FrontX = FrontAxleX;
 	const float RearX = RearAxleX;
-	const float SideY = WheelHalfTrack;
-	const float Z = WheelCenterZ;
+	const float FrontY = WheelHalfTrack;
+	const float FrontZ = WheelCenterZ;
+	// 앞뒤 바퀴 크기가 다른 모델(큰 뒷바퀴)은 뒷축의 좌우 간격과 높이가 앞축과 다르다.
+	const float RearY = bSeparateRearWheels ? RearWheelHalfTrack : WheelHalfTrack;
+	const float RearZ = bSeparateRearWheels ? RearWheelCenterZ : WheelCenterZ;
 
 	OutOffsets.SetNum(4);
-	OutOffsets[PxVehicleDrive4WWheelOrder::eFRONT_LEFT]  = FVector(FrontX, -SideY, Z);
-	OutOffsets[PxVehicleDrive4WWheelOrder::eFRONT_RIGHT] = FVector(FrontX,  SideY, Z);
-	OutOffsets[PxVehicleDrive4WWheelOrder::eREAR_LEFT]   = FVector(RearX,  -SideY, Z);
-	OutOffsets[PxVehicleDrive4WWheelOrder::eREAR_RIGHT]  = FVector(RearX,   SideY, Z);
+	OutOffsets[PxVehicleDrive4WWheelOrder::eFRONT_LEFT]  = FVector(FrontX, -FrontY, FrontZ);
+	OutOffsets[PxVehicleDrive4WWheelOrder::eFRONT_RIGHT] = FVector(FrontX,  FrontY, FrontZ);
+	OutOffsets[PxVehicleDrive4WWheelOrder::eREAR_LEFT]   = FVector(RearX,  -RearY, RearZ);
+	OutOffsets[PxVehicleDrive4WWheelOrder::eREAR_RIGHT]  = FVector(RearX,   RearY, RearZ);
+}
+
+float UWheeledVehicleMovementComponent::GetWheelRadius(int32 WheelIndex) const
+{
+	const bool bRear = WheelIndex == PxVehicleDrive4WWheelOrder::eREAR_LEFT || WheelIndex == PxVehicleDrive4WWheelOrder::eREAR_RIGHT;
+	return (bRear && bSeparateRearWheels) ? RearWheelRadius : WheelRadius;
+}
+
+float UWheeledVehicleMovementComponent::GetWheelWidth(int32 WheelIndex) const
+{
+	const bool bRear = WheelIndex == PxVehicleDrive4WWheelOrder::eREAR_LEFT || WheelIndex == PxVehicleDrive4WWheelOrder::eREAR_RIGHT;
+	return (bRear && bSeparateRearWheels) ? RearWheelWidth : WheelWidth;
 }
 
 void UWheeledVehicleMovementComponent::CreateVehicle()
@@ -98,8 +113,8 @@ void UWheeledVehicleMovementComponent::CreateVehicle()
 	{
 		UVehicleWheel* Wheel = NewObject<UVehicleWheel>(this);
 		const bool bFront = (i == PxVehicleDrive4WWheelOrder::eFRONT_LEFT || i == PxVehicleDrive4WWheelOrder::eFRONT_RIGHT);
-		Wheel->ShapeRadius = WheelRadius;
-		Wheel->ShapeWidth = WheelWidth;
+		Wheel->ShapeRadius = GetWheelRadius(i);
+		Wheel->ShapeWidth = GetWheelWidth(i);
 		Wheel->Mass = WheelMass;
 		Wheel->SteerAngle = bFront ? MaxSteerAngle : 0.0f;
 		Wheel->MaxHandBrakeTorque = bFront ? 0.0f : MaxHandBrakeTorque;
@@ -206,6 +221,10 @@ void UWheeledVehicleMovementComponent::PostSimulate(const PxVehicleWheelQueryRes
 		Wheel->CurrentRotationDegrees = PVehicle->mWheelsDynData.getWheelRotationAngle(i) * RadToDeg;
 		Wheel->CurrentSuspensionOffset = R.suspJounce;
 		Wheel->bCurrentInAir = R.isInAir;
+		Wheel->CurrentLongSlip = R.longitudinalSlip;
+		Wheel->CurrentLatSlip = R.lateralSlip;
+		Wheel->CurrentContactPoint = P2UVector(R.tireContactPoint);
+		Wheel->CurrentContactNormal = P2UVector(R.tireContactNormal);
 		// localPose는 차체 액터 기준 바퀴 포즈다. 조향과 굴림 회전이 이미 들어 있다.
 		Wheel->LocalLocation = P2UVector(R.localPose.p);
 		Wheel->LocalRotation = P2UQuat(R.localPose.q);

@@ -43,6 +43,8 @@ public:
 	{
 		Delay = InDelay; FadeIn = InFadeIn; Visible = InVisible; FadeOut = InFadeOut;
 	}
+	// 페이드를 처음부터 다시 시작한다. 데칼을 풀(pool)에서 꺼내 다른 자리에 다시 쓸 때 부른다.
+	void RestartFade() { CurrentTime = 0.0f; Fade = 0.0f; }
 
 protected:
 	virtual bool ShouldCreateRenderState() const override

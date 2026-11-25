@@ -8,6 +8,7 @@ class UStaticMeshComponent;
 class UWheeledVehicleMovementComponent4W;
 class USpringArmComponent;
 class UCameraComponent;
+class USkidMarkComponent;
 
 // 레벨에 놓는 4륜 차. 언리얼 PhysXVehicles의 AWheeledVehicle에 대응한다.
 //
@@ -38,16 +39,30 @@ public:
 
 	UBoxComponent* GetCollisionBox() const { return CollisionBox; }
 	UWheeledVehicleMovementComponent4W* GetVehicleMovement() const { return VehicleMovement; }
+	USkidMarkComponent* GetSkidMarks() const { return SkidMarks; }
+
+protected:
+	// 모델 메시 경로(Import 결과). 기본은 Cutlass다. 다른 차는 생성자에서 이 값과 이동 컴포넌트 치수를 바꾼 뒤
+	// SetupMeshes()·ApplyDimensions()를 다시 부른다(부모 생성자 안에서는 파생 클래스 값이 아직 없기 때문이다).
+	// 바퀴는 4륜 순서(0 앞왼, 1 앞오, 2 뒤왼, 3 뒤오)다.
+	FString BodyMeshPath = "FBX/Cutlass_Body/Cutlass_Body_Static.fbx.bin";
+	FString WheelMeshPaths[4] = {
+		"FBX/Cutlass_WheelL/Cutlass_WheelL_Static.fbx.bin",
+		"FBX/Cutlass_WheelR/Cutlass_WheelR_Static.fbx.bin",
+		"FBX/Cutlass_WheelL/Cutlass_WheelL_Static.fbx.bin",
+		"FBX/Cutlass_WheelR/Cutlass_WheelR_Static.fbx.bin",
+	};
+
+	// 모델 메시가 모두 Import되어 있으면 그 메시를, 하나라도 없으면 큐브·원통을 쓴다.
+	void SetupMeshes();
+	// 차체·바퀴 메시 크기와 정지 위치를 이동 컴포넌트 속성에 맞춘다.
+	void ApplyDimensions();
 
 private:
 	// 빙의한 PlayerController의 키 상태를 차량 입력으로 바꾼다. W/S 스로틀, A/D 조향, Space 사이드 브레이크.
 	void UpdateInput();
 	// 물리 결과(바퀴 로컬 포즈)를 바퀴 메시에 넣는다.
 	void UpdateWheelMeshes();
-	// Cutlass 모델이 Import되어 있으면 그 메시를, 없으면 큐브·원통을 쓴다.
-	void SetupMeshes();
-	// 차체·바퀴 메시 크기와 정지 위치를 이동 컴포넌트 속성에 맞춘다.
-	void ApplyDimensions();
 	// 바퀴 메시에 바퀴 로컬 회전보다 먼저 적용할 회전. 원통은 눕히고, 모델은 Yaw 보정만 한다.
 	FQuat GetWheelMeshBaseRotation() const;
 
@@ -60,4 +75,6 @@ private:
 	UWheeledVehicleMovementComponent4W* VehicleMovement = nullptr;
 	USpringArmComponent* SpringArm = nullptr;
 	UCameraComponent* Camera = nullptr;
+	// 미끄러질 때 바퀴 자국 데칼을 찍는다. 이 차가 소유하고(합성), 이동 컴포넌트의 바퀴 상태를 읽는다.
+	USkidMarkComponent* SkidMarks = nullptr;
 };
