@@ -3,12 +3,23 @@
 #include "Physics/BodyInstance.h"
 #include "Physics/RagdollStats.h"
 #include "Math/Transform.h"
+#include "Physics/PhysicsGrabHandle.h"
+#include "Collision/Ray.h"
 
 class USkeletalMeshComponent;
 class USkeletalMesh;
 class UPhysicsAsset;
 class FLineBatcher;
 namespace physx { class PxD6Joint; }
+
+struct FPhysicsBodyHit
+{
+    int32 Bone = -1;
+    ECollisionShape Type = ECollisionShape::Unknown;
+    int32 ShapeIndex = -1;
+    FVector Position = FVector::ZeroVector;
+    float Distance = 0;
+};
 
 // One component's runtime bodies/joints. Shared Physics Asset data is read only during Build.
 class FPhysicsAssetInstance
@@ -28,6 +39,15 @@ public:
     void ApplyToMesh(USkeletalMeshComponent& Mesh);
     void DrawConstraints(FLineBatcher& Lines) const;
     FRagdollDebugStats GetDebugStats() const;
+    // Uses live PhysX geometry. Only dynamic bodies of this instance are eligible.
+    bool RaycastBodies(const FRay& Ray, FPhysicsBodyHit& OutHit) const;
+    bool BeginGrab(const FRay& Ray, FPhysicsBodyHit& OutHit, const FPhysicsGrabSettings& Settings = {});
+    bool UpdateGrabTarget(const FVector& Target) { return GrabHandle.SetTarget(Target); }
+    void EndGrab() { GrabHandle.Release(); }
+    bool IsGrabbing() const { return GrabHandle.IsGrabbing(); }
+    FVector GetGrabPoint() const { return GrabHandle.GetGrabPoint(); }
+    FVector GetGrabTarget() const { return GrabHandle.GetTarget(); }
+    void SetGrabSettings(const FPhysicsGrabSettings& Settings) { GrabHandle.SetSettings(Settings); }
 
 private:
     bool Matches(const USkeletalMeshComponent& Mesh) const;
@@ -44,4 +64,5 @@ private:
     bool bSimulating = false;
     double LastKinematicSyncMs = 0;
     double LastPhysicsPoseMs = 0;
+    FPhysicsGrabHandle GrabHandle;
 };

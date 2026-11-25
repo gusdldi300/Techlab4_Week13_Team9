@@ -200,6 +200,7 @@ bool FPhysicsAssetInstance::Build(USkeletalMeshComponent& Mesh, FPhysicsScene* S
 
 void FPhysicsAssetInstance::Clear()
 {
+    EndGrab();
     bBuilt = bSimulating = false;
     SourceMesh = nullptr; SourceAsset = nullptr;
     LastKinematicSyncMs = LastPhysicsPoseMs = 0;
@@ -244,6 +245,7 @@ bool FPhysicsAssetInstance::SyncFromAnimation(USkeletalMeshComponent& Mesh, bool
 
 bool FPhysicsAssetInstance::SetSimulating(USkeletalMeshComponent& Mesh, bool bEnable)
 {
+    if (!bEnable) EndGrab();
     if (!Matches(Mesh)) { Clear(); return false; }
     if (bSimulating == bEnable) return true;
     if (bEnable)
@@ -265,6 +267,91 @@ bool FPhysicsAssetInstance::SetSimulating(USkeletalMeshComponent& Mesh, bool bEn
     }
     bSimulating = bEnable;
     return true;
+}
+
+bool FPhysicsAssetInstance::RaycastBodies(const FRay& Ray, FPhysicsBodyHit& OutHit) const
+{
+    OutHit = {};
+    if (!IsSimulating() || !U2PVector(Ray.Origin).isFinite() || !U2PVector(Ray.Direction).isFinite() ||
+        Ray.Direction.SizeSquared() < 1e-12f) return false;
+    const PxVec3 Origin = U2PVector(Ray.Origin);
+    const PxVec3 Direction = U2PVector(Ray.Direction).getNormalized();
+    float Nearest = PX_MAX_F32;
+    FPhysicsActorHandle Selected;
+    {
+        PxSceneReadLock Lock(*Bodies[0]->GetActorHandle().Actor->getScene());
+        for (int I = 0; I < Bodies.Num(); ++I)
+        {
+            auto* Actor = Bodies[I]->GetActorHandle().Actor->is<PxRigidDynamic>();
+            if (!Actor || (Actor->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC)) continue;
+            TArray<PxShape*> Shapes;
+            Shapes.SetNum(Actor->getNbShapes());
+            Actor->getShapes(Shapes.GetData(), Shapes.Num());
+            int Sphere = 0, Box = 0, Capsule = 0;
+            for (const auto* Shape : Shapes)
+            {
+                ECollisionShape Type = ECollisionShape::Unknown;
+                int Index = -1;
+                switch (Shape->getGeometryType())
+                {
+                case PxGeometryType::eSPHERE: Type = ECollisionShape::Sphere; Index = Sphere++; break;
+                case PxGeometryType::eBOX: Type = ECollisionShape::Box; Index = Box++; break;
+                case PxGeometryType::eCAPSULE: Type = ECollisionShape::Sphyl; Index = Capsule++; break;
+                default: continue;
+                }
+                PxRaycastHit Hit;
+                const PxGeometryHolder Geometry = Shape->getGeometry();
+                if (PxGeometryQuery::raycast(Origin, Direction, Geometry.any(), Actor->getGlobalPose() * Shape->getLocalPose(),
+                    Nearest, PxHitFlag::ePOSITION, 1, &Hit) && Hit.distance < Nearest)
+                {
+                    Nearest = Hit.distance;
+                    Selected = Bodies[I]->GetActorHandle();
+                    OutHit = {BoneIndices[I], Type, Index, P2UVector(Hit.position), Hit.distance};
+                }
+            }
+        }
+    }
+    return Selected.IsValid();
+}
+
+bool FPhysicsAssetInstance::BeginGrab(const FRay& Ray, FPhysicsBodyHit& OutHit, const FPhysicsGrabSettings& Settings)
+{
+    EndGrab();
+    if (RaycastBodies(Ray, OutHit))
+    {
+        const int Picked = BodyForBone[OutHit.Bone];
+        float SupportedMass = 0;
+        {
+            PxSceneReadLock Lock(*Bodies[Picked]->GetActorHandle().Actor->getScene());
+            TArray<uint8> Connected;
+            Connected.SetNum(Bodies.Num());
+            for (auto& Flag : Connected) Flag = 0;
+            Connected[Picked] = 1;
+            bool Changed = true;
+            while (Changed)
+            {
+                Changed = false;
+                for (const auto* Joint : Joints)
+                {
+                    PxRigidActor *A, *B;
+                    Joint->getActors(A, B);
+                    int IA = -1, IB = -1;
+                    for (int I = 0; I < Bodies.Num(); ++I)
+                    {
+                        if (Bodies[I]->GetActorHandle().Actor == A) IA = I;
+                        if (Bodies[I]->GetActorHandle().Actor == B) IB = I;
+                    }
+                    if (IA < 0 || IB < 0 || KinematicBodies[IA] || KinematicBodies[IB]) continue;
+                    if (Connected[IA] != Connected[IB]) { Connected[IA] = Connected[IB] = 1; Changed = true; }
+                }
+            }
+            for (int I = 0; I < Bodies.Num(); ++I)
+                if (Connected[I]) SupportedMass += Bodies[I]->GetActorHandle().Actor->is<PxRigidDynamic>()->getMass();
+        }
+        if (GrabHandle.Grab(Bodies[Picked]->GetActorHandle(), OutHit.Position, Settings, SupportedMass)) return true;
+    }
+    OutHit = {};
+    return false;
 }
 
 void FPhysicsAssetInstance::ApplyToMesh(USkeletalMeshComponent& Mesh)

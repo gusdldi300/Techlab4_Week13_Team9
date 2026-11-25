@@ -39,6 +39,20 @@ uint64 FPhysicsAssetEditor::GetSimulationStepCount() const
     return SimulationScene ? SimulationScene->GetStats().NumSteps : 0;
 }
 
+void FPhysicsAssetEditor::SetSimulationPaused(bool Paused)
+{
+    if (Paused && SimulationInstance) SimulationInstance->EndGrab();
+    bSimulationPaused = Paused;
+}
+
+void FPhysicsAssetEditor::SetGrabSettings(const FPhysicsGrabSettings& Settings)
+{
+    if (!std::isfinite(Settings.Stiffness) || !std::isfinite(Settings.Damping)) return;
+    GrabSettings.Stiffness = FMath::Clamp(Settings.Stiffness, 1.0f, 10000.0f);
+    GrabSettings.Damping = FMath::Clamp(Settings.Damping, 0.0f, 500.0f);
+    if (SimulationInstance) SimulationInstance->SetGrabSettings(GrabSettings);
+}
+
 bool FPhysicsAssetEditor::StartSimulation()
 {
     if (GenerationPreview) return false;
@@ -53,7 +67,7 @@ bool FPhysicsAssetEditor::StartSimulation()
     EditModel.Commit(false);
     MeshComponent->RefreshBoneTransformsNow();
     PreSimulationPose = MeshComponent->GetBoneSpaceTransforms();
-    SimulationScene = MakePhysicsScene();
+    SimulationScene = MakePhysicsScene(true);
     SimulationScene->CreatePhysicsScene();
     if (!SimulationScene->SetGravity(FVector(0,0,SimulationGravity)))
     {
@@ -302,6 +316,7 @@ void FPhysicsAssetEditor::ShutdownResources()
 
 void FPhysicsAssetEditor::CancelViewportInteraction()
 {
+    if (SimulationInstance) SimulationInstance->EndGrab();
     if (EditGizmo.IsUsing()) EditModel.CancelInteraction();
     EditGizmo.EndDrag();
 }
@@ -529,11 +544,52 @@ bool FPhysicsAssetEditor::UpdateEditGizmo()
     return WasUsing || EditGizmo.IsUsing() || EditGizmo.GetHoveredAxis() >= 0;
 }
 
+bool FPhysicsAssetEditor::UpdateSimulationGrab()
+{
+    if (!SimulationInstance) return false;
+    const bool WasGrabbing = IsSimulationGrabbing();
+    // Process release even when input is no longer eligible (closed/detached viewport, resize, focus loss).
+    if (bSimulationPaused || !CanProcessViewportInput() || PointerInput.bCancel || !PointerInput.bMouseDown)
+    {
+        SimulationInstance->EndGrab();
+        return WasGrabbing;
+    }
+    const FVector2 Mouse(PointerInput.MouseUV.X * ViewportWidth, PointerInput.MouseUV.Y * ViewportHeight);
+    const FRay Ray = ViewportClient->DeprojectScreenToWorld(Mouse);
+    const bool WantsGrab = PointerInput.bCtrlDown && PointerInput.bHovered && PointerInput.bMousePressed && !CameraInput.bCaptured;
+    if (WantsGrab)
+    {
+        FPhysicsBodyHit Hit;
+        if (SimulationInstance->RaycastBodies(Ray, Hit))
+        {
+            // Selection cancels existing interactions; do it before creating the grab joint.
+            SelectBone(Hit.Bone);
+            SelectShape(Hit.Type, Hit.ShapeIndex);
+            if (SimulationInstance->BeginGrab(Ray, Hit, GrabSettings))
+            {
+                GrabPlanePoint = Hit.Position;
+                GrabPlaneNormal = ViewportClient->GetViewForward().GetSafeNormal();
+            }
+        }
+    }
+    if (IsSimulationGrabbing())
+    {
+        float Distance = 0;
+        if (RayIntersectsPlane(Ray, GrabPlanePoint, GrabPlaneNormal, Distance) && Distance >= 0 &&
+            std::isfinite(Distance) && Distance <= ViewportClient->GetFarClip())
+            SimulationInstance->UpdateGrabTarget(Ray.PointAt(Distance));
+    }
+    // A Ctrl-click on empty space must not fall through to edit/bone picking.
+    return WantsGrab || WasGrabbing || IsSimulationGrabbing();
+}
+
 void FPhysicsAssetEditor::TickAfterWorld(float DeltaTime)
 {
     if (GenerationPreview) { EditGizmo.SetTarget(nullptr); return; }
+    const bool GrabConsumedInput = IsPreviewSimulating() && UpdateSimulationGrab();
     if (IsPreviewSimulating() && !bSimulationPaused) AdvanceSimulation(DeltaTime);
     SyncEditGizmo();
+    if (GrabConsumedInput) return;
     if (!EditGizmo.IsUsing() && CanProcessViewportInput() && PointerInput.bHovered && PointerInput.bMousePressed &&
         !PointerInput.bCancel && !CameraInput.bCaptured)
     {
@@ -613,6 +669,15 @@ bool FPhysicsAssetEditor::GetBodyWorldTransform(int32 Bone, FTransform& Transfor
 void FPhysicsAssetEditor::OnRenderLine(FLineBatcher& Lines)
 {
     FSkeletalPreviewEditor::OnRenderLine(Lines);
+    if (IsSimulationGrabbing())
+    {
+        const FVector Point = SimulationInstance->GetGrabPoint();
+        const FVector Target = SimulationInstance->GetGrabTarget();
+        const float Radius = std::max((MeshComponent->CalcBounds().Max-MeshComponent->CalcBounds().Min).Size()*0.006f, 0.01f);
+        Lines.AddLine(Point, Target, FVector4(1, 0.7f, 0.1f, 1));
+        Lines.AddSphere(Point, Radius, FVector4(0.1f, 0.8f, 1, 1));
+        Lines.AddSphere(Target, Radius, FVector4(1, 0.7f, 0.1f, 1));
+    }
     if (IsPreviewSimulating() && bSimulationFloor)
     {
         const FVector Center(0,0,-SimulationFloorHalfExtent.Z);

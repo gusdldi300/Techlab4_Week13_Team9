@@ -84,6 +84,18 @@ namespace
                 ImGui::Text("Bodies: %d  Joints: %d  Steps: %llu",Stats.Bodies,Stats.Joints,
                     static_cast<unsigned long long>(PhysicsEditor.GetSimulationStepCount()));
                 ImGui::Text("Joint gap: %.3f  Max mass ratio: %.2f", Stats.MaxJointSeparation, Stats.MaxJointMassRatio);
+                ImGui::TextDisabled("Ctrl + LMB: grab and drag | Release LMB / Esc: let go");
+                ImGui::SameLine();
+                if (ImGui::Button("Grab settings")) ImGui::OpenPopup("GrabSettings");
+                if (ImGui::BeginPopup("GrabSettings"))
+                {
+                    auto Settings = PhysicsEditor.GetGrabSettings();
+                    bool Changed = ImGui::SliderFloat("Stiffness", &Settings.Stiffness, 100, 10000, "%.0f", ImGuiSliderFlags_Logarithmic);
+                    Changed |= ImGui::SliderFloat("Damping", &Settings.Damping, 0, 500, "%.1f");
+                    if (ImGui::Button("Reset")) { Settings = {}; Changed = true; }
+                    if (Changed) PhysicsEditor.SetGrabSettings(Settings);
+                    ImGui::EndPopup();
+                }
             }
             ImGui::BeginDisabled(PhysicsEditor.IsPreviewSimulating());
             bool Floor = PhysicsEditor.IsSimulationFloorEnabled();

@@ -67,4 +67,5 @@ private:
 // 사용할 물리 엔진의 FPhysicsScene 구현을 만들어 돌려준다.
 // 정의는 구현 쪽 .cpp(PhysicsScene_PhysX.cpp)에 있어서, 호출하는 UWorld는 어떤 구현인지 모른다.
 // 물리 엔진을 바꿀 때는 이 함수의 정의만 바꾼다.
-std::unique_ptr<FPhysicsScene> MakePhysicsScene();
+// Temporal solving improves convergence for preview ragdolls pulled through an extremity.
+std::unique_ptr<FPhysicsScene> MakePhysicsScene(bool bUseTemporalSolver = false);

@@ -10,7 +10,7 @@ namespace physx
 class FPhysicsScene_PhysX : public FPhysicsScene
 {
 public:
-	FPhysicsScene_PhysX() = default;
+	explicit FPhysicsScene_PhysX(bool InUseTemporalSolver = false) : bUseTemporalSolver(InUseTemporalSolver) {}
 	~FPhysicsScene_PhysX();
 	FPhysicsScene_PhysX(const FPhysicsScene_PhysX&) = delete;
 	FPhysicsScene_PhysX& operator=(const FPhysicsScene_PhysX&) = delete;
@@ -24,6 +24,7 @@ public:
 
 
 private:
+	bool bUseTemporalSolver = false;
 	// 한 스텝을 시작한다. simulate 후 bSimulating이 true가 된다.
 	void BeginStep();
 	// 진행 중인 스텝을 끝내고 통계와 컴포넌트 위치를 갱신한다.

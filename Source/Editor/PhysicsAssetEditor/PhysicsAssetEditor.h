@@ -76,7 +76,10 @@ public:
     const FString& GetPreviewWarning() const { return PreviewWarning; }
     bool StartSimulation();
     void StopSimulation();
-    void SetSimulationPaused(bool Paused) { bSimulationPaused = Paused; }
+    void SetSimulationPaused(bool Paused);
+    bool IsSimulationGrabbing() const { return SimulationInstance && SimulationInstance->IsGrabbing(); }
+    const FPhysicsGrabSettings& GetGrabSettings() const { return GrabSettings; }
+    void SetGrabSettings(const FPhysicsGrabSettings& Settings);
     void StepSimulation();
     bool IsPreviewSimulating() const { return SimulationInstance != nullptr; }
     bool IsSimulationPaused() const { return bSimulationPaused; }
@@ -92,7 +95,7 @@ protected:
     bool InitializeResources() override;
     void ShutdownResources() override;
     void TickAfterWorld(float DeltaTime) override;
-    bool IsViewportInteractionBusy() const override { return EditGizmo.IsUsing(); }
+    bool IsViewportInteractionBusy() const override { return EditGizmo.IsUsing() || IsSimulationGrabbing(); }
     void OnBoneSelected() override;
     void CancelViewportInteraction() override;
     TUniquePtr<IEditorTab> CreateTab() override;
@@ -126,6 +129,10 @@ private:
     FQuat DragBoneRotation;
     float BodyOpacity = 0.16f;
     void AdvanceSimulation(float DeltaTime);
+    bool UpdateSimulationGrab();
+    FPhysicsGrabSettings GrabSettings;
+    FVector GrabPlanePoint = FVector::ZeroVector;
+    FVector GrabPlaneNormal = FVector::ZeroVector;
     // Bodies/joints must be released before their owning scene (also in reverse member destruction).
     TUniquePtr<FPhysicsScene> SimulationScene;
     FBodyInstance SimulationFloor;

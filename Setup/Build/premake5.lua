@@ -1,5 +1,7 @@
 local ProjectRoot = path.getabsolute("../..", _SCRIPT_DIR)
 
+newoption { trigger = "physics-grab-checks", description = "Generate the headless physics grab regression/tuning executable" }
+
 -- Build events run in Build/Projects. Keep their paths relative: cmd.exe
 -- misreads the line after one that holds a non-ASCII (e.g. Korean) path,
 -- which breaks multi-line build events when the engine lives in such a folder.
@@ -47,7 +49,8 @@ premake.override(vstudio.vc2010.elements, "projectReferences", function(base, pr
 	local calls = base(prj, ref)
 	if prj.kind ~= "StaticLib" and ref.name == "KurisuEngine" then
 		table.insert(calls, function()
-			vstudio.vc2010.element("UseLibraryDependencyInputs", nil, "true")
+			-- Headless checks link only referenced runtime objects; launch objects require an application entry point.
+			vstudio.vc2010.element("UseLibraryDependencyInputs", nil, prj.name == "PhysicsAssetGrabChecks" and "false" or "true")
 		end)
 	end
 	return calls
@@ -486,3 +489,17 @@ project "Shaders"
 	filter {}
 
 
+-- Opt-in regression harness: premake5 --file=Setup/Build/premake5.lua --physics-grab-checks vs2026
+if _OPTIONS["physics-grab-checks"] then
+    project "PhysicsAssetGrabChecks"
+        location (ProjectRoot .. "/Build/Projects")
+        kind "ConsoleApp"
+        CommonSettings()
+        files { ProjectRoot .. "/Setup/Tests/PhysicsAssetGrabChecks.cpp" }
+        includedirs {
+            ProjectRoot .. "/Source/Runtime", GeneratedDir .. "/Runtime",
+            IncludeDir.stb, IncludeDir.json, IncludeDir.lua, IncludeDir.sol2, IncludeDir.PhysX,
+        }
+        links { "KurisuEngine", "d3d11.lib", "dxgi.lib", "dxguid.lib", "d3dcompiler.lib" }
+        LinkPhysX()
+end
