@@ -82,7 +82,9 @@ public:
 	bool bEnablePhysicsAsset = true;
 
 	bool RecreatePhysicsAsset();
-	bool SetRagdollSimulating(bool bEnable);
+	bool SetRagdollSimulating(bool bEnable, const FVector& InitialVelocity = FVector::ZeroVector);
+	// Teleport after a demo reset; ordinary targets keep animated bodies following a moving actor.
+	bool SyncPhysicsAssetFromAnimation(bool bTeleport = false);
 	bool IsRagdollSimulating() const;
 
 	void EndPlay() override;

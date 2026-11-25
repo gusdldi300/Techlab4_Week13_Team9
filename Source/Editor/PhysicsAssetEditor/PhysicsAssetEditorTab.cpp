@@ -13,6 +13,15 @@
 
 namespace
 {
+    void DrawConstraintView(FPhysicsAssetEditor& Editor)
+    {
+        int View = static_cast<int>(Editor.GetConstraintView());
+        if (ImGui::Combo("Constraint Display", &View, "Selected limits\0All limits\0Hidden\0"))
+            Editor.SetConstraintView(static_cast<EPhysicsAssetConstraintView>(View));
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Selected limits: selected joint, or selected body's parent joint. Body selection keeps shape editing active.\nJoint markers remain available for picking. Hidden also disables marker picking.");
+    }
+
     class FPhysicsViewportPanel final : public FSkeletalPreviewViewportPanel
     {
     public:
@@ -29,6 +38,10 @@ namespace
                 static_cast<uint32>(Size.y) != Client->GetHeight()) return;
             const ImVec2 Origin = ImGui::GetItemRectMin();
             const bool Hovered = ImGui::IsItemHovered();
+            const ImVec2 Mouse = ImGui::GetIO().MousePos;
+            const auto HoveredHandle = Hovered && !PhysicsEditor.IsGizmoDragging()
+                ? PhysicsEditor.PickConstraintHandle(FVector2(Mouse.x-Origin.x, Mouse.y-Origin.y))
+                : FPhysicsConstraintScreenHandle{};
             auto* Draw = ImGui::GetWindowDrawList();
             Draw->PushClipRect(Origin,ImVec2(Origin.x+Size.x,Origin.y+Size.y),true);
             for (const auto& Handle : PhysicsEditor.GetConstraintHandles())
@@ -50,14 +63,36 @@ namespace
                     Draw->AddCircleFilled(P,6,Color);
                     Draw->AddCircle(P,6,Selected ? IM_COL32_WHITE : IM_COL32(0,0,0,255),0,Selected ? 2.0f : 1.0f);
                 }
-                const ImVec2 Mouse = ImGui::GetIO().MousePos;
-                const float DX = Mouse.x-P.x, DY = Mouse.y-P.y;
-                if (Hovered && !PhysicsEditor.IsGizmoDragging() && DX*DX+DY*DY <= 81)
+                if (HoveredHandle.ChildBone == Handle.ChildBone && HoveredHandle.bParentFrame == Handle.bParentFrame)
                 {
                     const int Owner = Handle.bParentFrame ? PhysicsEditor.GetEditModel().GetConstraintParent(Handle.ChildBone) : Handle.ChildBone;
                     ImGui::SetTooltip("%s Frame\nLocal to: %s",Handle.bParentFrame ? "Parent" : "Child",
                         PhysicsEditor.GetMesh()->GetRefSkeleton()[Owner].Name.c_str());
                 }
+            }
+            // Screen overlay keeps the COM visible even when it is inside the mesh.
+            // It is informational only and never intercepts viewport selection or dragging.
+            const float Radius = EditorStyle::Scale(PhysicsEditor.GetCOMMarkerSize());
+            for (const auto& Marker : PhysicsEditor.GetCenterOfMassMarkers())
+            {
+                const ImVec2 P(Origin.x + Marker.Position.X, Origin.y + Marker.Position.Y);
+                Draw->AddCircleFilled(P, Radius + 1.5f, IM_COL32(30, 25, 0, 255), 24);
+                Draw->AddCircleFilled(P, Radius, IM_COL32(220, 165, 0, 255), 24);
+                Draw->AddCircleFilled(ImVec2(P.x - Radius * 0.15f, P.y - Radius * 0.15f), Radius * 0.8f, IM_COL32(255, 220, 25, 255), 24);
+                Draw->AddCircleFilled(ImVec2(P.x - Radius * 0.3f, P.y - Radius * 0.3f), Radius * 0.27f, IM_COL32(255, 250, 170, 255), 16);
+                if (PhysicsEditor.IsCOMMassVisible())
+                {
+                    char Text[64];
+                    snprintf(Text, sizeof(Text), "%.3g kg", Marker.MassKg);
+                    const ImVec2 Label(P.x + Radius + 4, P.y - ImGui::GetFontSize() * 0.5f);
+                    Draw->AddText(ImVec2(Label.x + 1, Label.y + 1), IM_COL32(0, 0, 0, 255), Text);
+                    Draw->AddText(Label, IM_COL32(255, 235, 80, 255), Text);
+                }
+                const ImVec2 Mouse = ImGui::GetIO().MousePos;
+                const float DX = Mouse.x - P.x, DY = Mouse.y - P.y;
+                if (Hovered && !PhysicsEditor.IsGizmoDragging() && DX * DX + DY * DY <= Radius * Radius)
+                    ImGui::SetTooltip("Center of Mass: %s\nMass: %.3g kg\nVisible through mesh",
+                        PhysicsEditor.GetMesh()->GetRefSkeleton()[Marker.Bone].Name.c_str(), Marker.MassKg);
             }
             Draw->PopClipRect();
         }
@@ -132,20 +167,13 @@ namespace
             }
             else if (ImGui::Combo("##ShapeSpace", &Space, "Local\0World\0")) PhysicsEditor.SetGizmoSpace(static_cast<EGizmoSpace>(Space));
             ImGui::SameLine();
-            const char* Targets[] = { "Shape", "Child Frame", "Parent Frame" };
             const auto Target = PhysicsEditor.GetEditTarget();
+            ImGui::BeginDisabled(PhysicsEditor.GetSelectedConstraintBone() < 0);
+            int Frame = Target == EPhysicsAssetEditTarget::ParentFrame ? 1 : 0;
             ImGui::SetNextItemWidth(EditorStyle::Scale(140));
-            if (ImGui::BeginCombo("Edit",Targets[static_cast<int>(Target)]))
-            {
-                if (ImGui::Selectable(Targets[0],Target == EPhysicsAssetEditTarget::Shape))
-                    PhysicsEditor.SelectEditTarget(EPhysicsAssetEditTarget::Shape);
-                ImGui::BeginDisabled(PhysicsEditor.GetEditModel().FindConstraint(PhysicsEditor.GetSelectedBoneIndex()) < 0);
-                for (int I=1; I<3; ++I)
-                    if (ImGui::Selectable(Targets[I],static_cast<int>(Target) == I))
-                        PhysicsEditor.SelectEditTarget(static_cast<EPhysicsAssetEditTarget>(I));
-                ImGui::EndDisabled();
-                ImGui::EndCombo();
-            }
+            if (ImGui::Combo("Frame", &Frame, "Child Frame\0Parent Frame\0"))
+                PhysicsEditor.SelectEditTarget(Frame ? EPhysicsAssetEditTarget::ParentFrame : EPhysicsAssetEditTarget::ChildFrame);
+            ImGui::EndDisabled();
             ImGui::EndDisabled();
             bool Visible = PhysicsEditor.AreBodiesVisible();
             if (ImGui::Checkbox("Bodies", &Visible)) PhysicsEditor.SetBodiesVisible(Visible);
@@ -153,6 +181,23 @@ namespace
             float Opacity = PhysicsEditor.GetBodyOpacity();
             ImGui::SetNextItemWidth(EditorStyle::Scale(140));
             if (ImGui::SliderFloat("Opacity", &Opacity, 0.02f, 0.45f, "%.2f")) PhysicsEditor.SetBodyOpacity(Opacity);
+            ImGui::SetNextItemWidth(EditorStyle::Scale(140));
+            DrawConstraintView(PhysicsEditor);
+            int COM = static_cast<int>(PhysicsEditor.GetCOMView());
+            ImGui::SetNextItemWidth(EditorStyle::Scale(110));
+            if (ImGui::Combo("COM", &COM, "None\0Selected\0All\0"))
+                PhysicsEditor.SetCOMView(static_cast<EPhysicsAssetCOMView>(COM));
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Yellow spheres show each body's center of mass, visible through the mesh.");
+            ImGui::SameLine();
+            if (ImGui::Button("COM settings")) ImGui::OpenPopup("COMSettings");
+            if (ImGui::BeginPopup("COMSettings"))
+            {
+                float Size = PhysicsEditor.GetCOMMarkerSize();
+                if (ImGui::SliderFloat("Marker radius", &Size, 3, 16, "%.0f px")) PhysicsEditor.SetCOMMarkerSize(Size);
+                bool ShowMass = PhysicsEditor.IsCOMMassVisible();
+                if (ImGui::Checkbox("Show mass (kg)", &ShowMass)) PhysicsEditor.SetCOMMassVisible(ShowMass);
+                ImGui::EndPopup();
+            }
         }
         void HandleViewportShortcuts(bool Hovered, bool Focused) override
         {
@@ -180,6 +225,31 @@ namespace
     private:
         char Search[128] = {};
         int32 LastSelected = -1;
+    };
+
+    class FPhysicsConstraintsPanel final : public TAssetEditorPanel<FPhysicsAssetEditor>
+    {
+    public:
+        explicit FPhysicsConstraintsPanel(FPhysicsAssetEditor& InEditor)
+            : TAssetEditorPanel(InEditor, "Constraints", "PhysicsAssetPanel") {}
+    private:
+        void DrawContent() override
+        {
+            const auto* Asset = Editor.GetPhysicsAsset();
+            if (!Asset || Editor.GetGenerationPreview()) return;
+            ImGui::TextDisabled("Select a joint to edit its limits and frames.");
+            for (const auto* Joint : Asset->PhysicsConstraint)
+            {
+                if (!Joint) continue;
+                const int Child = Editor.GetMesh()->FindBoneIndex(Joint->ConstraintBone1.ToString());
+                if (Child < 0) continue;
+                ImGui::PushID(Child);
+                const FString Label = Joint->ConstraintBone2.ToString() + " <-> " + Joint->ConstraintBone1.ToString();
+                if (ImGui::Selectable(Label.c_str(), Editor.GetSelectedConstraintBone() == Child))
+                    Editor.SelectConstraintFrame(Child, false);
+                ImGui::PopID();
+            }
+        }
     };
 
     class FPhysicsDetailsPanel final : public TAssetEditorPanel<FPhysicsAssetEditor>
@@ -286,7 +356,7 @@ namespace
             return false;
         }
 
-        bool DrawConstraintProperties(int BoneIndex)
+        bool DrawConstraintProperties(int BoneIndex, bool bConnectionOnly = false)
         {
             auto& Model = Editor.GetEditModel();
             if (!Model.GetBody(BoneIndex)) return false;
@@ -310,9 +380,10 @@ namespace
                 ImGui::EndCombo();
                 if (Changed) return true;
             }
+            if (bConnectionOnly) return false;
             FPhysicsConstraintSettings S;
             if (!Model.GetConstraintSettings(BoneIndex, S)) return false;
-            if (!ImGui::CollapsingHeader("Parent Constraint", ImGuiTreeNodeFlags_DefaultOpen)) return false;
+            if (!ImGui::CollapsingHeader("Constraint", ImGuiTreeNodeFlags_DefaultOpen)) return false;
             if (FrameBone != BoneIndex)
             {
                 FrameBone = BoneIndex;
@@ -451,6 +522,24 @@ namespace
 
             ImGui::Text("Bodies: %d   Constraints: %d",
                 Asset->BodySetups.Num(), Asset->PhysicsConstraint.Num());
+            DrawConstraintView(Editor);
+            auto& Model = Editor.GetEditModel();
+            if (!Model.GetError().empty()) ImGui::TextWrapped("%s", Model.GetError().c_str());
+            if (!Editor.GetPreviewWarning().empty()) ImGui::TextWrapped("%s", Editor.GetPreviewWarning().c_str());
+            const int SelectedJoint = Editor.GetSelectedConstraintBone();
+            if (SelectedJoint >= 0)
+            {
+                const auto& Bones = Editor.GetMesh()->GetRefSkeleton();
+                const int Parent = Model.GetConstraintParent(SelectedJoint);
+                ImGui::TextWrapped("Constraint: %s <-> %s", Bones[Parent].Name.c_str(), Bones[SelectedJoint].Name.c_str());
+                if (ImGui::Button("Select Child Body")) { Editor.SelectBone(SelectedJoint); return; }
+                ImGui::SameLine();
+                if (ImGui::Button("Select Parent Body")) { Editor.SelectBone(Parent); return; }
+                ImGui::PushID(SelectedJoint);
+                DrawConstraintProperties(SelectedJoint);
+                ImGui::PopID();
+                return;
+            }
             const int32 BoneIndex = Editor.GetSelectedBoneIndex();
             const auto& Bones = Editor.GetMesh()->GetRefSkeleton();
             if (BoneIndex < 0 || BoneIndex >= Bones.Num())
@@ -458,12 +547,8 @@ namespace
                 ImGui::TextDisabled("Select a bone in the Skeleton Tree or viewport.");
                 return;
             }
-            const FName BoneName(Bones[BoneIndex].Name);
             ImGui::TextWrapped("Bone: %s", Bones[BoneIndex].Name.c_str());
 
-            auto& Model = Editor.GetEditModel();
-            if (!Model.GetError().empty()) ImGui::TextWrapped("%s", Model.GetError().c_str());
-            if (!Editor.GetPreviewWarning().empty()) ImGui::TextWrapped("%s", Editor.GetPreviewWarning().c_str());
             bool ShowBodies = Editor.AreBodiesVisible();
             if (ImGui::Checkbox("Show Bodies", &ShowBodies)) Editor.SetBodiesVisible(ShowBodies);
             if (ImGui::BeginCombo("Add Shape", "Choose shape..."))
@@ -496,21 +581,25 @@ namespace
             else ImGui::TextDisabled("No body is assigned to this bone.");
 
             ImGui::Separator();
-            bool ShowConstraints = Editor.AreConstraintsVisible();
-            if (ImGui::Checkbox("Show Constraints", &ShowConstraints)) Editor.SetConstraintsVisible(ShowConstraints);
-            ImGui::PushID(BoneIndex);
-            const bool LinkChanged = DrawConstraintProperties(BoneIndex);
-            ImGui::PopID();
-            if (LinkChanged) return;
+            ImGui::TextUnformatted("Connected Constraints");
             for (const auto* Joint : Asset->PhysicsConstraint)
             {
-                if (!Joint || Joint->ConstraintBone2 != BoneName) continue;
+                if (!Joint) continue;
                 const int Child = Editor.GetMesh()->FindBoneIndex(Joint->ConstraintBone1.ToString());
-                if (ImGui::Button(("Select Child: " + Joint->ConstraintBone1.ToString()).c_str()))
-                {
-                    Editor.SelectBone(Child);
-                    return;
-                }
+                const int Parent = Editor.GetMesh()->FindBoneIndex(Joint->ConstraintBone2.ToString());
+                if (Child < 0 || (Child != BoneIndex && Parent != BoneIndex)) continue;
+                const FString Label = Joint->ConstraintBone2.ToString() + " <-> " + Joint->ConstraintBone1.ToString();
+                ImGui::PushID(Child);
+                const bool Selected = ImGui::Selectable(Label.c_str());
+                ImGui::PopID();
+                if (Selected) { Editor.SelectConstraintFrame(Child, false); return; }
+            }
+            if (Model.FindConstraint(BoneIndex) < 0)
+            {
+                ImGui::TextDisabled("Create a constraint to an ancestor body:");
+                ImGui::PushID(BoneIndex);
+                DrawConstraintProperties(BoneIndex, true);
+                ImGui::PopID();
             }
         }
     };
@@ -525,6 +614,7 @@ FPhysicsAssetEditorTab::FPhysicsAssetEditorTab(FPhysicsAssetEditor& InEditor)
     RegisterPanel(MakeUnique<FPhysicsViewportPanel>(InEditor));
     RegisterPanel(MakeUnique<FPhysicsSkeletonPanel>(InEditor));
     RegisterPanel(MakeUnique<FPhysicsDetailsPanel>(InEditor));
+    RegisterPanel(MakeUnique<FPhysicsConstraintsPanel>(InEditor));
 }
 
 void FPhysicsAssetEditorTab::BeforeRender()
@@ -599,11 +689,13 @@ void FPhysicsAssetEditorTab::BuildDefaultLayout(ImGuiID DockSpaceId, const ImVec
     ImGui::DockBuilderAddNode(DockSpaceId, ImGuiDockNodeFlags_DockSpace);
     ImGui::DockBuilderSetNodeSize(DockSpaceId, Size);
     ImGuiID ViewportId = DockSpaceId;
-    const ImGuiID SkeletonId = ImGui::DockBuilderSplitNode(ViewportId, ImGuiDir_Left, 0.22f, nullptr, &ViewportId);
+    ImGuiID SkeletonId = ImGui::DockBuilderSplitNode(ViewportId, ImGuiDir_Left, 0.22f, nullptr, &ViewportId);
+    const ImGuiID ConstraintsId = ImGui::DockBuilderSplitNode(SkeletonId, ImGuiDir_Down, 0.28f, nullptr, &SkeletonId);
     const ImGuiID DetailsId = ImGui::DockBuilderSplitNode(ViewportId, ImGuiDir_Right, 0.30f, nullptr, &ViewportId);
     ImGui::DockBuilderDockWindow(Panels[0]->GetWindowName(), ViewportId);
     ImGui::DockBuilderDockWindow(Panels[1]->GetWindowName(), SkeletonId);
     ImGui::DockBuilderDockWindow(Panels[2]->GetWindowName(), DetailsId);
+    ImGui::DockBuilderDockWindow(Panels[3]->GetWindowName(), ConstraintsId);
     ImGui::DockBuilderFinish(DockSpaceId);
 }
 

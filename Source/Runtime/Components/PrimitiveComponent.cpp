@@ -110,6 +110,9 @@ void UPrimitiveComponent::RecreatePhysicsState()
 void UPrimitiveComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	// Scene loading registers default components before their mesh/collision properties are read.
+	// Create the missing body now that the saved geometry and transform are available.
+	if (!BodyInstance.IsValidBodyInstance()) CreatePhysicsState();
 }
 
 void UPrimitiveComponent::OnUnregister()

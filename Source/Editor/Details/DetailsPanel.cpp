@@ -3133,10 +3133,113 @@ namespace FPropertyEditor
 	}
 }
 
+static bool DrawCollisionResponseStruct(UObject* Owner, void* StructPtr, const UScriptStruct& Struct,
+	const FPropertyMeta& OuterMeta, ImFont* CustomFont)
+{
+	auto& Responses = *static_cast<FCollisionResponseContainer*>(StructPtr);
+
+	static const char* ChannelLabels[] = {
+		"World Static", "World Dynamic", "Pawn", "Physics Body", "Vehicle", "Visibility", "Camera"
+	};
+	static const ECollisionResponse Choices[] = {
+		ECollisionResponse::Ignore, ECollisionResponse::Overlap, ECollisionResponse::Block
+	};
+	static const char* ChoiceLabels[] = { "Ignore", "Overlap", "Block" };
+	constexpr int32 ChoiceCount = 3;
+	constexpr int32 ChannelCount = (int32)ECollisionChannel::Max;
+	static_assert(ChannelCount == (int32)(sizeof(ChannelLabels) / sizeof(ChannelLabels[0])),
+		"채널이 늘면 이름 목록도 함께 늘려야 한다");
+
+	// 세 열의 가로 위치를 한 번 정해 두고 머리글과 버튼이 같은 자리에 놓이게 한다.
+	auto PlaceColumn = [](float BaseX, float CellWidth, int32 Index)
+	{
+		ImGui::SetCursorPosX(BaseX + (CellWidth / (float)ChoiceCount) * (float)Index);
+	};
+
+	bool bChanged = false;
+
+	// 머리글
+	ImGui::TableNextRow();
+	ImGui::TableSetColumnIndex(1);
+	{
+		const float BaseX = ImGui::GetCursorPosX();
+		const float CellWidth = ImGui::GetContentRegionAvail().x;
+		for (int32 i = 0; i < ChoiceCount; ++i)
+		{
+			PlaceColumn(BaseX, CellWidth, i);
+			ImGui::AlignTextToFramePadding();
+			ImGui::TextDisabled("%s", ChoiceLabels[i]);
+			if (i + 1 < ChoiceCount) ImGui::SameLine();
+		}
+	}
+
+	// 모든 채널을 한 번에
+	ImGui::TableNextRow();
+	ImGui::TableSetColumnIndex(0);
+	DrawPropertyGridLabel("All Channels");
+	ImGui::TableSetColumnIndex(1);
+	{
+		ImGui::PushID("AllChannels");
+		const float BaseX = ImGui::GetCursorPosX();
+		const float CellWidth = ImGui::GetContentRegionAvail().x;
+		// 일곱 칸이 모두 같은 값일 때만 그 칸을 켜 둔다.
+		ECollisionResponse Uniform = Responses.GetResponse((ECollisionChannel)0);
+		bool bUniform = true;
+		for (int32 c = 1; c < ChannelCount; ++c)
+		{
+			if (Responses.GetResponse((ECollisionChannel)c) != Uniform) { bUniform = false; break; }
+		}
+		for (int32 i = 0; i < ChoiceCount; ++i)
+		{
+			PlaceColumn(BaseX, CellWidth, i);
+			ImGui::PushID(i);
+			if (ImGui::RadioButton("##All", bUniform && Uniform == Choices[i]))
+			{
+				Responses.SetAllChannels(Choices[i]);
+				bChanged = true;
+			}
+			ImGui::PopID();
+			if (i + 1 < ChoiceCount) ImGui::SameLine();
+		}
+		ImGui::PopID();
+	}
+
+	// 채널별
+	for (int32 c = 0; c < ChannelCount; ++c)
+	{
+		const ECollisionChannel Channel = (ECollisionChannel)c;
+		ImGui::TableNextRow();
+		ImGui::TableSetColumnIndex(0);
+		DrawPropertyGridLabel(ChannelLabels[c]);
+		ImGui::TableSetColumnIndex(1);
+
+		ImGui::PushID(c);
+		const float BaseX = ImGui::GetCursorPosX();
+		const float CellWidth = ImGui::GetContentRegionAvail().x;
+		const ECollisionResponse Current = Responses.GetResponse(Channel);
+		for (int32 i = 0; i < ChoiceCount; ++i)
+		{
+			PlaceColumn(BaseX, CellWidth, i);
+			ImGui::PushID(i);
+			if (ImGui::RadioButton("##Response", Current == Choices[i]))
+			{
+				Responses.SetResponse(Channel, Choices[i]);
+				bChanged = true;
+			}
+			ImGui::PopID();
+			if (i + 1 < ChoiceCount) ImGui::SameLine();
+		}
+		ImGui::PopID();
+	}
+
+	return bChanged;
+}
+
 bool FDetailsPanel::Init()
 {
 	FPropertyEditor::RegisterStructDrawer(FDepthOfFieldSettings::StaticStruct(), &DrawDepthOfFieldStruct);
 	FPropertyEditor::RegisterStructDrawer(FCameraLensSettings::StaticStruct(), &DrawCameraLensStruct);
+	FPropertyEditor::RegisterStructDrawer(FCollisionResponseContainer::StaticStruct(), &DrawCollisionResponseStruct);
 
 	ImGuiIO& io = ImGui::GetIO();
 

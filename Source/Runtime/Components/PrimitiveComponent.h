@@ -106,6 +106,7 @@ public:
 	UPROPERTY(EditAnywhere)
 	ECollisionChannel ObjectType = ECollisionChannel::WorldStatic;	// 내 타입
 
+	UPROPERTY(EditAnywhere)
 	FCollisionResponseContainer CollisionResponses;					// 채널마다 어떻게 설정?
 
 	// ---- 물리 바디 (담당: A) ----

@@ -32,6 +32,58 @@ static void Check(bool Passed, const char* Name)
 }
 static bool Near(float A, float B) { return std::abs(A-B) <= std::max(1.0f, std::abs(B))*0.0001f; }
 
+static void CheckCenterOfMass(FPhysicsScene* Scene)
+{
+    auto* Setup = NewObject<UBodySetup>();
+    FBodyInstance Body;
+    FBodyInstanceInitParams Params;
+    Params.bSimulatePhysics = true;
+    Params.Scale3D = FVector(2, 3, 4);
+    Params.WorldLocation = FVector(12, -3, 40);
+    Params.WorldRotation = FRotator(0, 40, 0).Quaternion();
+    FVector Local, World;
+    float PreviewMass = 0, LiveMass = 0;
+    Check(!FBodyInstance::CalculateCenterOfMass(*Setup, Params.Scale3D, Local, PreviewMass), "Empty body has no preview COM");
+    Check(!Body.GetCenterOfMass(World, LiveMass), "Uninitialized body has no live COM");
+    FKBoxElem Small; Small.X = Small.Y = Small.Z = 2;
+    Small.Center = FVector(1, 2, 3);
+    Setup->AggGeom.BoxElems.Add(Small);
+    Check(FBodyInstance::CalculateCenterOfMass(*Setup, Params.Scale3D, Local, PreviewMass) &&
+        Near(Local.X, 2) && Near(Local.Y, 6) && Near(Local.Z, 12), "Single box COM includes local offset and scale");
+    FKBoxElem Large; Large.X = Large.Y = Large.Z = 4;
+    Large.Center = FVector(10, 2, 3);
+    Setup->AggGeom.BoxElems.Add(Large);
+    Check(FBodyInstance::CalculateCenterOfMass(*Setup, Params.Scale3D, Local, PreviewMass) &&
+        Near(Local.X, 18) && Near(Local.Y, 6) && Near(Local.Z, 12), "Two boxes use volume weighted COM");
+    auto CompareLive = [&]() {
+        Body.InitBody(Setup, Params, nullptr, Scene);
+        Check(FBodyInstance::CalculateCenterOfMass(*Setup, Params.Scale3D, Local, PreviewMass) &&
+            Body.GetCenterOfMass(World, LiveMass), "Preview and live COM queries succeed");
+        const FVector Expected = Params.WorldLocation + Params.WorldRotation.RotateVector(Local);
+        Check(Near(World.X, Expected.X) && Near(World.Y, Expected.Y) && Near(World.Z, Expected.Z) &&
+            Near(LiveMass, PreviewMass), "Preview matches actual PhysX COM and mass under rotation/nonuniform scale");
+    };
+    CompareLive();
+    FKSphereElem Sphere; Sphere.Center = FVector(-5, 4, 8); Sphere.Radius = 3;
+    Setup->AggGeom.SphereElems.Add(Sphere);
+    FKSphylElem Capsule; Capsule.Center = FVector(7, -6, 5); Capsule.Radius = 2; Capsule.Length = 9;
+    Capsule.Rotation = FRotator(20, 40, 15);
+    Setup->AggGeom.SphylElems.Add(Capsule);
+    CompareLive();
+    Setup->MassOverrideKg = 2;
+    CompareLive();
+    for (auto& Box : Setup->AggGeom.BoxElems) Box.bContributeToMass = false;
+    Setup->AggGeom.SphereElems[0].bContributeToMass = false;
+    Setup->AggGeom.SphylElems[0].bContributeToMass = false;
+    Setup->MassOverrideKg = 0;
+    CompareLive(); // Covers the runtime's zero calculated mass fallback.
+    Params.Scale3D = FVector(0.00001f, 0.00002f, 0.00003f);
+    CompareLive(); // Includes the same minimum PhysX extents as runtime shapes.
+    Body.TermBody();
+    Check(!Body.GetCenterOfMass(World, LiveMass), "Released body has no stale COM");
+    delete Setup;
+}
+
 int main()
 {
     FString Error;
@@ -104,6 +156,7 @@ int main()
     {
         auto Scene = MakePhysicsScene();
         Scene->CreatePhysicsScene();
+        CheckCenterOfMass(Scene.get());
         FBodyInstance Body;
         FBodyInstanceInitParams Params;
         Params.bSimulatePhysics = true;

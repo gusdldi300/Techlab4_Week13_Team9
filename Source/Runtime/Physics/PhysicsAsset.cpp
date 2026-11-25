@@ -5,7 +5,10 @@
 
 UPhysicsAsset::~UPhysicsAsset()
 {
-	if (USkeletalMesh* Mesh = Cast<USkeletalMesh>(GetOuter()))
+	// Shutdown can destroy the Outer first. Check registration before Cast reads its class.
+	UObject* Outer = GetOuter();
+	if (!Outer || !GUObjectArray.Contains(Outer)) return;
+	if (USkeletalMesh* Mesh = Cast<USkeletalMesh>(Outer))
 	{
 		if (Mesh->GetPhysicsAsset() == this) Mesh->SetPhysicsAsset(nullptr);
 	}
