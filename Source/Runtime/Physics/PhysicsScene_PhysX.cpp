@@ -56,6 +56,8 @@ namespace
 
         void onSleep(PxActor** actors, PxU32 count) override {} // 멈추기
 
+        void onAdvance(const PxRigidBody* const* bodyBuffer, const PxTransform* poseBuffer, const PxU32 count) override {}
+
         void onContact(const PxContactPairHeader& pairHeader, const PxContactPair* pairs, PxU32 nbPairs) override {
             // 닿거나 닿아있거나 떨어졌을때
             
@@ -144,6 +146,7 @@ void FPhysicsScene_PhysX::CreatePhysicsScene()
     Desc.filterShader = AssetFilterShader;
     Desc.filterCallback = &AssetCollisionFilter;
     Desc.solverType = bUseTemporalSolver ? PxSolverType::eTGS : PxSolverType::ePGS;
+    Desc.simulationEventCallback = &PhysicsEventCallback;
 
     Desc.flags |= PxSceneFlag::eENABLE_ACTIVE_ACTORS;
 
