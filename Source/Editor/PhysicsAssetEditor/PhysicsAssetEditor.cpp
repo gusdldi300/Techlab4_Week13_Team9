@@ -544,6 +544,42 @@ TArray<FPhysicsConstraintScreenHandle> FPhysicsAssetEditor::GetConstraintHandles
     return Handles;
 }
 
+TArray<FPhysicsCOMScreenMarker> FPhysicsAssetEditor::GetCenterOfMassMarkers()
+{
+    TArray<FPhysicsCOMScreenMarker> Markers;
+    if (COMView == EPhysicsAssetCOMView::None || GenerationPreview || !Mesh || !GetPhysicsAsset() ||
+        !ViewportClient || !ViewportWidth || !ViewportHeight ||
+        ViewportClient->GetWidth() != ViewportWidth || ViewportClient->GetHeight() != ViewportHeight) return Markers;
+    const FMatrix VP = ViewportClient->GetViewProjectionMatrix();
+    for (int32 Bone = 0; Bone < Mesh->GetNumBones(); ++Bone)
+    {
+        if (COMView == EPhysicsAssetCOMView::Selected && Bone != GetSelectedBoneIndex()) continue;
+        FVector World;
+        float Mass = 0;
+        if (SimulationInstance)
+        {
+            if (!SimulationInstance->GetCenterOfMass(Bone, World, Mass)) continue;
+        }
+        else
+        {
+            const auto* Body = EditModel.GetBody(Bone);
+            FTransform Transform;
+            FVector Local;
+            if (!Body || !GetBodyWorldTransform(Bone, Transform) ||
+                !FBodyInstance::CalculateCenterOfMass(*Body, Transform.Scale, Local, Mass)) continue;
+            // Shape scale is already included by CalculateCenterOfMass.
+            World = Transform.Location + Transform.Rotation.RotateVector(Local);
+        }
+        const FVector4 Clip = FVector4(World, 1) * VP;
+        if (Clip.W <= 0.0001f || Clip.Z < 0 || Clip.Z > Clip.W) continue;
+        const FVector2 Position((Clip.X / Clip.W * 0.5f + 0.5f) * ViewportWidth,
+            (0.5f - Clip.Y / Clip.W * 0.5f) * ViewportHeight);
+        Markers.Add({Bone, Position, Mass, Clip.Z / Clip.W});
+    }
+    std::stable_sort(Markers.begin(), Markers.end(), [](const auto& A, const auto& B) { return A.Depth > B.Depth; });
+    return Markers;
+}
+
 void FPhysicsAssetEditor::OnBoneSelected()
 {
     CancelViewportInteraction();

@@ -17,6 +17,14 @@
 #include <cmath>
 
 using namespace physx;
+
+bool FPhysicsAssetInstance::GetCenterOfMass(int32 Bone, FVector& WorldPosition, float& MassKg) const
+{
+    if (!bBuilt || Bone < 0 || Bone >= BodyForBone.Num()) return false;
+    const int32 Index = BodyForBone[Bone];
+    return Index >= 0 && Index < Bodies.Num() && Bodies[Index] && Bodies[Index]->GetCenterOfMass(WorldPosition, MassKg);
+}
+
 namespace
 {
     FMatrix BodyPoseToMatrix(const PxTransform& Pose)

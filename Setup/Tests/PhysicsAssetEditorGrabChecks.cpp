@@ -55,8 +55,34 @@ int main()
             (Editor.*MemberOf(EditorTick{}))(1.0f/60);
         };
         FViewportPointerInput Pointer;
+        Editor.SetViewportState(800, 600, {}, Pointer);
+        Editor.SelectBone(0);
+        Check(Editor.GetCOMView() == EPhysicsAssetCOMView::Selected, "COM defaults to selected body");
+        auto Markers = Editor.GetCenterOfMassMarkers();
+        Check(Markers.Num() == 1 && Markers[0].Bone == 0 && std::abs(Markers[0].MassKg - 1) < 0.001f,
+            "Selected body exposes COM and mass in edit mode");
+        Check(std::abs(Markers[0].Position.X - 400) < 1 && std::abs(Markers[0].Position.Y - 300) < 1,
+            "COM projects to the body center");
+        Editor.SetBodiesVisible(false); Editor.SetConstraintsVisible(false);
+        Check(Editor.GetCenterOfMassMarkers().Num() == 1, "COM visibility is independent of shapes and constraints");
+        Editor.SetBodiesVisible(true); Editor.SetConstraintsVisible(true);
+        Editor.SetCOMView(EPhysicsAssetCOMView::None);
+        Check(Editor.GetCenterOfMassMarkers().IsEmpty(), "COM none hides markers");
+        Editor.SelectBone(-1);
+        Editor.SetCOMView(EPhysicsAssetCOMView::Selected);
+        Check(Editor.GetCenterOfMassMarkers().IsEmpty(), "No selection has no selected COM");
+        Editor.SetCOMView(EPhysicsAssetCOMView::All);
+        Check(Editor.GetCenterOfMassMarkers().Num() == 1, "All COM does not require selection");
+        Editor.SelectBone(0);
+        Editor.SetCOMView(EPhysicsAssetCOMView::Selected);
+        Editor.SetViewportState(0, 0, {}, Pointer);
+        Check(Editor.GetCenterOfMassMarkers().IsEmpty(), "Hidden viewport suppresses COM markers");
+        Editor.SetViewportState(800, 600, {}, Pointer);
         Pointer.MouseUV=FVector2(0.5f,0.5f);Pointer.bHovered=Pointer.bFocused=Pointer.bMousePressed=Pointer.bMouseDown=true;
         Check(Editor.StartSimulation(),"editor simulation starts");
+        const auto LiveMarkers = Editor.GetCenterOfMassMarkers();
+        Check(LiveMarkers.Num() == 1 && std::abs(LiveMarkers[0].Position.X - Markers[0].Position.X) < 1 &&
+            std::abs(LiveMarkers[0].Position.Y - Markers[0].Position.Y) < 1, "COM position is continuous when simulation starts");
         Input(Pointer); Check(!Editor.IsSimulationGrabbing(),"ordinary LMB selects without grab");
         Editor.StopSimulation(); Check(Editor.StartSimulation(),"restart after ordinary click");
         Pointer.bCtrlDown=true;

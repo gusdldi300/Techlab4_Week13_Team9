@@ -59,6 +59,30 @@ namespace
                         PhysicsEditor.GetMesh()->GetRefSkeleton()[Owner].Name.c_str());
                 }
             }
+            // Screen overlay keeps the COM visible even when it is inside the mesh.
+            // It is informational only and never intercepts viewport selection or dragging.
+            const float Radius = EditorStyle::Scale(PhysicsEditor.GetCOMMarkerSize());
+            for (const auto& Marker : PhysicsEditor.GetCenterOfMassMarkers())
+            {
+                const ImVec2 P(Origin.x + Marker.Position.X, Origin.y + Marker.Position.Y);
+                Draw->AddCircleFilled(P, Radius + 1.5f, IM_COL32(30, 25, 0, 255), 24);
+                Draw->AddCircleFilled(P, Radius, IM_COL32(220, 165, 0, 255), 24);
+                Draw->AddCircleFilled(ImVec2(P.x - Radius * 0.15f, P.y - Radius * 0.15f), Radius * 0.8f, IM_COL32(255, 220, 25, 255), 24);
+                Draw->AddCircleFilled(ImVec2(P.x - Radius * 0.3f, P.y - Radius * 0.3f), Radius * 0.27f, IM_COL32(255, 250, 170, 255), 16);
+                if (PhysicsEditor.IsCOMMassVisible())
+                {
+                    char Text[64];
+                    snprintf(Text, sizeof(Text), "%.3g kg", Marker.MassKg);
+                    const ImVec2 Label(P.x + Radius + 4, P.y - ImGui::GetFontSize() * 0.5f);
+                    Draw->AddText(ImVec2(Label.x + 1, Label.y + 1), IM_COL32(0, 0, 0, 255), Text);
+                    Draw->AddText(Label, IM_COL32(255, 235, 80, 255), Text);
+                }
+                const ImVec2 Mouse = ImGui::GetIO().MousePos;
+                const float DX = Mouse.x - P.x, DY = Mouse.y - P.y;
+                if (Hovered && !PhysicsEditor.IsGizmoDragging() && DX * DX + DY * DY <= Radius * Radius)
+                    ImGui::SetTooltip("Center of Mass: %s\nMass: %.3g kg\nVisible through mesh",
+                        PhysicsEditor.GetMesh()->GetRefSkeleton()[Marker.Bone].Name.c_str(), Marker.MassKg);
+            }
             Draw->PopClipRect();
         }
         void DrawViewportTools() override
@@ -153,6 +177,21 @@ namespace
             float Opacity = PhysicsEditor.GetBodyOpacity();
             ImGui::SetNextItemWidth(EditorStyle::Scale(140));
             if (ImGui::SliderFloat("Opacity", &Opacity, 0.02f, 0.45f, "%.2f")) PhysicsEditor.SetBodyOpacity(Opacity);
+            int COM = static_cast<int>(PhysicsEditor.GetCOMView());
+            ImGui::SetNextItemWidth(EditorStyle::Scale(110));
+            if (ImGui::Combo("COM", &COM, "None\0Selected\0All\0"))
+                PhysicsEditor.SetCOMView(static_cast<EPhysicsAssetCOMView>(COM));
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Yellow spheres show each body's center of mass, visible through the mesh.");
+            ImGui::SameLine();
+            if (ImGui::Button("COM settings")) ImGui::OpenPopup("COMSettings");
+            if (ImGui::BeginPopup("COMSettings"))
+            {
+                float Size = PhysicsEditor.GetCOMMarkerSize();
+                if (ImGui::SliderFloat("Marker radius", &Size, 3, 16, "%.0f px")) PhysicsEditor.SetCOMMarkerSize(Size);
+                bool ShowMass = PhysicsEditor.IsCOMMassVisible();
+                if (ImGui::Checkbox("Show mass (kg)", &ShowMass)) PhysicsEditor.SetCOMMassVisible(ShowMass);
+                ImGui::EndPopup();
+            }
         }
         void HandleViewportShortcuts(bool Hovered, bool Focused) override
         {

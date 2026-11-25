@@ -10,6 +10,15 @@
 class UPhysicsAsset;
 
 enum class EPhysicsAssetEditTarget { Shape, ChildFrame, ParentFrame };
+enum class EPhysicsAssetCOMView { None, Selected, All };
+
+struct FPhysicsCOMScreenMarker
+{
+    int32 Bone = -1;
+    FVector2 Position;
+    float MassKg = 0;
+    float Depth = 0;
+};
 
 struct FPhysicsConstraintScreenHandle
 {
@@ -62,6 +71,13 @@ public:
     bool SelectConstraintFrame(int32 ChildBone, bool bParentFrame);
     bool IsConstraintFrameSelected(int32 ChildBone, bool bParentFrame) const;
     TArray<FPhysicsConstraintScreenHandle> GetConstraintHandles();
+    TArray<FPhysicsCOMScreenMarker> GetCenterOfMassMarkers();
+    EPhysicsAssetCOMView GetCOMView() const { return COMView; }
+    void SetCOMView(EPhysicsAssetCOMView Mode) { COMView = Mode; }
+    float GetCOMMarkerSize() const { return COMMarkerSize; }
+    void SetCOMMarkerSize(float Size) { COMMarkerSize = FMath::Clamp(Size, 3.0f, 16.0f); }
+    bool IsCOMMassVisible() const { return bShowCOMMass; }
+    void SetCOMMassVisible(bool Visible) { bShowCOMMass = Visible; }
     void SetGizmoMode(EGizmoMode Mode);
     void SetGizmoSpace(EGizmoSpace Space);
     EGizmoMode GetGizmoMode() const { return EditGizmo.GetMode(); }
@@ -111,6 +127,9 @@ private:
     bool bCloseConfirmed = false;
     bool bShowBodies = true;
     bool bShowConstraints = true;
+    EPhysicsAssetCOMView COMView = EPhysicsAssetCOMView::Selected;
+    float COMMarkerSize = 6.0f; // Screen-space radius; remains visible when zooming out.
+    bool bShowCOMMass = true;
     FString PreviewWarning;
     bool GetBodyWorldTransform(int32 Bone, FTransform& Out);
     TArray<FPhysicsPreviewShape> GatherPreviewShapes();
