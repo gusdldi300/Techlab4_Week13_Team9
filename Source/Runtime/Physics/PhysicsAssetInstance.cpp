@@ -251,8 +251,9 @@ bool FPhysicsAssetInstance::SyncFromAnimation(USkeletalMeshComponent& Mesh, bool
     return true;
 }
 
-bool FPhysicsAssetInstance::SetSimulating(USkeletalMeshComponent& Mesh, bool bEnable)
+bool FPhysicsAssetInstance::SetSimulating(USkeletalMeshComponent& Mesh, bool bEnable, const FVector& InitialVelocity)
 {
+    if (bEnable && !U2PVector(InitialVelocity).isFinite()) return false;
     if (!bEnable) EndGrab();
     if (!Matches(Mesh)) { Clear(); return false; }
     if (bSimulating == bEnable) return true;
@@ -270,7 +271,7 @@ bool FPhysicsAssetInstance::SetSimulating(USkeletalMeshComponent& Mesh, bool bEn
         Dynamic->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC,!Simulate);
         if (Simulate)
         {
-            Dynamic->setLinearVelocity(PxVec3(0)); Dynamic->setAngularVelocity(PxVec3(0)); Dynamic->wakeUp();
+            Dynamic->setLinearVelocity(U2PVector(InitialVelocity)); Dynamic->setAngularVelocity(PxVec3(0)); Dynamic->wakeUp();
         }
     }
     bSimulating = bEnable;
