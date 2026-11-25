@@ -2,6 +2,8 @@
 #include "Core/Misc/Paths.h"
 #include "Editor/Settings/EditorSettings.h"
 #include "Editor/Viewports/ViewportsPanel.h"
+#include <limits>
+#include <locale>
 
 // 종료 시 렌더·에디터·뷰포트 설정을 함께 저장한다.
 FEditorSettingsManager::~FEditorSettingsManager()
@@ -33,6 +35,8 @@ bool FEditorSettingsManager::SaveSettings() const
 		return false;
 	}
 
+	File.imbue(std::locale::classic());
+	File.precision(std::numeric_limits<float>::max_digits10);
 	File << "[Rendering]\n";
 	File << "DrawPrimitives=" << Settings.bDrawPrimitives << "\n";
 	File << "CacheShadows=" << Settings.bCacheShadows << "\n";
@@ -50,6 +54,7 @@ bool FEditorSettingsManager::SaveSettings() const
 	File << "DrawCascadeBounds=" << Settings.bDrawCascadeBounds << "\n";
 	File << "SceneDepthMaxRange=" << Settings.SceneDepthMaxRange << "\n";
 	File << "EnableFXAA=" << Settings.bEnableFXAA << "\n";
+	File << "EnableDepthOfField=" << Settings.bEnableDepthOfField << "\n";
 
 	File << "GammaCorrection=" << Settings.bGammaCorrection << "\n";
 	File << "DisplayGamma=" << Settings.DisplayGamma << "\n";
@@ -92,11 +97,42 @@ bool FEditorSettingsManager::SaveSettings() const
         File << "View" << Index << "RotationY=" << Snapshot.ViewRotation[Index].Y << "\n";
         File << "View" << Index << "RotationZ=" << Snapshot.ViewRotation[Index].Z << "\n";
         File << "View" << Index << "RotationW=" << Snapshot.ViewRotation[Index].W << "\n";
+
+        const std::string Prefix = "View" + std::to_string(Index);
+        const auto& Lens = Snapshot.ViewLensSettings[Index];
+        const auto& DepthOfField = Snapshot.ViewDepthOfFieldSettings[Index];
+        // 기준 모드와 편집 원본을 함께 저장한다.
+        File << Prefix << "LensUseFocalLength=" << Lens.bUseFocalLength << "\n";
+        File << Prefix << "LensFocalLengthMm=" << Lens.FocalLengthMm << "\n";
+        File << Prefix << "LensSensorHeightMm=" << Lens.SensorHeightMm << "\n";
+        // 자유 카메라의 DOF 활성화는 현재 세션에만 적용한다.
+        File << Prefix << "DOFEnabled=0\n";
+        File << Prefix << "DOFFStop=" << DepthOfField.FStop << "\n";
+        File << Prefix << "DOFMinFStop=" << DepthOfField.MinFStop << "\n";
+        File << Prefix << "DOFApertureBladeCount=" << DepthOfField.ApertureBladeCount << "\n";
+        File << Prefix << "DOFFocalDistanceMeters=" << DepthOfField.FocalDistanceMeters << "\n";
+        File << Prefix << "DOFDepthBlurKmFor50Percent=" << DepthOfField.DepthBlurKmFor50Percent << "\n";
+        File << Prefix << "DOFDepthBlurRadiusFractionOfHeight=" << DepthOfField.DepthBlurRadiusFractionOfHeight << "\n";
     }
 
 	File << "DirectionalShadowMapSizeLevel=" << Settings.DirectionalShadowMapSizeLevel << '\n';
 	File << "PointShadowMapSizeLevel=" << Settings.PointShadowMapSizeLevel << '\n';
 	File << "SpotShadowMapSizeLevel=" << Settings.SpotShadowMapSizeLevel << '\n';
+
+    const FDepthOfFieldViewSettings& DepthOfField = Snapshot.DepthOfField;
+    const FDepthOfFieldSettings& Override = DepthOfField.OverrideSettings;
+
+    File << "\n[DepthOfField]\n";
+    File << "OverrideCamera=" << DepthOfField.bOverrideCamera << "\n";
+    File << "Enabled=" << Override.bEnabled << "\n";
+    File << "FStop=" << Override.FStop << "\n";
+    File << "MinFStop=" << Override.MinFStop << "\n";
+    File << "ApertureBladeCount=" << Override.ApertureBladeCount << "\n";
+    File << "FocalDistanceMeters=" << Override.FocalDistanceMeters << "\n";
+    File << "DepthBlurKmFor50Percent=" << Override.DepthBlurKmFor50Percent << "\n";
+    File << "DepthBlurRadiusFractionOfHeight=" << Override.DepthBlurRadiusFractionOfHeight << "\n";
+    File << "DebugView=" << static_cast<int32>(DepthOfField.DebugView) << "\n";
+    File << "DebugRadiusFullResolutionPixels=" << DepthOfField.DebugRadiusFullResolutionPixels << "\n";
 
     File.close();
 	return true;
@@ -116,10 +152,16 @@ bool FEditorSettingsManager::LoadSettings()
 
 	uint8 LocationComponentMasks[4]{};
 	uint8 RotationComponentMasks[4]{};
+	Settings.bEnableDepthOfField = true;
+	Settings.DepthOfField = FDepthOfFieldViewSettings{};
 	for (int32 Index = 0; Index < 4; ++Index)
 	{
 		Settings.bViewLocationSaved[Index] = false;
 		Settings.bViewRotationSaved[Index] = false;
+		// 자유 카메라는 저장된 활성화 값과 무관하게 DOF를 끈 상태로 시작한다.
+		// 렌즈와 DOF의 나머지 값은 아래에서 복원한다.
+		Settings.ViewLensSettings[Index] = FCameraLensSettings{};
+		Settings.ViewDepthOfFieldSettings[Index] = FDepthOfFieldSettings{};
 	}
 
 	bool bHasBodies = false, bHasConstraints = false;
@@ -142,8 +184,11 @@ bool FEditorSettingsManager::LoadSettings()
                     FString Prefix = "View";
                     Prefix += static_cast<char>('0' + Index);
                     std::istringstream Number(ValueStr);
+                    Number.imbue(std::locale::classic());
                     float Value = 0;
                     if (!(Number >> Value) || !std::isfinite(Value)) continue;
+                    auto& Lens = Settings.ViewLensSettings[Index];
+                    auto& DepthOfField = Settings.ViewDepthOfFieldSettings[Index];
                     if (Key == Prefix + "Fov" && Value >= 1 && Value <= 179)
                         Settings.ViewFov[Index] = Value;
                     else if (Key == Prefix + "OrthoWidth" && Value >= 0.01f)
@@ -189,6 +234,15 @@ bool FEditorSettingsManager::LoadSettings()
                         Settings.ViewRotation[Index].W = Value;
                         RotationComponentMasks[Index] |= 1 << 3;
                     }
+                    else if (Key == Prefix + "LensUseFocalLength" && (Value == 0.0f || Value == 1.0f)) Lens.bUseFocalLength = Value != 0.0f;
+                    else if (Key == Prefix + "LensFocalLengthMm" && Value > 0.0f) Lens.FocalLengthMm = Value;
+                    else if (Key == Prefix + "LensSensorHeightMm" && Value > 0.0f) Lens.SensorHeightMm = Value;
+                    else if (Key == Prefix + "DOFFStop" && Value > 0.0f) DepthOfField.FStop = Value;
+                    else if (Key == Prefix + "DOFMinFStop" && Value > 0.0f) DepthOfField.MinFStop = Value;
+                    else if (Key == Prefix + "DOFApertureBladeCount" && Value >= 3.0f && Value <= 16.0f && Value == std::floor(Value)) DepthOfField.ApertureBladeCount = static_cast<int32>(Value);
+                    else if (Key == Prefix + "DOFFocalDistanceMeters" && Value > 0.0f) DepthOfField.FocalDistanceMeters = Value;
+                    else if (Key == Prefix + "DOFDepthBlurKmFor50Percent" && Value >= 0.0f) DepthOfField.DepthBlurKmFor50Percent = Value;
+                    else if (Key == Prefix + "DOFDepthBlurRadiusFractionOfHeight" && Value >= 0.0f) DepthOfField.DepthBlurRadiusFractionOfHeight = Value;
                 }
                 if (Key == "DrawPrimitives") Settings.bDrawPrimitives = std::stoi(ValueStr);
 				else if (Key == "CacheShadows") Settings.bCacheShadows = std::stoi(ValueStr);
@@ -290,6 +344,13 @@ bool FEditorSettingsManager::LoadSettings()
 	}
 
 	File.close();
+	FConfigFile DepthOfFieldConfig;
+	if (DepthOfFieldConfig.Load(FPaths::ToUtf8(FilePath)))
+	{
+		Settings.bEnableDepthOfField = DepthOfFieldConfig.GetBool("Rendering", "EnableDepthOfField", true);
+		Settings.DepthOfField = ReadDepthOfFieldViewSettings(DepthOfFieldConfig);
+	}
+
 	Settings.bLocationSnap = Settings.bLocationSnap && Settings.LocationSnapSize > 0.0f;
 	if (!Settings.bLocationSnap)
 		Settings.LocationSnapSize = 0.0f;
@@ -337,6 +398,8 @@ void FEditorSettingsManager::ReadViewportSettings(FEditorSettings& Out) const
 
 		Out.ViewPreset[Index] = static_cast<int32>(Client->GetViewportType());
 		Out.ViewFov[Index] = Client->GetViewFOV();
+		Out.ViewLensSettings[Index] = Client->GetLensSettings();
+		Out.ViewDepthOfFieldSettings[Index] = Client->GetDepthOfFieldSettings();
 		Out.ViewOrthoWidth[Index] = Client->GetOrthoWidth();
 		Out.ViewMode[Index] = static_cast<int32>(Client->GetViewportMode());
 		Out.ViewLocation[Index] = Client->GetViewLocation();
@@ -364,6 +427,8 @@ void FEditorSettingsManager::ApplyViewportSettings()
 			Client->SetViewportType(static_cast<ELevelViewportType>(Settings.ViewPreset[Index]));
 		if (Settings.ViewFov[Index] > 0.0f)
 			Client->SetViewFOV(Settings.ViewFov[Index]);
+		Client->SetLensSettings(Settings.ViewLensSettings[Index]);
+		Client->SetDepthOfFieldSettings(Settings.ViewDepthOfFieldSettings[Index]);
 		if (Settings.ViewOrthoWidth[Index] > 0.0f)
 			Client->SetOrthoWidth(Settings.ViewOrthoWidth[Index]);
 		if (Settings.bViewLocationSaved[Index]) Client->SetViewLocation(Settings.ViewLocation[Index]);

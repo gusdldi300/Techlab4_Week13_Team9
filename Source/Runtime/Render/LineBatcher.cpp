@@ -186,6 +186,39 @@ void FLineBatcher::AddSphere(const FVector& Center, float Radius, const FVector4
 	}
 }
 
+void FLineBatcher::DrawTranslucentQuad(const FVector4 (&WorldCorners)[4], const FMatrix& ViewProjection, const FVector4& Color)
+{
+	FShaderProgram* Shader = FRenderResourceManager::FindShaderProgram("EngineResources/Shaders/BoundingBoxShader.hlsl");
+	if (!VertexBuffer || !CB || !Shader || !Shader->VertexShader || !Shader->PixelShader)
+		return;
+
+	if (!VertexBuffer->GetBuffer() || !CB->GetBuffer() || !Shader->VertexShader->IsValid() || !Shader->PixelShader->IsValid())
+		return;
+
+	const uint32 CornerIndices[6] = { 0, 1, 2, 0, 2, 3 };
+	FLineBatchVertex Vertices[6];
+	for (uint32 Index = 0; Index < 6; ++Index)
+	{
+		const FVector4& Corner = WorldCorners[CornerIndices[Index]];
+		Vertices[Index] = { FVector(Corner.X, Corner.Y, Corner.Z), FVector2(), Color };
+	}
+
+	// 기존 선 목록과 상태는 유지하고 이번 그리기의 상태만 바꾼다.
+	FPipelineState QuadPipeline = PipelineState;
+	QuadPipeline.Shader = Shader;
+	QuadPipeline.Topology = EPrimitiveTopology::TriangleList;
+	QuadPipeline.RasterizerState = ERasterizerState::SolidNone;
+	QuadPipeline.BlendState = EBlendState::AlphaBlend;
+	QuadPipeline.DepthStencilState = EDepthStencilState::ReadOnly;
+
+	RenderCommand::UpdateBufferData(VertexBuffer.get(), Vertices, sizeof(Vertices));
+	RenderCommand::UpdateBufferData(CB.get(), &ViewProjection, sizeof(ViewProjection));
+	RenderCommand::BindPipelineState(QuadPipeline);
+	RenderCommand::BindVertexBuffer(VertexBuffer.get());
+	RenderCommand::BindConstantBuffer(0, CB.get(), EShaderBindFlagBits::Vertex);
+	RenderCommand::Draw(6);
+}
+
 void FLineBatcher::Flush()
 {
 	RenderCommand::BindPipelineState(PipelineState);

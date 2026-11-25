@@ -81,6 +81,9 @@ void UEditorEngine::UpdatePIEViewCamera()
 			ViewRotation.LookDirection(GameView.ViewForward);
 			View->SetViewRotation(ViewRotation);
 			View->SetViewFOV(GameView.FieldOfView);
+			// 게임의 렌즈는 계승하되 자유 카메라의 DOF 설정은 유지한다.
+			View->SetLensSettings(GameView.LensSettings);
+			View->SetClipPlanes(GameView.NearClip, GameView.FarClip);
 			View->SetOrthoWidth(GameView.OrthoWidth);
 			View->SetIsPerspective(GameView.bIsPerspective);
 		}
@@ -187,7 +190,8 @@ void UEditorEngine::TickPIEInput(float DeltaTime)
 		GameViewport.LostFocus();
 		return;
 	}
-	DispatchGameKeyboardInput([&](int32 Key, bool bDown) { GameViewport.InputKey(nullptr, Key, bDown); });
+	DispatchGameKeyboardInput([&](int32 Key, bool bDown) { GameViewport.InputKey(nullptr, Key, bDown); },
+		GameViewport.IsDepthOfFieldTestEnabled());
 
 	// UI 히트 테스트용 마우스 좌표 → 게임 렌더 타깃 기준
 	if (IsPIEInWindow())
@@ -392,6 +396,10 @@ UWorld* UEditorEngine::CreatePIEWorldByDuplication(FWorldContext& PIEContext, UW
 		UCameraComponent* Camera = NewPIEWorld->GetMainCamera()->GetCameraComponent();
 		Camera->SetWorldLocationAndRotation(Source->GetViewLocation(), Source->GetViewRotation(), false);
 		Camera->SetFieldOfView(Source->GetViewFOV());
+		// 시작 뷰포트의 렌즈를 전달하되 게임 카메라의 DOF 설정은 유지한다.
+		Camera->SetLensSettings(Source->GetLensSettings());
+		Camera->SetNearZ(Source->GetNearClip());
+		Camera->SetFarZ(Source->GetFarClip());
 		Camera->SetOrthoWidth(Source->GetOrthoWidth());
 		Camera->SetIsOrthogonal(!Source->IsPerspective());
 	}

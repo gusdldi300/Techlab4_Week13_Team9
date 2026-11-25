@@ -62,6 +62,8 @@ FGameSettings FGameSettings::Load(const FString& Path)
 	Options.LightingModel = ParseLightingModel(Config.GetString("Rendering", "LightingModel", ""), Options.LightingModel);
 	Options.LightCullingMode = ParseLightCullingMode(Config.GetString("Rendering", "LightCullingMode", ""), Options.LightCullingMode);
 	Options.bEnableFXAA = Config.GetBool("Rendering", "EnableFXAA", Options.bEnableFXAA);
+	Options.bEnableDepthOfField = Config.GetBool("Rendering", "EnableDepthOfField", Options.bEnableDepthOfField);
+	Options.DepthOfField = ReadDepthOfFieldViewSettings(Config);
 	Options.bGammaCorrection = Config.GetBool("Rendering", "GammaCorrection", Options.bGammaCorrection);
 	Options.bShowVignette = Config.GetBool("Rendering", "ShowVignette", Options.bShowVignette);
 	Options.bShowCameraOverlay = Config.GetBool("Rendering", "ShowCameraOverlay", Options.bShowCameraOverlay);

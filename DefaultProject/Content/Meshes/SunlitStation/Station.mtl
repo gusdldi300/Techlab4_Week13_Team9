@@ -1,0 +1,10 @@
+# Opaque scene-depth surfaces; highlights use HDR diffuse gain.
+newmtl Surface
+Kd 1 1 1
+d 1
+map_Kd StationAtlas.png
+
+newmtl Highlight
+Kd 4 4 4
+d 1
+map_Kd StationAtlas.png

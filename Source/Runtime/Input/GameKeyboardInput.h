@@ -5,7 +5,7 @@
 // PIE and standalone play must forward the same movement keys, including releases.
 // Escape is handled separately by each host's play-session controls.
 template <typename TReceiver>
-void DispatchGameKeyboardInput(TReceiver&& Receive)
+void DispatchGameKeyboardInput(TReceiver&& Receive, bool bIncludeDepthOfFieldTestKeys = false)
 {
 	constexpr EKeyCode Keys[] = {
 		EKeyCode::W, EKeyCode::A, EKeyCode::S, EKeyCode::D,
@@ -13,6 +13,18 @@ void DispatchGameKeyboardInput(TReceiver&& Receive)
 		EKeyCode::C, EKeyCode::R
 	};
 	for (EKeyCode Key : Keys)
+	{
+		if (FInputSystem::IsKeyPressed(Key)) Receive(static_cast<int32>(Key), true);
+		if (FInputSystem::IsKeyReleased(Key)) Receive(static_cast<int32>(Key), false);
+	}
+	if (!bIncludeDepthOfFieldTestKeys) return;
+	constexpr EKeyCode TestKeys[] = {
+		EKeyCode::Num0, EKeyCode::Num1, EKeyCode::Num2, EKeyCode::Num3,
+		EKeyCode::Num4, EKeyCode::Num5, EKeyCode::Num6, EKeyCode::Num7,
+		EKeyCode::Left, EKeyCode::Right, EKeyCode::B, EKeyCode::V,
+		EKeyCode::P, EKeyCode::O
+	};
+	for (EKeyCode Key : TestKeys)
 	{
 		if (FInputSystem::IsKeyPressed(Key)) Receive(static_cast<int32>(Key), true);
 		if (FInputSystem::IsKeyReleased(Key)) Receive(static_cast<int32>(Key), false);
