@@ -10,6 +10,7 @@
 class UPhysicsAsset;
 
 enum class EPhysicsAssetEditTarget { Shape, ChildFrame, ParentFrame };
+enum class EPhysicsAssetConstraintView { Selected, All, None };
 enum class EPhysicsAssetCOMView { None, Selected, All };
 
 struct FPhysicsCOMScreenMarker
@@ -70,7 +71,12 @@ public:
     bool SelectEditTarget(EPhysicsAssetEditTarget Target);
     bool SelectConstraintFrame(int32 ChildBone, bool bParentFrame);
     bool IsConstraintFrameSelected(int32 ChildBone, bool bParentFrame) const;
+    int32 GetSelectedConstraintBone() const;
+    bool ShouldDrawConstraintLimits(int32 ChildBone) const;
+    EPhysicsAssetConstraintView GetConstraintView() const { return ConstraintView; }
+    void SetConstraintView(EPhysicsAssetConstraintView View);
     TArray<FPhysicsConstraintScreenHandle> GetConstraintHandles();
+    FPhysicsConstraintScreenHandle PickConstraintHandle(const FVector2& Mouse);
     TArray<FPhysicsCOMScreenMarker> GetCenterOfMassMarkers();
     EPhysicsAssetCOMView GetCOMView() const { return COMView; }
     void SetCOMView(EPhysicsAssetCOMView Mode) { COMView = Mode; }
@@ -87,7 +93,7 @@ public:
     void SetBodyOpacity(float Value) { BodyOpacity = FMath::Clamp(Value, 0.02f, 0.45f); }
     bool AreBodiesVisible() const { return bShowBodies; }
     void SetBodiesVisible(bool bVisible);
-    bool AreConstraintsVisible() const { return bShowConstraints; }
+    bool AreConstraintsVisible() const { return ConstraintView != EPhysicsAssetConstraintView::None; }
     void SetConstraintsVisible(bool bVisible);
     const FString& GetPreviewWarning() const { return PreviewWarning; }
     bool StartSimulation();
@@ -126,7 +132,7 @@ private:
     EAction PendingAction = EAction::None;
     bool bCloseConfirmed = false;
     bool bShowBodies = true;
-    bool bShowConstraints = true;
+    EPhysicsAssetConstraintView ConstraintView = EPhysicsAssetConstraintView::Selected;
     EPhysicsAssetCOMView COMView = EPhysicsAssetCOMView::Selected;
     float COMMarkerSize = 6.0f; // Screen-space radius; remains visible when zooming out.
     bool bShowCOMMass = true;
@@ -140,6 +146,8 @@ private:
     FPhysicsAssetPreview BodyPreview;
     FPhysicsShapeSelection ShapeSelection;
     EPhysicsAssetEditTarget EditTarget = EPhysicsAssetEditTarget::Shape;
+    // Logical joint identity is its child bone, independent of the tree's body selection.
+    int32 SelectedConstraintBone = -1;
     FGizmo EditGizmo;
     USceneComponent* EditGizmoTarget = nullptr;
     FTransform DragStartPose;

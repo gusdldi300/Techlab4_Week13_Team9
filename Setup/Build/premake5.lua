@@ -543,4 +543,5 @@ if _OPTIONS["physics-grab-checks"] then
         }
         links { "KurisuEngine", "d3d11.lib", "dxgi.lib", "dxguid.lib", "d3dcompiler.lib" }
         LinkPhysX()
+        LinkNvCloth()
 end

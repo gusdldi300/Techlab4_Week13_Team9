@@ -190,6 +190,8 @@ bool FPhysicsAssetEditor::PreviewGeneration()
     CancelViewportInteraction();
     EditGizmo.SetTarget(nullptr);
     ShapeSelection = {};
+    SelectedConstraintBone = -1;
+    EditTarget = EPhysicsAssetEditTarget::Shape;
     CancelGeneration();
     GenerationPreview = PhysicsAssetBuilder::CreateFromSkeleton(*Mesh, GenerationSettings, FileError);
     return GenerationPreview != nullptr;
@@ -209,6 +211,7 @@ bool FPhysicsAssetEditor::ApplyGeneration()
     CancelGeneration();
     ShapeSelection = {};
     EditTarget = EPhysicsAssetEditTarget::Shape;
+    SelectedConstraintBone = -1;
     FileError.clear();
     return true;
 }
@@ -240,6 +243,7 @@ bool FPhysicsAssetEditor::Reload()
         return false;
     Mesh->SetPhysicsAsset(Asset);
     EditModel.ResetHistory();
+    OnBoneSelected();
     KRS_LOG(Info, "Loaded Physics Asset for {}", MeshAssetPath);
     return true;
 }
@@ -417,9 +421,34 @@ void FPhysicsAssetEditor::SetBodiesVisible(bool bVisible)
 
 void FPhysicsAssetEditor::SetConstraintsVisible(bool bVisible)
 {
+    SetConstraintView(bVisible ? EPhysicsAssetConstraintView::Selected : EPhysicsAssetConstraintView::None);
+}
+
+void FPhysicsAssetEditor::SetConstraintView(EPhysicsAssetConstraintView View)
+{
     CancelViewportInteraction();
-    bShowConstraints = bVisible;
+    ConstraintView = View;
     SyncEditGizmo();
+}
+
+int32 FPhysicsAssetEditor::GetSelectedConstraintBone() const
+{
+    if (EditTarget == EPhysicsAssetEditTarget::Shape || SelectedConstraintBone < 0 ||
+        EditModel.FindConstraint(SelectedConstraintBone) < 0 || !EditModel.GetBody(SelectedConstraintBone) ||
+        !EditModel.GetBody(EditModel.GetConstraintParent(SelectedConstraintBone))) return -1;
+    return SelectedConstraintBone;
+}
+
+bool FPhysicsAssetEditor::ShouldDrawConstraintLimits(int32 ChildBone) const
+{
+    if (!AreConstraintsVisible() || ChildBone < 0) return false;
+    if (ConstraintView == EPhysicsAssetConstraintView::All) return true;
+    // A body's upstream joint is identified by that body as its child. Showing its limits
+    // is informational: keep Shape selection, Details and the gizmo editing the body.
+    const int32 DisplayBone = EditTarget == EPhysicsAssetEditTarget::Shape
+        ? GetSelectedBoneIndex() : GetSelectedConstraintBone();
+    return ChildBone == DisplayBone && EditModel.FindConstraint(DisplayBone) >= 0 &&
+        EditModel.GetBody(DisplayBone) && EditModel.GetBody(EditModel.GetConstraintParent(DisplayBone));
 }
 
 void FPhysicsAssetEditor::SetGizmoMode(EGizmoMode Mode)
@@ -454,20 +483,25 @@ void FPhysicsAssetEditor::SelectShape(ECollisionShape Type, int32 Index)
     EditModel.Commit(false);
     ShapeSelection = {GetSelectedBoneIndex(),Type,Index};
     EditTarget = EPhysicsAssetEditTarget::Shape;
+    SelectedConstraintBone = -1;
     SyncEditGizmo();
 }
 
 bool FPhysicsAssetEditor::IsConstraintFrameSelected(int32 ChildBone, bool bParentFrame) const
 {
-    return GetSelectedBoneIndex() == ChildBone && EditTarget == (bParentFrame
+    return GetSelectedConstraintBone() == ChildBone && EditTarget == (bParentFrame
         ? EPhysicsAssetEditTarget::ParentFrame : EPhysicsAssetEditTarget::ChildFrame);
 }
 
 bool FPhysicsAssetEditor::SelectConstraintFrame(int32 ChildBone, bool bParentFrame)
 {
     FPhysicsConstraintSettings Settings;
-    if (!EditModel.GetConstraintSettings(ChildBone,Settings)) return false;
-    SelectBone(ChildBone); // The selected tree bone always identifies the constraint's child.
+    if (GenerationPreview || !EditModel.GetConstraintSettings(ChildBone,Settings) ||
+        !EditModel.GetBody(ChildBone) || !EditModel.GetBody(EditModel.GetConstraintParent(ChildBone))) return false;
+    CancelViewportInteraction();
+    SelectBone(ChildBone); // Keep the tree focused; joint selection has its own identity.
+    SelectedConstraintBone = ChildBone;
+    ShapeSelection = {};
     EditModel.Commit(false);
     EditTarget = bParentFrame ? EPhysicsAssetEditTarget::ParentFrame : EPhysicsAssetEditTarget::ChildFrame;
     if (EditGizmo.GetMode() == EGizmoMode::Scale) EditGizmo.SetMode(EGizmoMode::Location);
@@ -478,11 +512,9 @@ bool FPhysicsAssetEditor::SelectConstraintFrame(int32 ChildBone, bool bParentFra
 bool FPhysicsAssetEditor::SelectEditTarget(EPhysicsAssetEditTarget Target)
 {
     if (Target != EPhysicsAssetEditTarget::Shape)
-        return SelectConstraintFrame(GetSelectedBoneIndex(),Target == EPhysicsAssetEditTarget::ParentFrame);
-    FTransform Local;
-    if (!EditModel.GetShapeTransform(ShapeSelection.Bone,ShapeSelection.Type,ShapeSelection.Index,Local)) return false;
-    SelectShape(ShapeSelection.Type,ShapeSelection.Index);
-    return true;
+        return SelectConstraintFrame(GetSelectedConstraintBone(),Target == EPhysicsAssetEditTarget::ParentFrame);
+    OnBoneSelected();
+    return ShapeSelection.Bone >= 0;
 }
 
 bool FPhysicsAssetEditor::GetEditFrame(FTransform& Local, int32& Bone) const
@@ -491,7 +523,8 @@ bool FPhysicsAssetEditor::GetEditFrame(FTransform& Local, int32& Bone) const
     if (EditTarget == EPhysicsAssetEditTarget::Shape)
         return bShowBodies && ShapeSelection.Bone == Bone &&
             EditModel.GetShapeTransform(Bone,ShapeSelection.Type,ShapeSelection.Index,Local);
-    if (!bShowConstraints) return false;
+    if (!AreConstraintsVisible()) return false;
+    Bone = GetSelectedConstraintBone();
     FPhysicsConstraintSettings Settings;
     if (!EditModel.GetConstraintSettings(Bone,Settings)) return false;
     if (EditTarget == EPhysicsAssetEditTarget::ParentFrame)
@@ -508,16 +541,16 @@ bool FPhysicsAssetEditor::ApplyEditFrame(const FTransform& Local)
     if (EditTarget == EPhysicsAssetEditTarget::Shape)
         return EditModel.SetShapeTransform(ShapeSelection.Bone,ShapeSelection.Type,ShapeSelection.Index,Local);
     FPhysicsConstraintSettings Settings;
-    if (!EditModel.GetConstraintSettings(GetSelectedBoneIndex(),Settings)) return false;
+    if (!EditModel.GetConstraintSettings(GetSelectedConstraintBone(),Settings)) return false;
     if (EditTarget == EPhysicsAssetEditTarget::ParentFrame) Settings.ParentFrame = Local;
     else Settings.ChildFrame = Local;
-    return EditModel.SetConstraintSettings(GetSelectedBoneIndex(),Settings);
+    return EditModel.SetConstraintSettings(GetSelectedConstraintBone(),Settings);
 }
 
 TArray<FPhysicsConstraintScreenHandle> FPhysicsAssetEditor::GetConstraintHandles()
 {
     TArray<FPhysicsConstraintScreenHandle> Handles;
-    if (GenerationPreview || !bShowConstraints || !GetPhysicsAsset() || !ViewportClient || !ViewportWidth || !ViewportHeight ||
+    if (GenerationPreview || !AreConstraintsVisible() || !GetPhysicsAsset() || !ViewportClient || !ViewportWidth || !ViewportHeight ||
         ViewportClient->GetWidth() != ViewportWidth || ViewportClient->GetHeight() != ViewportHeight) return Handles;
     const FMatrix VP = ViewportClient->GetViewProjectionMatrix();
     for (const auto* Joint : GetPhysicsAsset()->PhysicsConstraint)
@@ -542,6 +575,26 @@ TArray<FPhysicsConstraintScreenHandle> FPhysicsAssetEditor::GetConstraintHandles
     }
     std::stable_sort(Handles.begin(),Handles.end(),[](const auto& A,const auto& B){ return A.Depth > B.Depth; });
     return Handles;
+}
+
+FPhysicsConstraintScreenHandle FPhysicsAssetEditor::PickConstraintHandle(const FVector2& Mouse)
+{
+    FPhysicsConstraintScreenHandle Hit;
+    float Depth = FLT_MAX, Distance = FLT_MAX;
+    for (const auto& Handle : GetConstraintHandles())
+    {
+        const FVector2 Delta = Mouse - Handle.Position;
+        const float SquaredDistance = Delta.X * Delta.X + Delta.Y * Delta.Y;
+        // Coincident depths are common for adjacent joints; prefer the marker center under the cursor.
+        if (SquaredDistance <= 81 && (Handle.Depth < Depth - 1e-6f ||
+            (std::abs(Handle.Depth - Depth) <= 1e-6f && SquaredDistance < Distance)))
+        {
+            Hit = Handle;
+            Depth = Handle.Depth;
+            Distance = SquaredDistance;
+        }
+    }
+    return Hit;
 }
 
 TArray<FPhysicsCOMScreenMarker> FPhysicsAssetEditor::GetCenterOfMassMarkers()
@@ -585,6 +638,7 @@ void FPhysicsAssetEditor::OnBoneSelected()
     CancelViewportInteraction();
     ShapeSelection = {};
     EditTarget = EPhysicsAssetEditTarget::Shape;
+    SelectedConstraintBone = -1;
     if (const auto* Body = EditModel.GetBody(GetSelectedBoneIndex()))
     {
         const auto& G = Body->AggGeom;
@@ -597,6 +651,8 @@ void FPhysicsAssetEditor::OnBoneSelected()
 
 void FPhysicsAssetEditor::SyncEditGizmo()
 {
+    if (EditTarget != EPhysicsAssetEditTarget::Shape && GetSelectedConstraintBone() < 0)
+    { OnBoneSelected(); return; }
     if (GenerationPreview) { EditGizmo.SetTarget(nullptr); return; }
     if (IsPreviewSimulating()) { EditGizmo.SetTarget(nullptr); return; }
     if (EditGizmo.IsUsing()) return;
@@ -717,13 +773,7 @@ void FPhysicsAssetEditor::TickAfterWorld(float DeltaTime)
         !PointerInput.bCancel && !CameraInput.bCaptured)
     {
         const FVector2 Mouse(PointerInput.MouseUV.X*ViewportWidth,PointerInput.MouseUV.Y*ViewportHeight);
-        FPhysicsConstraintScreenHandle Hit;
-        float Depth = FLT_MAX;
-        for (const auto& Handle : GetConstraintHandles())
-        {
-            const FVector2 Delta = Mouse-Handle.Position;
-            if (Delta.X*Delta.X+Delta.Y*Delta.Y <= 81 && Handle.Depth < Depth) { Hit = Handle; Depth = Handle.Depth; }
-        }
+        const auto Hit = PickConstraintHandle(Mouse);
         if (Hit.ChildBone >= 0) { SelectConstraintFrame(Hit.ChildBone,Hit.bParentFrame); return; }
     }
     if (!UpdateEditGizmo() && CanProcessViewportInput() && PointerInput.bHovered && PointerInput.bMousePressed &&
@@ -823,7 +873,7 @@ void FPhysicsAssetEditor::OnRenderLine(FLineBatcher& Lines)
             FPhysicsDebugDraw::DrawAggregateGeom(&Lines,Geometry,Transform,FVector4(0.1f,0.8f,1,1));
         }
     }
-    if (!bShowConstraints) return;
+    if (!AreConstraintsVisible()) return;
     const FBox Bounds = MeshComponent->CalcBounds();
     const float Radius = std::max((Bounds.Max - Bounds.Min).Size() * 0.04f, 0.01f);
     const FVector4 XColor(1, 0.2f, 0.2f, 1), YColor(0.2f, 1, 0.2f, 1), ZColor(0.2f, 0.5f, 1, 1);
@@ -843,7 +893,7 @@ void FPhysicsAssetEditor::OnRenderLine(FLineBatcher& Lines)
         Lines.AddSphere(ChildAnchor, Radius * 0.05f, AnchorColor);
         Lines.AddSphere(ParentAnchor, Radius * 0.05f, FVector4(0.1f, 1, 1, 1));
         Lines.AddLine(ChildAnchor, ParentAnchor, AnchorColor);
-        if (Child != GetSelectedBoneIndex() && Parent != GetSelectedBoneIndex()) continue;
+        if (!ShouldDrawConstraintLimits(Child)) continue;
         const FTransform ParentFrame((ParentBody.Rotation * S.ParentFrame.Rotation).Normalized(), ParentAnchor);
         const FQuat ChildRotation = (ChildBody.Rotation * S.ChildFrame.Rotation).Normalized();
         Lines.AddLine(ChildAnchor, ChildAnchor + ChildRotation.RotateVector(X) * Radius, AnchorColor);
