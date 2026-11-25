@@ -12,6 +12,9 @@ UBodySetup::~UBodySetup()
 {
 	if (UStaticMesh* OwnerMesh = Cast<UStaticMesh>(GetOuter()))
 	{
+		if (OwnerMesh == nullptr)
+			return;
+
 		OwnerMesh->DetachBodySetup(this);
 	}
 }
